@@ -1,6 +1,6 @@
-#line 1 "tableio.c"
+#line 2 "tableio.c"
 
-#line 3 "tableio.c"
+#line 4 "tableio.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -796,9 +796,9 @@ typedef struct {
    ------------------------------------------------------------- */
 #define YY_DECL static TableStatus table_yy_lex(TableScanField *field)
 
-#line 799 "tableio.c"
+#line 800 "tableio.c"
 
-#line 801 "tableio.c"
+#line 802 "tableio.c"
 
 #define INITIAL 0
 #define comment_start 1
@@ -1022,7 +1022,7 @@ YY_DECL
 
 
 
-#line 1025 "tableio.c"
+#line 1026 "tableio.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -1247,7 +1247,7 @@ YY_RULE_SETUP
 #line 165 "tableio.lex"
 ECHO;
 	YY_BREAK
-#line 1250 "tableio.c"
+#line 1251 "tableio.c"
 
 	case YY_END_OF_BUFFER:
 		{
