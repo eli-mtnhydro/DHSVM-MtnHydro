@@ -200,9 +200,8 @@ typedef struct {
 } METLOCATION;
 
 typedef struct {
-  int utmzone;                  /* utm zone used as reference for all geospatial input */
-  int NGrids;                   /* total met grids used for memory allocation, must >= actual grids used */
-  int Decimal;                  /* decimal point of met grid coordinates as used in the file name */
+  int NGrids;            
+  int Decimal;  
   float LatNorth;               /* extreme north latitude */
   float LonEast;                /* extreme east longitude */
   float LatSouth;               /* extreme south latitude */
@@ -251,6 +250,7 @@ typedef struct {
   int SnowSlide;                /* if snow sliding option is true */
   int PrecipSepr;               /* if TRUE use separate input of rain and snow */
   int SnowStats;               /* if TRUE dumps snow statistics for each water year */
+  int DynamicVeg;               /* if TRUE update vegetation maps at user defined dates*/
   char PrismDataPath[BUFSIZE + 1];
   char PrismDataExt[BUFSIZE + 1];
   char ShadingDataPath[BUFSIZE + 1];
@@ -414,7 +414,6 @@ typedef struct {
   
   float KsLat;      /* Soil Lateral Conductivity */
   float *Porosity;          /* Soil Porosity */
-  float *FCap;      /* soil field capacity */
 } SOILPIX;
 
 typedef struct {
@@ -457,7 +456,7 @@ typedef struct {
   float Slope;					/* Land surface slope */
   float Aspect;					/* Land surface slope direction */
   float FlowGrad;				/* Magnitude of subsurface flow gradient slope * width */
-  unsigned char Dir[MAXDIRS];		/* Fraction of surface flux moving in each direction*/
+  unsigned char Dir[NDIRS];		/* Fraction of surface flux moving in each direction*/
   unsigned int TotalDir;	    /* Sum of Dir array */
   int drains_x;					/* x-loc of cell to which this impervious cell drains */
   int drains_y;					/* y-loc of cell to which this impervious cell drains */
@@ -528,11 +527,22 @@ typedef struct {
                                 of snow pack */
   float *Fract;                  /* Fractional Coverage*/
   float *LAI;                  /* LAI of the month*/
+  float *Height;                /*Tree Height*/
   float **LAIMonthly;                  /* LAI of all months*/ 
   float *MaxInt;                  /* Max Interception*/   
   float Vf;                       /* spatial - Canopy view factor (0 - 1); Vf = VfAdjust*Fract */   
   CanopyGapStruct *Type;        /* canopy structure */
 } VEGPIX;
+
+typedef struct {
+  int NUpdate; /*number of dates to update vegetation*/
+  DATE *DUpdate;		/* Date(s) at which to update vegetation layer */
+  char DynaVegPath[BUFSIZE + 1];			/* Path to read from */
+  // char FileName[BUFSIZE + 1];	/* File to write dump to */
+  // char FileLabel[BUFSIZE + 1];	/* File label */
+  // int NumberType;		/* Number type of variable */
+  
+} DYNAVEG;
 
 typedef struct {
   char Desc[BUFSIZE + 1];	/* Vegetation type */

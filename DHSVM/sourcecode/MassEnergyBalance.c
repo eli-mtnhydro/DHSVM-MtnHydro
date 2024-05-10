@@ -11,6 +11,8 @@
  * FUNCTIONS:    MassEnergyBalance()
  * COMMENTS:
  * $Id: MassEnergyBalance.c,v3.1.2 2013/08/18 ning Exp $
+ * Last Modified by Zhuoran Duan on 07/06/2018 to change gap map from flag
+ * value to actual diameter map
  */
 #ifdef SNOW_ONLY
   //#define NO_ET
@@ -104,7 +106,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /*Add a function to modify soil moisture by add/extract SatFlow from previous time step*/
   DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow, SType->NLayers,
     LocalSoil->Depth, LocalNetwork->Area, VType->RootDepth,
-    SType->Ks, SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
+    SType->Ks, SType->PoreDist, LocalSoil->Porosity, SType->FCap,
     LocalSoil->Perc, LocalNetwork->PercArea,
     LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth),
@@ -200,7 +202,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       &(LocalPrecip->IntRain[0]), &(LocalPrecip->IntSnow[0]),
       &(LocalPrecip->TempIntStorage),
       &(LocalSnow->CanopyVaporMassFlux), &(LocalVeg->Tcanopy),
-      &(LocalVeg->MeltEnergy), VType->Height, VType->UnderStory);
+      &(LocalVeg->MeltEnergy), LocalVeg->Height, VType->UnderStory);
     LocalVeg->MoistureFlux -= LocalSnow->CanopyVaporMassFlux;
     /* Because we now have a new estimate of the canopy temperature we can
        recalculate the longwave balance */
@@ -351,7 +353,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       NetRadiation = LocalRad->NetShort[0] +
       LocalRad->LongIn[0] - 2 * LocalVeg->Fract[0] * LocalRad->LongOut[0];
     LocalRad->NetRadiation[0] = NetRadiation;
-    EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalVeg->Fract[0], LocalMet, NetRadiation,
+    EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
       Rp, VType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
       LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, UpperRa, LocalVeg);
@@ -363,7 +365,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
         LocalRad->NetShort[1] +
         LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
       LocalRad->NetRadiation[1] = NetRadiation;
-      EvapoTranspiration(1, Options->ImprovRadiation, Dt, LocalVeg->Fract[1], LocalMet, NetRadiation,
+      EvapoTranspiration(1, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
         Rp, VType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
         &(LocalPrecip->IntRain[1]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
         LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg);
@@ -380,7 +382,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     NetRadiation =
       LocalRad->NetShort[0] +
       LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
-    EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalVeg->Fract[0], LocalMet, NetRadiation,
+    EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
       Rp, VType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
       LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg);
@@ -413,7 +415,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
       NetRadiation, LowerRa, LocalVeg->MoistureFlux, LocalSoil->Porosity[0],
-      LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
+      SType->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
       VType->RootDepth[0], &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
   }
   else
@@ -544,7 +546,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   UnsaturatedFlow(Dt, DX, DY, Infiltration, RoadbedInfiltration,
     LocalSoil->SatFlow, SType->NLayers, LocalSoil->Depth,
     LocalNetwork->Area, VType->RootDepth, SType->Ks,
-    SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,
+    SType->PoreDist, LocalSoil->Porosity, SType->FCap, LocalSoil->Perc,
     LocalNetwork->PercArea, LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth), &(LocalSoil->IExcess),
     LocalSoil->Moist, InfiltOption);

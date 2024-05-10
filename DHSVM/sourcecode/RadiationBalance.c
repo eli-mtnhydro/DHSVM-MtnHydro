@@ -97,7 +97,7 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
   float Tsurf;			/* Surface temperature (C) */
 
   F = LocalVeg->Fract[0];
-  h = VType->Height[0];
+  h = LocalVeg->Height[0];
 
   if (CanopyRadAttOption == VARIABLE) {
     F = VType->HemiFract[0];

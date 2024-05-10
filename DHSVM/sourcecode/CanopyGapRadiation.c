@@ -55,12 +55,12 @@ void CanopyGapRadiation(CanopyGapStruct **Gap, float SunAngle, float Rs,
 
   /* net shortwave received by the opening*/
   (*Gap)[Opening].NetShort[1] = CanopyGapShortRadiation((*Gap)[Opening].UnderStory,
-    (*Gap)[Opening].GapView, VType->Height[0], Gapping, SunAngle, Rsb,
+    (*Gap)[Opening].GapView, LocalVeg->Height[0], Gapping, SunAngle, Rsb,
     Rsd, VType->ExtnCoeff, SoilAlbedo, VType, LocalSnow, LocalVeg->Fract[0]);
   (*Gap)[Opening].NetShort[0] = 0;
 
   /* net longwave received by the opening*/
-  CanopyGapLongRadiation(Gap[Opening], VType->Height[0], Gapping, Ld, 
+  CanopyGapLongRadiation(Gap[Opening], LocalVeg->Height[0], Gapping, Ld, 
     TSurf, LocalVeg->Fract[0]);
   (*Gap)[Opening].LongIn[0] = 0.;
 }
@@ -201,7 +201,7 @@ void GapSurroundingShortRadiation(CanopyGapStruct *Forest, VEGTABLE *VType,
   float Tau;
 
   F = LocalVeg->Fract[0];
-  h = VType->Height[0];
+  h = LocalVeg->Height[0];
 
   /* Determine Albedo */
   Albedo[0] = VType->Albedo[0];

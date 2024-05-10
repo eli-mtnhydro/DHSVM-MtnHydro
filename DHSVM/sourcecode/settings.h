@@ -93,7 +93,7 @@ typedef unsigned int unint;
 #define MAXSTRING    255
 #define NAMESIZE     127
 
-#define MAXDIRS        8
+#define NDIRS          4	/* Number of directions in which water can flow, must equal 4 */
 #define NNEIGHBORS     8    /* Number of directions in which water can flow based on fine grid, must equal 8 */
 
 
@@ -120,7 +120,7 @@ enum KEYS {
   temp_lapse, precip_lapse, cressman_radius, cressman_stations, prism_data_path, 
   prism_data_ext, shading_data_path, shading_data_ext, skyview_data_path, 
   stream_temp, canopy_shading, improv_radiation, gapping, snowslide, sepr, 
-  snowstats, routing_neighbors, 
+  snowstats, dynaveg,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
   center_longitude, time_zone_meridian, number_of_rows,
@@ -133,7 +133,7 @@ enum KEYS {
   snow_lai_multiplier, min_intercepted_snow, outside_basin,
   temp_lapse_rate, precip_lapse_rate, 
   max_swe, snowslide_parameter1,
-  snowslide_parameter2, gapwind_adj,
+  snowslide_parameter2, gapwind_adj, 
   /* Constants that can vary spatially */
   rain_threshold = 0,
   snow_threshold,
@@ -158,7 +158,7 @@ enum KEYS {
   MM5_rows, MM5_cols, MM5_ext_north, MM5_ext_west, MM5_dy, MM5_precip_dist, MM5_precip_freq,
   /* grid information */
   grid_ext_north=0, grid_ext_south, grid_ext_east, grid_ext_west, tot_grid, decim,
-  grid_met_file, file_prefix, utm_zone,
+  grid_met_file, file_prefix,
   /* Soil information */
   soil_description = 0, lateral_ks, exponent, depth_thresh, max_infiltration, capillary_drive,
   soil_albedo, number_of_layers, porosity, pore_size, bubbling_pressure, field_capacity,
@@ -172,8 +172,9 @@ enum KEYS {
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
   /* terrain information */
   demfile = 0, maskfile,
-  soiltype_file = 0, soildepth_file, kslat_file, porosity_file,fc_file,
-  vegtype_file = 0, vegfc_file, veglai_file,
+  soiltype_file = 0, soildepth_file, kslat_file, porosity_file,
+  vegtype_file = 0, vegfc_file, veglai_file, vegheight_file, 
+  dynaveg_path, dynaveg_num, 
   /* DHSVM channel keys */
   stream_network = 0, stream_map, stream_class, riparian_veg,
   road_network, road_map, road_class,
