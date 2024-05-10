@@ -84,169 +84,120 @@ int valid_cell(MAPSIZE *Map, int x, int y)
    slope_aspect
    Calculation of slope and aspect given elevations of cell and neighbors
    ------------------------------------------------------------- */
-static void slope_aspect(float dx, float dy, float celev, float
-			 nelev[NNEIGHBORS], float *slope, float *aspect)
-{
-  int n;
-  float dzdx, dzdy;
-  float *dummyelev;
-  /* this dummy varaible is added for calculation of elev difference,
-  in which the elev of OUTSIDEBASIN cells (which is ZERO) is 
-  replaced by the elev of the central cell */
 
-  /* allocate memory */
-  if (!(dummyelev = (float*) calloc(NNEIGHBORS, sizeof(float))))
-	  ReportError("slope_aspect( )", 1);
-  
-  for (n = 0; n < NNEIGHBORS; n++) {
-      if (nelev[n] == OUTSIDEBASIN) {
-		  dummyelev[n] = celev;
-      }
-	  else
-		  dummyelev[n] = nelev[n];
-    }
-  dzdx = ((dummyelev[0] + 2 * dummyelev[7] + dummyelev[6]) -
-	    (dummyelev[2] + 2 * dummyelev[3] + dummyelev[4])) / (8 * dx);
-  dzdy = ((dummyelev[0] + 2 * dummyelev[1] + dummyelev[2]) -
-	    (dummyelev[4] + 2 * dummyelev[5] + dummyelev[6])) / (8 * dy);
+// This is no longer used with the 8-neighbor multiple-flow-direction algorithm
 
-  *slope = sqrt(dzdx * dzdx + dzdy * dzdy);
-  if (fequal(dzdx, 0.0) && fequal(dzdy, 0.0)) {
-    *aspect = 0.0;
-  }
-  else {
-	  /* convert from radian to degree */
-	  *aspect = atan2(dzdx, dzdy) ;
-  }
-  free(dummyelev);
-  return;
-}
+// static void slope_aspect(float dx, float dy, float celev, float
+// 			 nelev[NNEIGHBORS], float *slope, float *aspect)
+// {
+//   int n;
+//   float dzdx, dzdy;
+//   float *dummyelev;
+//   /* this dummy varaible is added for calculation of elev difference,
+//   in which the elev of OUTSIDEBASIN cells (which is ZERO) is 
+//   replaced by the elev of the central cell */
+// 
+//   /* allocate memory */
+//   if (!(dummyelev = (float*) calloc(NNEIGHBORS, sizeof(float))))
+// 	  ReportError("slope_aspect( )", 1);
+//   
+//   for (n = 0; n < NNEIGHBORS; n++) {
+//       if (nelev[n] == OUTSIDEBASIN) {
+// 		  dummyelev[n] = celev;
+//       }
+// 	  else
+// 		  dummyelev[n] = nelev[n];
+//     }
+//   dzdx = ((dummyelev[0] + 2 * dummyelev[7] + dummyelev[6]) -
+// 	    (dummyelev[2] + 2 * dummyelev[3] + dummyelev[4])) / (8 * dx);
+//   dzdy = ((dummyelev[0] + 2 * dummyelev[1] + dummyelev[2]) -
+// 	    (dummyelev[4] + 2 * dummyelev[5] + dummyelev[6])) / (8 * dy);
+// 
+//   *slope = sqrt(dzdx * dzdx + dzdy * dzdy);
+//   if (fequal(dzdx, 0.0) && fequal(dzdy, 0.0)) {
+//     *aspect = 0.0;
+//   }
+//   else {
+// 	  /* convert from radian to degree */
+// 	  *aspect = atan2(dzdx, dzdy) ;
+//   }
+//   free(dummyelev);
+//   return;
+// }
+
 /* -------------------------------------------------------------
    flow_fractions
    Computes subsurface flow fractions given the slope and aspect 
 
    Comment: this function is considerably modified to avoid any
    out flow to the cells outside of the basin mask (Ning, 2013)
+ 
+ Update May 2024 by Eli Boardman
+ The multi-direction 4-neighbor algorithm used in the original version
+ can cause problems when the 8-neighbor average slope from slope_aspect()
+ conflicts with the true flow path due to local terrain heterogeneity,
+ leading to infinite loops and unphysical surface ponding.
+ However, the D8 algorithm does not allow flow to spread out,
+ which leads to over-concentrated and unrealistic hillslope flow paths.
+ This update implements a multi-direction 8-neighbor flow algorithm
+ that routes water to all downhill cells in proportion to the local slope.
+ Note that the effective flow width now has a circular rather than
+ rectangular interpretation: if only one cell is downhill,
+ the effective flow width is dx * PI/8, and if all 8 cells are downhill,
+ the effective flow width is dx * PI.
+ 
 ------------------------------------------------------------- */
 static void flow_fractions(float dx, float dy, float slope, float aspect,
 			   float celev, float nelev[NDIRS], float *grad,
 			   unsigned char dir[NDIRS], unsigned int *total_dir)
 {
-  float cosine = cos(aspect);
-  float sine = sin(aspect);
-  float total_width, effective_width;
-  float *cos, *sin;
+  float effective_width;
   int n;
-  float drop[NDIRS]; 
-  float maxdrop; 
-  int steepest;
+  float drop[NDIRS];
+  float total_drop;
  
-  /* allocate memory */
-  if (!(cos = (float*) calloc(NDIRS/2, sizeof(float))))
-	  ReportError("slope_aspect( )", 1);
-  if (!(sin = (float*) calloc(NDIRS/2, sizeof(float))))
-	  ReportError("slope_aspect( )", 1);
-
  switch (NDIRS) {
-  case 4:
-    /* fudge any cells which flow outside the basin by just pointing the
-       aspect in the opposite direction */
-    if (cosine > 0 && nelev[5] == (float) OUTSIDEBASIN)
-		cos[1] = -cosine;
-    else cos[1] = cosine;
-    if (cosine < 0 && nelev[1] == (float) OUTSIDEBASIN)
-          cos[0] = -cosine;
-    else cos[0] = cosine;
-      if (sine > 0 && nelev[3] == (float) OUTSIDEBASIN) 
-      sin[0] = -sine;
-    else sin[0] = sine;
-    if (sine < 0 && nelev[7] == (float) OUTSIDEBASIN)
-          sin[1] = -sine;
-    else sin[1] = sine;
-
-    /* compute flow widths */
-    total_width = fabs(sine) * dx + fabs(cosine) * dy;
-    *grad = slope * total_width;
-    *total_dir = 0;
-    for (n = 0; n < NDIRS; n++) 
-	{
-      switch (n) {
-      case 0:
-		  effective_width = (cos[1] > 0 ? cos[1] * dx : 0.0);
-		  break;
-      case 2:
-		  effective_width = (cos[0] < 0 ? -cos[0] * dx : 0.0);
-		  break;
-      case 1:
-		  effective_width = (sin[0] > 0 ? sin[0] * dy : 0.0);
-		  break;
-      case 3:
-		  effective_width = (sin[1] < 0 ? -sin[1] * dy : 0.0);
-		  break;
-      default:
-		  ReportError("flow_fractions",65);
-		  assert(0);		
-    }
-	dir[n] = (int) ((effective_width / total_width) * 255.0 + 0.5);
-    *total_dir += dir[n];
-	}
-	break;
   case 8:
-    /*For D8 flow directions, water discharges to ONE of its eight neighbors: 
-    to one located in the direction of steepest descent. This requires the DEM
-    to be pre-filled for D8 routing scheme as flat area will confuse the model*/
-    steepest = -9999;
-    maxdrop = -9999;
-    /*Determine flow direction based on deepest drop */
+    
+    total_drop = 0;
+    *grad = 0;
+    
+    effective_width = dx * PI / 8;
+    
     for (n = 0; n < NDIRS; n++) {
-      /*Make sure flow is inside boundary*/
+      /* Make sure flow is inside boundary */
       if (nelev[n] == (float) OUTSIDEBASIN){
         dir[n] = 0;
         drop[n] = 0;
       }
       else {
-        /*Find steepest descent*/
-        if ( n == 0 || n == 2 || n == 4 ||n == 6)
-          drop[n] = (celev - nelev[n]) / sqrt( dx * dx + dy * dy);
-        else 
+        /* Find all downhill cells */
+        if (n == 0 || n == 2 || n == 4 || n == 6)
+          drop[n] = (celev - nelev[n]) / sqrt(dx * dx + dy * dy);
+        else
           drop[n] = (celev - nelev[n]) / dx;
-	  
-        if ((drop[n] < 0.0)&&(drop[n] > -0.001)){
-          //printf("Reset minor negative flow slope from %f to 0.0\n", drop[n]);
-          drop[n]=0.0;
+        
+        /* Add up total drop in all direction */
+        if (drop[n] > 0) {
+          total_drop += drop[n];
+          *grad += drop[n] * effective_width;
         }
-
-        if (drop[n] >= 0 && drop[n] > maxdrop){
-          steepest = n;
-          maxdrop = drop[n];
-        }
+        else
+          drop[n] = 0;
       }
     }
-
+    
     *total_dir = 0;
-    if (steepest >= 0){
-      dir[steepest] = 1.0;
-      *total_dir += dir[steepest];
-
-      /* This requires dx = dy */
-      if ( steepest == 0 || steepest == 2 || steepest == 4 ||steepest == 6)
-        total_width = sqrt( dx * dx + dy * dy);
-      else 
-        total_width = dx; 
+    for (n = 0; n < NDIRS; n++) {
+      dir[n] = (int) ((drop[n] / total_drop) * 255.0 + 0.5);
+      *total_dir += dir[n];
     }
-    else{
-      printf("one grid cell has minor sink, set flow width to cell size\n");
-      total_width = dx; 
-    }
-      *grad = slope * total_width;
-    		
+    
     break;
-  default:
+    default:
     ReportError("flow_fractions",65);
     assert(0);			/* other cases don't work either */
   }
-  free(sin);
-  free(cos);
   return;
 }
 /* -------------------------------------------------------------
@@ -283,8 +234,8 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap)
 	    neighbor_elev[n] = (float) OUTSIDEBASIN;
 	  }
 	}	
-	slope_aspect(Map->DX, Map->DY, TopoMap[y][x].Dem, neighbor_elev,
-		     &(TopoMap[y][x].Slope), &(TopoMap[y][x].Aspect));	
+	// slope_aspect(Map->DX, Map->DY, TopoMap[y][x].Dem, neighbor_elev,
+	// 	     &(TopoMap[y][x].Slope), &(TopoMap[y][x].Aspect));	
 
 	/* fill Dirs in TopoMap too */
 	flow_fractions(Map->DX, Map->DY, TopoMap[y][x].Slope,
