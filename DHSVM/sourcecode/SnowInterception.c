@@ -142,6 +142,12 @@ void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
   else
     MaxSnowInt = 0.25;
 
+  /* Determine value of MaxSnowIntCap, added 12/13/2021 */ 
+  /* Choose between the different */
+  /* Original "mistake" version that might be construed as having a canopy-bridging effect:
+     MaxSnowIntCap = (MaxSnowIntCap > LAI * F * LAI_SNOW_MULTIPLIER) ? (LAI * F * LAI_SNOW_MULTIPLIER) : MaxSnowIntCap; */
+  MaxSnowIntCap = (MaxSnowIntCap > LAI * LAI_SNOW_MULTIPLIER) ? (LAI * LAI_SNOW_MULTIPLIER) : MaxSnowIntCap;
+
   /* Adjust snow interception capacity (unit: m) to the user-provided input
   parameter, maximum snow interception capacity (%), which varies with
   vegetation type */
@@ -157,7 +163,7 @@ void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
   if (DeltaSnowInt < 0.0)
     DeltaSnowInt = 0.0;
 
-  /* pixel snow fall depth -- compposed of throughfall through canopy
+  /* pixel snow fall depth -- composed of throughfall through canopy
   and snowfall on open space */
   SnowThroughFall = (*SnowFall - DeltaSnowInt) * F + (*SnowFall) * (1 - F);
 
