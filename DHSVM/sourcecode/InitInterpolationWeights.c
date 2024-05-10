@@ -67,8 +67,8 @@ void InitInterpolationWeights(MAPSIZE *Map, OPTIONSTRUCT *Options,
     printf("\nSummary info on met stations used for current model run \n");
     printf("        Name\t\tY\tX\tIn Mask\tDefined Elev\tActual Elev\n");
     for (i = 0; i < NStats; i++) {
-      if ((Stats[i].Loc.N > Map->NY || Stats[i].Loc.N < 0 ||
-        Stats[i].Loc.E > Map->NX || Stats[i].Loc.E < 0))
+      if ((Stats[i].Loc.N >= Map->NY || Stats[i].Loc.N < 0 ||
+        Stats[i].Loc.E >= Map->NX || Stats[i].Loc.E < 0))
         printf("%20s\t%d\t%d\t%5s\t%5.1f\t\t%5s\n",
           Stats[i].Name, Stats[i].Loc.N, Stats[i].Loc.E,
           "NA", Stats[i].Elev, "NA");
