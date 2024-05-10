@@ -104,7 +104,8 @@ typedef unsigned int unint;
 #define MAP_OUTPUT 1
 #define IMAGE_OUTPUT 2
 
-#define MIN_SWE 0.005 
+#define MIN_SWE 0.005
+#define MELTOUT_SWE 0.05
 
 // Canopy type used in canopy gapping option
 enum CanopyType {
@@ -172,7 +173,7 @@ enum KEYS {
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
   /* terrain information */
   demfile = 0, maskfile,
-  soiltype_file = 0, soildepth_file, kslat_file, porosity_file,
+  soiltype_file = 0, soildepth_file, kslat_file, porosity_file, fc_file,
   vegtype_file = 0, vegfc_file, veglai_file, vegheight_file, 
   dynaveg_path, dynaveg_num, 
   /* DHSVM channel keys */

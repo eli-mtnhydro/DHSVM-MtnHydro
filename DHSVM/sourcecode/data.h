@@ -412,8 +412,9 @@ typedef struct {
   float DetentionIn;			 /* detention storage change in current time step */
   float DetentionOut;            /* water flow out of detention storage */
   
-  float KsLat;      /* Soil Lateral Conductivity */
-  float *Porosity;          /* Soil Porosity */
+  float KsLat;      		/* Soil Lateral Conductivity */
+  float *Porosity;          	/* Soil Porosity */
+  float *FCap;			/* Soil Field Capacity */
 } SOILPIX;
 
 typedef struct {

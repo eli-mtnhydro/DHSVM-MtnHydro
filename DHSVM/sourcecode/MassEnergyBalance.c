@@ -13,6 +13,7 @@
  * $Id: MassEnergyBalance.c,v3.1.2 2013/08/18 ning Exp $
  * Last Modified by Zhuoran Duan on 07/06/2018 to change gap map from flag
  * value to actual diameter map
+ * Also modified by Eli Boardman on 1/18/2022 to add FCap map functionality
  */
 #ifdef SNOW_ONLY
   //#define NO_ET
@@ -106,7 +107,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /*Add a function to modify soil moisture by add/extract SatFlow from previous time step*/
   DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow, SType->NLayers,
     LocalSoil->Depth, LocalNetwork->Area, VType->RootDepth,
-    SType->Ks, SType->PoreDist, LocalSoil->Porosity, SType->FCap,
+    SType->Ks, SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
     LocalSoil->Perc, LocalNetwork->PercArea,
     LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth),
@@ -415,7 +416,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
       NetRadiation, LowerRa, LocalVeg->MoistureFlux, LocalSoil->Porosity[0],
-      SType->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
+      LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
       VType->RootDepth[0], &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
   }
   else
@@ -546,7 +547,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   UnsaturatedFlow(Dt, DX, DY, Infiltration, RoadbedInfiltration,
     LocalSoil->SatFlow, SType->NLayers, LocalSoil->Depth,
     LocalNetwork->Area, VType->RootDepth, SType->Ks,
-    SType->PoreDist, LocalSoil->Porosity, SType->FCap, LocalSoil->Perc,
+    SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,
     LocalNetwork->PercArea, LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth), &(LocalSoil->IExcess),
     LocalSoil->Moist, InfiltOption);

@@ -76,12 +76,15 @@ struct {
   012, "Soil.KsLat",
        "Soil Lateral Conductivity", "%.6f", 
        "", "Soil Lateral Conductivity", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{
-  013, "Soil.Porostity",
+  013, "Soil.Porosity",
        "Soil Porosity", "%.3f", 
-       "", "Soil Porosity", NC_FLOAT, TRUE, FALSE, FALSE, 0 },{ 
+       "", "Soil Porosity", NC_FLOAT, TRUE, FALSE, FALSE, 0 },{
   014, "Veg.Height",
        "Tree Height", "%.2f", 
-       "", "Tree Height", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{ 
+       "", "Tree Height", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{
+  015, "Soil.FCap",
+       "Soil Field Capacity", "%.3f", 
+       "", "Soil Field Capacity", NC_FLOAT, TRUE, FALSE, FALSE, 0 },{  
   100, "Met.PrecipMultiplier",
 	   "PptMultiplier", "%.8f",
 	   "", "Precipitation Multiplier", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{

@@ -180,10 +180,11 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   int x;			/* counter */
   int y;			/* counter */
   int NumberType;		/* number type */
-  unsigned char *Type;		/* Soil type */
-  float *Depth;			/* Soil depth */
+  unsigned char *Type;		/* Soil Type */
+  float *Depth;			/* Soil Depth */
   float *KsLat = NULL;		/* Soil Lateral Conductivity */
-  float *Porosity = NULL;		/* Soil Porosity */
+  float *Porosity = NULL;	/* Soil Porosity */
+  float *FC = NULL;		/* Soil Field Capacity */
   int flag;
   int NSet;
   int sidx;
@@ -193,6 +194,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     {"SOILS", "SOIL DEPTH FILE", "", ""},
     {"SOILS", "SOIL CONDUCTIVITY MAP FILE", "", "none"},
     {"SOILS", "SOIL POROSITY MAP FILE", "", "none"},
+    {"SOILS", "SOIL FIELD CAPACITY FILE", "", "none"},
     {NULL, NULL, "", NULL}
   };
 
@@ -273,7 +275,6 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   else ReportError((char *)Routine, 57);
 
   /******************************************************************/
-  /* Under Construction*/
 
   /* Read the spatial Lateral Conductivity map */
   GetVarName(012, 0, VarName);
@@ -322,8 +323,88 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     }
   }
 
-  /* Read the spatial porosity map */
+  /* Read the spatial field capacity map */
+  GetVarNumberType(015, &NumberType);
 
+  /*Allocate memory*/  
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (!((*SoilMap)[y][x].FCap =
+            (float *)calloc(Soil->MaxLayers, sizeof(float *))))
+        ReportError((char *)Routine, 1);
+    }
+  }
+
+  /*Creating spatial layered field capacity*/
+  if (strncmp(StrEnv[fc_file].VarStr, "none", 4)) {
+    printf("Spatial soil field capacity provided, reading map\n"); 
+    /*Read data layer by layer*/
+    for (NSet = 0; NSet < Soil->MaxLayers; NSet++) {
+      GetVarName(015, NSet, VarName);
+      if (!(FC = (float *)calloc(Map->NX * Map->NY,
+        SizeOfNumberType(NumberType))))
+        ReportError((char *)Routine, 1);
+      flag = Read2DMatrix(StrEnv[fc_file].VarStr, FC, NumberType, Map, NSet, VarName, 0);
+
+      if ((Options->FileFormat == NETCDF && flag == 0)
+        || (Options->FileFormat == BIN))
+      {
+        for (y = 0, i = 0; y < Map->NY; y++) {
+          for (x = 0; x < Map->NX; x++, i++) {
+            if (INBASIN((TopoMap)[y][x].Mask)) {
+              sidx = (*SoilMap)[y][x].Soil - 1;
+              if (NSet < Soil->NLayers[sidx]) {
+                if (FC[i] > 0.0)
+                  (*SoilMap)[y][x].FCap[NSet] = FC[i];
+                else
+                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet];
+                /*Make sure FCap larger than WP*/
+                if (((*SoilMap)[y][x].FCap[NSet] < SType[sidx].WP[NSet]))
+                  ReportError(SType[sidx].Desc, 11);
+              }
+            }            
+          }
+        }
+      } else if (Options->FileFormat == NETCDF && flag == 1) {
+        for (y = Map->NY - 1, i = 0; y >= 0; y--) {
+          for (x = 0; x < Map->NX; x++, i++) {
+            if (INBASIN((TopoMap)[y][x].Mask)) {
+              sidx = (*SoilMap)[y][x].Soil - 1;
+              if (NSet < Soil->NLayers[sidx]) {
+                if (FC[i] > 0.0)
+                  (*SoilMap)[y][x].FCap[NSet] = FC[i];
+                else
+                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet];
+                if (((*SoilMap)[y][x].FCap[NSet] <SType[sidx].WP[NSet]))
+                  ReportError(SType[sidx].Desc, 11);
+              }
+            }  
+          }
+        }
+      }
+      else ReportError((char *)Routine, 57);
+    }
+    free(FC);
+    FC = NULL;
+  }
+  else{
+    printf("Spatial soil field capacity map not provided, generating map\n"); 
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        if (INBASIN((TopoMap)[y][x].Mask)) {
+          /* FIXME: this assumes a valid soil type index */
+          sidx = (*SoilMap)[y][x].Soil - 1;
+          for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
+            (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet];
+            if (((*SoilMap)[y][x].FCap[NSet] <SType[sidx].WP[NSet]))
+              ReportError(SType[sidx].Desc, 11);
+          }
+        } 
+      }
+    }
+  }
+
+  /* Read the spatial porosity map */
   GetVarNumberType(013, &NumberType);
 
   /*Allocate memory for porosity*/  
@@ -338,7 +419,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   /*Creating spatial layered porosity*/
   if (strncmp(StrEnv[porosity_file].VarStr, "none", 4)) {
     printf("Spatial soil porosity map provided, reading map\n");   
-    /*Read data monthy by month*/
+    /*Read data layer by layer*/
     for (NSet = 0; NSet < Soil->MaxLayers; NSet++) {
       GetVarName(013, NSet, VarName);
       if (!(Porosity = (float *)calloc(Map->NX * Map->NY,
@@ -359,7 +440,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 else
                   (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet];
                 /*Make sure porosity larger than FCap and WP*/
-                if (((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].FCap[NSet])
+                if (((*SoilMap)[y][x].Porosity[NSet] < (*SoilMap)[y][x].FCap[NSet])
                     || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
                   ReportError(SType[sidx].Desc, 11);
               }
@@ -377,8 +458,8 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 else
                   (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet];
                 /*Make sure porosity larger than FCap and WP*/
-                if (((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].FCap[NSet])
-                    || ((*SoilMap)[y][x].Porosity[NSet] <SType[sidx].WP[NSet]))
+                if (((*SoilMap)[y][x].Porosity[NSet] < (*SoilMap)[y][x].FCap[NSet])
+                    || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
                   ReportError(SType[sidx].Desc, 11);
               }
             }  
@@ -400,16 +481,18 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
           for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
             (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet];
             /*Make sure porosity larger than FCap and WP*/
-            if (((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].FCap[NSet])
-                || ((*SoilMap)[y][x].Porosity[NSet] <SType[sidx].WP[NSet]))
+            if (((*SoilMap)[y][x].Porosity[NSet] < (*SoilMap)[y][x].FCap[NSet])
+                || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
               ReportError(SType[sidx].Desc, 11);
           }
         } 
       }
     }
   }
-    
- 
+
+   /******************************************************************/
+   /******************************************************************/
+
   for (y = 0, i = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++, i++) {
       if (Options->Infiltration == DYNAMIC)
