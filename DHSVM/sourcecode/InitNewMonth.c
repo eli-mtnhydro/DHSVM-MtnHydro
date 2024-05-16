@@ -425,7 +425,7 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
         }
       }
     }
-    /*     HeadSlopeAspect(Map, TopoMap, SoilMap); */
+    /*     HeadSlopeAspect(Map, TopoMap, SoilMap, Options->MultiFlowDir); */
   }
 
   if ((Options->MM5 == TRUE && Options->QPF == TRUE) || Options->MM5 == FALSE)

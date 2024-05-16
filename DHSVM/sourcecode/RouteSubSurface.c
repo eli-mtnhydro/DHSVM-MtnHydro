@@ -173,7 +173,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   }
 
   if (Options->FlowGradient == WATERTABLE)
-    HeadSlopeAspect(Map, TopoMap, SoilMap, SubFlowGrad, SubDir, SubTotalDir);
+    HeadSlopeAspect(Map, TopoMap, SoilMap, SubFlowGrad, SubDir, SubTotalDir, Options->MultiFlowDir);
 
   /* next sweep through all the grid cells, calculate the amount of
      flow in each direction, and divide the flow over the surrounding

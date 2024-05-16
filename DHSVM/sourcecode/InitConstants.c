@@ -69,6 +69,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "EXTENT", "", ""},
     {"OPTIONS", "GRADIENT", "", ""},
     {"OPTIONS", "FLOW ROUTING", "", ""},
+    {"OPTIONS", "ROUTING NEIGHBORS", "", "8"},
+    {"OPTIONS", "MULTIPLE FLOW DIRECTIONS", "", "TRUE"},
     {"OPTIONS", "SENSIBLE HEAT FLUX", "", ""},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
@@ -159,7 +161,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   }
   else
     ReportError(StrEnv[extent].KeyName, 51);
-
+  
   /* Determine how the flow gradient should be calculated */
   if (Options->Extent != POINT) {
     if (strncmp(StrEnv[gradient].VarStr, "TOPO", 4) == 0)
@@ -171,9 +173,39 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   }
   else
     Options->FlowGradient = NOT_APPLICABLE;
-
+  
+  /* Determine how many neighbors are used for surface/subsurface routing */
+  if (!CopyInt(&(NDIRS), StrEnv[routing_neighbors].VarStr, 1))
+    ReportError(StrEnv[routing_neighbors].KeyName, 51);
+  switch (NDIRS) {
+  case (4):
+    xdirection = &xdirection4[0];
+    ydirection = &ydirection4[0];
+    break;
+  case (8):
+    xdirection = &xdirection8[0];
+    ydirection = &ydirection8[0];
+    break;
+  default:
+    ReportError(StrEnv[routing_neighbors].KeyName, 51);
+  }
+  /* Determine whether to use MFD-8 or D8 routing */
+  if (strncmp(StrEnv[routing_mfd].VarStr, "TRUE", 4) == 0){
+    Options->MultiFlowDir = TRUE;
+    printf("Using %d neighbors with multiple flow directions for surface/subsurface routing\n", NDIRS);
+  }
+  else if (strncmp(StrEnv[routing_mfd].VarStr, "FALSE", 5) == 0){
+    Options->MultiFlowDir = FALSE;
+    if (NDIRS == 8)
+      printf("Using %d neighbors with steepest descent for surface/subsurface routing\n", NDIRS);
+    else
+      printf("Using %d neighbors with multiple flow directions for surface/subsurface routing\n"
+               "(Steepest descent is only available when ROUTING NEIGHBORS = 8)\n", NDIRS);
+  }
+  else
+    ReportError(StrEnv[routing_mfd].KeyName, 51);
+  
   /* Determine what meterological interpolation to use */
-
   if (strncmp(StrEnv[interpolation].VarStr, "INVDIST", 7) == 0)
     Options->Interpolation = INVDIST;
   else if (strncmp(StrEnv[interpolation].VarStr, "NEAREST", 7) == 0)

@@ -232,6 +232,8 @@ typedef struct {
                            TOPOGRAPHY method is much faster, since the 
                            flow direction and gradient do not have to 
                            be recalculated every timestep */
+  int MultiFlowDir;     /* TRUE to use multiple flow directions or FALSE for steepest descent;
+                           only applicable if ROUTING NEIGHBORS = 8*/
   int Extent;					  /* Specifies the extent of the model run, either POINT or BASIN */
   int Interpolation;
   int MM5;						  /* TRUE if MM5 interface is to be used, FALSE otherwise */
@@ -458,7 +460,7 @@ typedef struct {
   float Slope;					/* Land surface slope */
   float Aspect;					/* Land surface slope direction */
   float FlowGrad;				/* Magnitude of subsurface flow gradient slope * width */
-  unsigned char Dir[NDIRS];		/* Fraction of surface flux moving in each direction*/
+  unsigned char Dir[MAXDIRS];		/* Fraction of surface flux moving in each direction*/
   unsigned int TotalDir;	    /* Sum of Dir array */
   int drains_x;					/* x-loc of cell to which this impervious cell drains */
   int drains_y;					/* y-loc of cell to which this impervious cell drains */

@@ -93,7 +93,7 @@ typedef unsigned int unint;
 #define MAXSTRING    255
 #define NAMESIZE     127
 
-#define NDIRS          8	/* Number of directions in which water can flow, must equal 8 for new algorithm */
+#define MAXDIRS        8	/* Maximum number of directions in which water can flow, must equal 8 */
 #define NNEIGHBORS     8  /* Number of directions in which water can flow based on fine grid, must equal 8 */
 
 
@@ -115,8 +115,8 @@ enum CanopyType {
 
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
-  format = 0, extent, gradient, flow_routing, sensible_heat_flux,
-  infiltration, interpolation, mm5, qpf, prism, grid, canopy_radatt, 
+  format = 0, extent, gradient, flow_routing, routing_neighbors, routing_mfd,
+  sensible_heat_flux, infiltration, interpolation, mm5, qpf, prism, grid, canopy_radatt, 
   shading, snotel, outside, rhoverride, precipitation_source, wind_source, 
   temp_lapse, precip_lapse, cressman_radius, cressman_stations, prism_data_path, 
   prism_data_ext, shading_data_path, shading_data_ext, skyview_data_path, 

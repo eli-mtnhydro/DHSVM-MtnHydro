@@ -145,7 +145,7 @@ void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   /* Calculate slope, aspect, magnitude of subsurface flow gradient, and
      fraction of flow flowing in each direction based on the land surface
      slope. */
-  ElevationSlopeAspect(Map, *TopoMap);
+  ElevationSlopeAspect(Map, *TopoMap, Options->MultiFlowDir);
 
   /* After calculating the slopes and aspects for all the points, reset the
      mask if the model is to be run in point mode */

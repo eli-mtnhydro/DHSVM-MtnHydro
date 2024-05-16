@@ -89,7 +89,7 @@ void Avalanche(MAPSIZE *Map, TOPOPIX **TopoMap, TIMESTRUCT *Time, OPTIONSTRUCT *
   }
 
   /* calculate snow surface slope in the same approach as subflow direction */
-  SnowSlopeAspect(Map, TopoMap, Snow, SubSnowGrad, SubDir, SubTotalDir);
+  SnowSlopeAspect(Map, TopoMap, Snow, SubSnowGrad, SubDir, SubTotalDir, Options->MultiFlowDir);
 
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
