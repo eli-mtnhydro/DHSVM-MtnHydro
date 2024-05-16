@@ -108,7 +108,7 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
   }
   PrintDate(Current, Out->FilePtr);
   fprintf(Out->FilePtr, " %g %g %g %g %g %g %g %g %g %g %g %g \
-      %g %g %g %g %g %g %g %g %g %g %g\n", NetWaterIn1*1000, NetWaterIn2*1000, 
+      %g %g %g %g %g %g %g %g %g %g %g %g\n", NetWaterIn1*1000, NetWaterIn2*1000, 
       Total->Precip.Precip, Total->Precip.SnowFall, Total->Soil.IExcess,
       Total->Snow.Swq, Total->Snow.Melt, Total->Evap.ETot, 
       Total->CanopyWater, Total->SoilWater, Total->Soil.SatFlow, Total->Snow.VaporMassFlux,
