@@ -98,6 +98,7 @@ static ChannelMapRec *alloc_channel_map_record(void)
   }
   p->length = 0.0;
   p->aspect = 0.0;
+  p->infiltration_rate = 0.0;
   p->sink = FALSE;
   p->channel = NULL;
   p->next = NULL;
@@ -178,17 +179,18 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
 				      SOILPIX ** SoilMap)
 {
   ChannelMapPtr **map;
-  static const int fields = 8;
+  static const int fields = 9;
   static char *sink_words[2] = {
     "SINK", "\n"
   };
-  static TableField map_fields[8] = {
+  static TableField map_fields[9] = {
     {"Column", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
     {"Row", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
     {"Segment ID", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
     {"Segment Length", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
     {"Cut Height", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
     {"Cut Width", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
+    {"Infiltration Rate", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
     {"Segment Azimuth", TABLE_REAL, FALSE, FALSE, {0.0}, "", NULL},
     {"Sink?", TABLE_WORD, FALSE, FALSE, {0.0}, "", sink_words}
   };
@@ -315,12 +317,20 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
 	  }
 	  break;
 	case 6:
+	  cell->infiltration_rate = map_fields[i].value.real;
+	  if (cell->infiltration_rate < 0.0) {
+	    error_handler(ERRHDL_ERROR,
+                   "%s, line %d: bad infiltration_rate", file, table_lineno());
+	    err++;
+	  }
+	  break;
+	case 7:
 	  /* road aspect is read in degrees and
 	     stored in radians */
 	  cell->azimuth = (float)(map_fields[i].value.real);
 	  cell->aspect = map_fields[i].value.real * PI / 180.0;
 	  break;
-	case 7:
+	case 8:
 	  cell->sink = TRUE;
 	  break;
 	default:
@@ -557,6 +567,42 @@ double channel_grid_outflow(ChannelMapPtr ** map, int col, int row)
     cell = cell->next;
   }
   return mass;
+}
+
+/* -------------------------------------------------------------
+ channel_grid_infiltration
+ If the channel(s) within the cell are above the water table,
+ this function totals the mass of infiltration from the channel(s),
+ subtracts it from the respective channel segments, and returns
+ the total mass to be added to the soil pixel IExcess.
+ ------------------------------------------------------------- */
+float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat, float TableDepth)
+{
+  ChannelMapPtr cell = map[col][row];
+  float infiltration; // From one channel segment
+  float max_infiltration;
+  float cell_infiltration = 0.0; // From all channel segments in cell
+  
+  while (cell != NULL) {
+    if (TableDepth > cell->cut_height){
+      
+      // Note infiltration_rate is in mm/s, so we convert to m/s then m^3
+      infiltration = (cell->infiltration_rate / 1000.0) * cell->cut_width * cell->length * deltat;
+      max_infiltration = cell->channel->storage * (cell->length / cell->channel->length);
+      if (infiltration > max_infiltration)
+        infiltration = max_infiltration;
+      if (infiltration < 0.0)
+        infiltration = 0.0;
+      
+      cell->channel->infiltration += infiltration;
+      cell->channel->storage -= infiltration;
+      cell_infiltration += infiltration;
+    }
+    cell = cell->next;
+  }
+  // printf("%6.6f Stream Infiltration (m^3)\n", cell_infiltration);
+  
+  return cell_infiltration;
 }
 
 /* -------------------------------------------------------------

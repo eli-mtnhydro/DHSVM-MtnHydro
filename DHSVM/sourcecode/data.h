@@ -397,6 +397,7 @@ typedef struct {
   float IExcess;		/* amount of surface runoff (m) generated from HOF and Return flow */
   float Runoff;         /* Surface water flux (m) from the grid cell. */
   float ChannelInt;		/* amount of subsurface flow intercepted by the channel */
+  float ChannelInfiltration;		/* amount of channel storage returned to the subsurface */
   float RoadInt;		/* amount of water intercepted by the road */
   float TSurf;			/* Soil surface temperature */
   float Qnet;			/* Net radiation exchange at surface */
@@ -608,6 +609,7 @@ typedef struct {
   float CumET;
   float CumIExcess;
   float CumChannelInt;
+  float CumChannelInfiltration;
   float CumRoadInt;
   float CumSnowVaporFlux;
   float CumCulvertReturnFlow;
@@ -641,6 +643,7 @@ typedef struct {
   float CanopyWater;
   float Runoff;
   float ChannelInt;
+  float ChannelInfiltration;
   float RoadInt;
   unsigned long Saturated;
   float CulvertReturnFlow;

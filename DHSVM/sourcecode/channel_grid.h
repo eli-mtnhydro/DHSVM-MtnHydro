@@ -34,6 +34,7 @@ struct _channel_map_rec_ {
   float cut_width;		/* "effective" cut width (m) */
   char sink;			/* is this cell a channel sink? */
   float azimuth;        /* channel azimuth */
+  float infiltration_rate; /* infiltration rate out of the bottom of the channel, mm/s */
   Channel *channel;		/* pointer to segment record */
 
   struct _channel_map_rec_ *next;
@@ -70,6 +71,8 @@ double channel_grid_flowlength(ChannelMapPtr **map, int col, int row,
 			       float floslope);
 double channel_grid_flowslope(ChannelMapPtr **map, int col, int row);
 ChannelClass* channel_grid_class(ChannelMapPtr **map, int col, int row);
+
+float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat, float TableDepth);
 
 void channel_grid_free_map(ChannelMapPtr **map);
 

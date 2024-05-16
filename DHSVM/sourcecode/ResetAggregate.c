@@ -118,6 +118,7 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
   Total->CanopyWater = 0.0;
   Total->Runoff = 0.0;
   Total->ChannelInt = 0.0;
+  Total->ChannelInfiltration = 0.0;
   Total->RoadInt = 0.0;
   Total->Saturated = 0;
   Total->CulvertReturnFlow = 0;

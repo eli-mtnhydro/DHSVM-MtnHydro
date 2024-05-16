@@ -172,7 +172,9 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 		
 		Total->Soil.Runoff += SoilMap[y][x].Runoff;
 		Total->ChannelInt += SoilMap[y][x].ChannelInt;
+		Total->ChannelInfiltration += SoilMap[y][x].ChannelInfiltration;
 		SoilMap[y][x].ChannelInt = 0.0;
+		SoilMap[y][x].ChannelInfiltration = 0.0;
 		Total->RoadInt += SoilMap[y][x].RoadInt;
 		SoilMap[y][x].RoadInt = 0.0;
       }
@@ -279,6 +281,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->SoilWater /= NPixels;
   Total->Soil.Runoff /= NPixels;
   Total->ChannelInt /= NPixels;
+  Total->ChannelInfiltration /= NPixels;
   Total->RoadInt /= NPixels;
   Total->CulvertReturnFlow /= NPixels;
   Total->CulvertToChannel /= NPixels;
