@@ -24,7 +24,7 @@ void AdjustStorage(int NSoilLayers, float TotalDepth, float *RootDepth,
 		   float *PercArea, float *Adjust, int *CutBankZone);
 
 float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
-			 float *Moisture, float *FCap, float TableDepth,
+			 float *Moisture, float *FCap, float *Moist, float TableDepth,
 			 float *Adjust);
 
 float CalcTotalWater(int NSoilLayers, float TotalDepth, float *RootDepth,

@@ -50,7 +50,7 @@
    Comments     :
  *****************************************************************************/
 float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
-  float *Porosity, float *FCap, float TableDepth,  float *Adjust)
+  float *Porosity, float *FCap, float *Moist, float TableDepth,  float *Adjust)
 
 {
   float AvailableWater;		/* amount of water available for movement (m) */
@@ -63,8 +63,24 @@ float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
 
   float Depth;			    /* depth below the ground surface (m) */
   int i;			        /* counter */
-
-  AvailableWater = 0;
+ 
+  DeepPorosity = Porosity[NRootLayers - 1];
+  DeepFCap = FCap[NRootLayers - 1];
+  
+  DeepLayerDepth = TotalDepth;
+  for (i = 0; i < NRootLayers; i++)
+    DeepLayerDepth -= RootDepth[i];
+  
+  // if (PrintDebug){
+  //   printf("\nTotalDepth is is %.6f\n",TotalDepth);
+  //   printf("First layer Adjust is %.6f\n",Adjust[0]);
+  //   printf("DeepAdjust is %.6f\n",Adjust[NRootLayers]);
+  //   printf("DeepMoistLayer is %.6f\n",Moist[NRootLayers]);
+  //   printf("DeepFCap is %.6f\n",DeepFCap);
+  //   printf("DeepPorosity is %.6f\n",DeepPorosity);
+  // }
+  
+  AvailableWater = 0.0;
 
   Depth = 0.0;
   for (i = 0; i < NRootLayers && Depth < TotalDepth; i++) {
@@ -76,25 +92,32 @@ float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
       if ((Depth - TableDepth) > RootDepth[i])
         AvailableWater += (Porosity[i] - FCap[i]) * RootDepth[i] * Adjust[i];
       else
-        AvailableWater += (Porosity[i] - FCap[i]) * (Depth - TableDepth) *
-        Adjust[i];
+        AvailableWater += (Moist[i] - FCap[i]) * RootDepth[i] * Adjust[i];
     }
+    
+    // if (PrintDebug){
+    //   printf("\nDepth is %.6f\n",Depth);
+    //   printf("AvailableWater after layer %d is is %.6f\n",i,AvailableWater);
+    // }
   }
 
   if (Depth < TotalDepth) {
 
-    DeepPorosity = Porosity[NRootLayers - 1];
-    DeepFCap = FCap[NRootLayers - 1];
+    // DeepPorosity = Porosity[NRootLayers - 1];
+    // DeepFCap = FCap[NRootLayers - 1];
 
-    DeepLayerDepth = TotalDepth - Depth;
+    // DeepLayerDepth = TotalDepth - Depth;
     Depth = TotalDepth;
 
     if ((Depth - TableDepth) > DeepLayerDepth)
-      AvailableWater += (DeepPorosity - DeepFCap) * DeepLayerDepth *
-      Adjust[NRootLayers];
+      AvailableWater += (DeepPorosity - DeepFCap) * DeepLayerDepth * Adjust[NRootLayers];
     else
-      AvailableWater += (DeepPorosity - DeepFCap) * (Depth - TableDepth) *
-      Adjust[NRootLayers];
+      AvailableWater += (Moist[NRootLayers] - DeepFCap) * DeepLayerDepth * Adjust[NRootLayers];
+    
+    // if (PrintDebug){
+    //   printf("\nDepth is %.6f\n",TotalDepth);
+    //   printf("AvailableWater after deep layer is is %.6f\n",AvailableWater);
+    // }
   }
 
   assert(AvailableWater >= 0.0);

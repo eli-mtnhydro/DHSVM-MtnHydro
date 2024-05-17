@@ -221,16 +221,15 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
          As with D8, this requires the DEM to be pre-filled for D8 routing scheme
          as any flat areas will confuse the model. */
       
-      total_drop = 0;
-      *grad = 0;
-      
-      effective_width = dx * PI / 8;
+      total_drop = 0.0;
+      *grad = 0.0;
+      effective_width = dx * PI / 8; // Per direction
       
       for (n = 0; n < NDIRS; n++) {
         /* Make sure flow is inside boundary */
         if (nelev[n] == (float) OUTSIDEBASIN){
           dir[n] = 0;
-          drop[n] = 0;
+          drop[n] = 0.0;
         }
         else {
           /* Find all downhill cells */
@@ -240,14 +239,17 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
             drop[n] = (celev - nelev[n]) / dx;
           
           /* Add up total drop in all directions */
-          if (drop[n] > 0) {
+          if (drop[n] > 0.0) {
             total_drop += drop[n];
             *grad += drop[n] * effective_width;
           }
           else
-            drop[n] = 0;
+            drop[n] = 0.0;
         }
       }
+      
+      if (total_drop <= 0.0)
+        total_drop = 1.0; /* To avoid dividing by zero if no cells are lower */
       
       *total_dir = 0;
       for (n = 0; n < NDIRS; n++) {
@@ -493,8 +495,6 @@ void HeadSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, SOILPIX ** SoilMap,
   }
   return;
 }
-
-
 
 /* -------------------------------------------------------------
 SnowSlopeAspect
