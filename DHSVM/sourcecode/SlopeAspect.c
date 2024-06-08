@@ -153,24 +153,23 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
 			   float celev, float nelev[NDIRS], float *grad,
 			   unsigned char dir[NDIRS], unsigned int *total_dir, int MultiFlowDir)
 {
-  float cosine = cos(aspect);
-  float sine = sin(aspect);
   float total_width, effective_width;
-  float *cos, *sin;
   int n;
-  float drop[NDIRS]; 
-  float maxdrop; 
-  int steepest;
-  float total_drop;
-  
-  /* allocate memory */
-  if (!(cos = (float*) calloc(NDIRS/2, sizeof(float))))
-    ReportError("slope_aspect( )", 1);
-  if (!(sin = (float*) calloc(NDIRS/2, sizeof(float))))
-    ReportError("slope_aspect( )", 1);
+  float drop[NDIRS];
   
  switch (NDIRS) {
  case 4:
+   
+   float cosine = cos(aspect);
+   float sine = sin(aspect);
+   float *cos, *sin;
+   
+   /* allocate memory */
+   if (!(cos = (float*) calloc(NDIRS/2, sizeof(float))))
+     ReportError("slope_aspect( )", 1);
+   if (!(sin = (float*) calloc(NDIRS/2, sizeof(float))))
+     ReportError("slope_aspect( )", 1);
+   
    /* fudge any cells which flow outside the basin by just pointing the
     aspect in the opposite direction */
    if (cosine > 0 && nelev[5] == (float) OUTSIDEBASIN)
@@ -212,10 +211,15 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
      dir[n] = (int) ((effective_width / total_width) * 255.0 + 0.5);
      *total_dir += dir[n];
    }
+   free(sin);
+   free(cos);
    break;
  case 8:
     /* For the 8-neighbor case, there is a new option to route flow to 
        all downhill pixels based on slope, or just the single steepest */
+    
+    float total_drop;
+  
     if (MultiFlowDir){
       /* For MFD8 flow directions, water discharges to ALL of its downhill neighbors: 
          As with D8, this requires the DEM to be pre-filled for D8 routing scheme
@@ -261,8 +265,8 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
        to one located in the direction of steepest descent. This requires the DEM
        to be pre-filled for D8 routing scheme as any flat areas will confuse the model. */
       
-      steepest = -9999;
-      maxdrop = -9999;
+      float maxdrop = -9999; 
+      int steepest = -9999;
       
       /*Determine flow direction based on deepest drop */
       for (n = 0; n < NDIRS; n++) {
@@ -486,8 +490,9 @@ void HeadSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, SOILPIX ** SoilMap,
 				  neighbor_elev[n] = (float) OUTSIDEBASIN;
 			  }
 		  }
-		  slope_aspect(Map->DX, Map->DY, SoilMap[y][x].WaterLevel, neighbor_elev,
-		     &slope, &aspect);
+		  if (NDIRS==4)
+		    slope_aspect(Map->DX, Map->DY, SoilMap[y][x].WaterLevel, neighbor_elev,
+                   &slope, &aspect);
 		  flow_fractions(Map->DX, Map->DY, slope, aspect, SoilMap[y][x].WaterLevel, neighbor_elev,
 		       &(FlowGrad[y][x]), Dir[y][x], &(TotalDir[y][x]), MultiFlowDir); 
       }
