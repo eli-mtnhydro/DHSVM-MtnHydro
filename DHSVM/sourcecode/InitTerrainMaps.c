@@ -330,7 +330,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (!((*SoilMap)[y][x].FCap =
-            (float *)calloc(Soil->MaxLayers, sizeof(float *))))
+            (float *)calloc(Soil->MaxLayers + 1, sizeof(float *))))
         ReportError((char *)Routine, 1);
     }
   }
@@ -403,15 +403,28 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
       }
     }
   }
-
+  
+  /* Copy deep layer field capacity from deepest root layer */
+  NSet = Soil->MaxLayers;
+  for (y = 0, i = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++, i++) {
+      if (INBASIN((TopoMap)[y][x].Mask)) {
+        sidx = (*SoilMap)[y][x].Soil - 1;
+        if (NSet == Soil->NLayers[sidx]) {
+          (*SoilMap)[y][x].FCap[NSet] = (*SoilMap)[y][x].FCap[NSet - 1];
+        }
+      }            
+    }
+  }
+  
   /* Read the spatial porosity map */
   GetVarNumberType(013, &NumberType);
 
-  /*Allocate memory for porosity*/  
+  /*Allocate memory for porosity*/
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (!((*SoilMap)[y][x].Porosity =
-            (float *)calloc(Soil->MaxLayers, sizeof(float *))))
+            (float *)calloc(Soil->MaxLayers + 1, sizeof(float *))))
         ReportError((char *)Routine, 1);
     }
   }
@@ -487,6 +500,19 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
           }
         } 
       }
+    }
+  }
+  
+  /* Copy deep layer porosity from deepest root layer */
+  NSet = Soil->MaxLayers;
+  for (y = 0, i = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++, i++) {
+      if (INBASIN((TopoMap)[y][x].Mask)) {
+        sidx = (*SoilMap)[y][x].Soil - 1;
+        if (NSet == Soil->NLayers[sidx]) {
+          (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].Porosity[NSet - 1];
+        }
+      }            
     }
   }
 

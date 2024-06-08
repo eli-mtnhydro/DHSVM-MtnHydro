@@ -331,8 +331,8 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
             }
           }
           if (i < NSoil) {
-            if (SoilMap[y][x].Moist[i] < SType[SoilMap[y][x].Soil - 1].WP[NSoil - 1]) {
-              SoilMap[y][x].Moist[i] = SType[SoilMap[y][x].Soil - 1].WP[NSoil - 1];
+            if (SoilMap[y][x].Moist[i] < SType[SoilMap[y][x].Soil - 1].WP[i]) {
+              SoilMap[y][x].Moist[i] = SType[SoilMap[y][x].Soil - 1].WP[i];
             }
           }
         }
