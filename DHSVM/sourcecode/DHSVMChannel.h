@@ -53,7 +53,8 @@ void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL *channel, char *DumpPath);
 double ChannelCulvertFlow(int y, int x, CHANNEL *ChannelData);
 void RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 		  TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
-		  OPTIONSTRUCT *Options, ROADSTRUCT **Network, SOILTABLE *SType, 
+		  OPTIONSTRUCT *Options, ROADSTRUCT **Network, SOILTABLE *SType,
+		  VEGTABLE *VType, VEGPIX **VegMap,
 		  PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap);
 void ChannelCut(int y, int x, CHANNEL *ChannelData, ROADSTRUCT *Network);
 uchar ChannelFraction(TOPOPIX *topo, ChannelMapRec *rds);

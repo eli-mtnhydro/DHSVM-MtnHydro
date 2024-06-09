@@ -500,6 +500,22 @@ double channel_grid_cell_bankht(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
+ channel_grid_cell_maxbankheight
+ ------------------------------------------------------------- */
+float channel_grid_cell_maxbankht(ChannelMapPtr ** map, int col, int row)
+{
+  ChannelMapPtr cell = map[col][row];
+  float height = 0.0;
+  
+  while (cell != NULL) {
+    if (cell->cut_height > height)
+      height = cell->cut_height;
+    cell = cell->next;
+  }
+  return (height);
+}
+
+/* -------------------------------------------------------------
    channel_grid_inc_inflow
    Given a flow (or actually mass), this function increases the inflow
    any channel(s) in the cell in proportion to their length within the
@@ -576,7 +592,8 @@ double channel_grid_outflow(ChannelMapPtr ** map, int col, int row)
  subtracts it from the respective channel segments, and returns
  the total mass to be added to the soil pixel IExcess.
  ------------------------------------------------------------- */
-float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat, float TableDepth)
+float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat,
+                                float TableDepth, float MaxInfiltrationCap)
 {
   ChannelMapPtr cell = map[col][row];
   float infiltration; // From one channel segment
@@ -584,11 +601,20 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
   float cell_infiltration = 0.0; // From all channel segments in cell
   
   while (cell != NULL) {
+    
     if (TableDepth > cell->cut_height){
       
-      // Note infiltration_rate is in mm/s, so we convert to m/s then m^3
+      /* Note infiltration_rate is in mm/s, so we convert to m/s then m^3 */
       infiltration = (cell->infiltration_rate / 1000.0) * cell->cut_width * cell->length * deltat;
+      
       max_infiltration = cell->channel->storage * (cell->length / cell->channel->length);
+      if (max_infiltration > MaxInfiltrationCap)
+        max_infiltration = MaxInfiltrationCap;
+      
+      // if (col==117 && row==14)
+      //   printf("x %d y %d infiltration: %6.6f max_infiltration: %6.6f storage: %6.6f cut_width: %6.6f\n",
+      //          col, row, infiltration, max_infiltration, cell->channel->storage, cell->cut_width);
+      
       if (infiltration > max_infiltration)
         infiltration = max_infiltration;
       if (infiltration < 0.0)
@@ -597,6 +623,9 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
       cell->channel->infiltration += infiltration;
       cell->channel->storage -= infiltration;
       cell_infiltration += infiltration;
+      
+      
+      
     }
     cell = cell->next;
   }

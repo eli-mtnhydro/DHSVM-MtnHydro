@@ -63,6 +63,7 @@ int channel_grid_has_sink(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_length(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_width(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_bankht(ChannelMapPtr **map, int col, int row);
+float channel_grid_cell_maxbankht(ChannelMapPtr **map, int col, int row);
 
 void channel_grid_inc_inflow(ChannelMapPtr **map, int col, int row, float mass);
 void channel_grid_inc_melt(ChannelMapPtr **map, int col, int row, float mass);                                                                              
@@ -72,7 +73,8 @@ double channel_grid_flowlength(ChannelMapPtr **map, int col, int row,
 double channel_grid_flowslope(ChannelMapPtr **map, int col, int row);
 ChannelClass* channel_grid_class(ChannelMapPtr **map, int col, int row);
 
-float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat, float TableDepth);
+float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat,
+                                float TableDepth, float MaxInfiltrationCap);
 
 void channel_grid_free_map(ChannelMapPtr **map);
 
