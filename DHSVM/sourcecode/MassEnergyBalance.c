@@ -532,7 +532,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   LocalSoil->IExcess = SurfaceWater - Infiltration +
     RoadWater - RoadbedInfiltration;
 
-  if (LocalSoil->IExcess < 0.) {
+  if (LocalSoil->IExcess < -0.000001) {
     printf("MEB: SoilIExcess(%f), reset to 0\n", LocalSoil->IExcess);
     LocalSoil->IExcess = 0.;
   }

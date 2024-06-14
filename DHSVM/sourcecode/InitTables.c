@@ -86,6 +86,7 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
     "MAXIMUM INFILTRATION",
     "CAPILLARY DRIVE",
     "SURFACE ALBEDO",
+    "MANNINGS N",
     "NUMBER OF SOIL LAYERS",
     "POROSITY",
     "PORE SIZE DISTRIBUTION",
@@ -163,7 +164,10 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
 
     if (Soil->NLayers[i] > Soil->MaxLayers)
       Soil->MaxLayers = Soil->NLayers[i];
-
+    
+    if (!CopyFloat(&((*SType)[i].Manning), VarStr[manning], 1))
+      ReportError(KeyName[manning], 51);
+    
     /* allocate memory for the soil layers */
     if (!((*SType)[i].Porosity = (float *)calloc((*SType)[i].NLayers,
       sizeof(float))))

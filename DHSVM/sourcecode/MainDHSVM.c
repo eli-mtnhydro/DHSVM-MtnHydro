@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 	  {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},     /* SNOWPIX */ 
     {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL},			                /* SOILPIX */
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL},			                /* SOILPIX */
     {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0, 0.0
   };
@@ -379,7 +379,7 @@ int main(int argc, char **argv)
     if (Options.Extent == BASIN)
       RouteSurface(&Map, &Time, TopoMap, SoilMap, &Options,
         UnitHydrograph, &HydrographInfo, Hydrograph,
-        &Dump, VegMap, VType, &ChannelData);
+        &Dump, VegMap, VType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
 
 
 #endif

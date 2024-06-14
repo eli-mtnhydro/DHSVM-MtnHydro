@@ -116,7 +116,7 @@ enum CanopyType {
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
   format = 0, extent, gradient, flow_routing, routing_neighbors, routing_mfd,
-  sensible_heat_flux, infiltration, interpolation, mm5, qpf, prism, grid, canopy_radatt, 
+  sensible_heat_flux, routing, infiltration, interpolation, mm5, qpf, prism, grid, canopy_radatt, 
   shading, snotel, outside, rhoverride, precipitation_source, wind_source, 
   temp_lapse, precip_lapse, cressman_radius, cressman_stations, prism_data_path, 
   prism_data_ext, shading_data_path, shading_data_ext, skyview_data_path, 
@@ -162,7 +162,7 @@ enum KEYS {
   grid_met_file, file_prefix,
   /* Soil information */
   soil_description = 0, lateral_ks, exponent, depth_thresh, max_infiltration, capillary_drive,
-  soil_albedo, number_of_layers, porosity, pore_size, bubbling_pressure, field_capacity,
+  soil_albedo, manning, number_of_layers, porosity, pore_size, bubbling_pressure, field_capacity,
   wilting_point, bulk_density, vertical_ks, solids_thermal, thermal_capacity,
   /* Vegetation information */
   veg_description = 0, overstory, understory, fraction, hemifraction, trunk_space,

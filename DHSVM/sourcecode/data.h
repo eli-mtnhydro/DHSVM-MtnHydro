@@ -225,6 +225,7 @@ typedef struct {
   int WindSource;				/* Wind source indicator, either MODEL or STATION */
   int HeatFlux;					/* Specifies whether a sensible heat flux 
                            should be calculated, TRUE or FALSE */
+  int Routing;          /* Overland flow routing indicator, either CONVENTIONAL (FALSE) or KINEMATIC (TRUE) */
   int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
   int FlowGradient;			/* Specifies whether the flow gradient is based
                            on the terrain elevation (TOPOGRAPHY) or the 
@@ -411,6 +412,7 @@ typedef struct {
   float Ra;				/* Soil surface aerodynamic resistance (s/m) */
   float InfiltAcc;               /* Accumulated water in the top layer (m) */
   float MoistInit;               /* Initial moisture content when ponding begins (0-1) */
+  float startRunoff;             /* Surface water flux from the previous (sub) time step. Used for kinematic wave routing */
   float DetentionStorage;        /* amount of water kept in detention storage when impervious fraction > 0 */
   float DetentionIn;			 /* detention storage change in current time step */
   float DetentionOut;            /* water flow out of detention storage */
@@ -425,6 +427,7 @@ typedef struct {
   int Index;
   int NLayers;				/* Number of soil layers */
   float Albedo;				/* Albedo of the soil surface */
+  float Manning;      /* Manning's roughness of the soil surface */
   float *Porosity;			/* Soil porosity for each layer */
   float *PoreDist;			/* Pore size distribution for each layer */
   float *Press;				/* Soil bubbling pressure for each layer */

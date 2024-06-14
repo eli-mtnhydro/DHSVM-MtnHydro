@@ -72,6 +72,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "ROUTING NEIGHBORS", "", "8"},
     {"OPTIONS", "MULTIPLE FLOW DIRECTIONS", "", "TRUE"},
     {"OPTIONS", "SENSIBLE HEAT FLUX", "", ""},
+    {"OPTIONS", "OVERLAND ROUTING", "", ""},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
     {"OPTIONS", "MM5", "", ""},
@@ -243,6 +244,14 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->HeatFlux = FALSE;
   else
     ReportError(StrEnv[sensible_heat_flux].KeyName, 51);
+ 
+  /* Determine overland flow routing method to use */
+  if (strncmp(StrEnv[routing].VarStr, "KINEMATIC", 9) == 0)
+    Options->Routing = TRUE;
+  else if (strncmp(StrEnv[routing].VarStr, "CONVENTIONAL", 12) == 0)
+    Options->Routing = FALSE;
+  else
+    ReportError(StrEnv[routing].KeyName, 51);
  
   /* Determine if the maximum infiltration rate is static or dynamic */
   if (strncmp(StrEnv[infiltration].VarStr, "STATIC", 6) == 0) {

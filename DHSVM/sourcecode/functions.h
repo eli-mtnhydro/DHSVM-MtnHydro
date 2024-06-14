@@ -93,8 +93,8 @@ unsigned char fequal(float a, float b);
 
 void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass);
 
-float FindDTRoad(ROADSTRUCT **Network, TIMESTRUCT *Time, int y, int x, 
-		 float dx, float beta, float alpha);
+float FindDT(SOILPIX **SoilMap, MAPSIZE *Map, TIMESTRUCT *Time, 
+             TOPOPIX **TopoMap, SOILTABLE *SType); 
 
 void GenerateScales(MAPSIZE *Map, int NumberType, void **XScale,
 		    void **YScale);
@@ -337,7 +337,8 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
   SOILPIX ** SoilMap, OPTIONSTRUCT *Options,
   UNITHYDR ** UnitHydrograph, UNITHYDRINFO * HydrographInfo, float *Hydrograph,
-  DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE * VType, CHANNEL *ChannelData);
+  DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE * VType, SOILTABLE *SType, CHANNEL *ChannelData,
+  float Tair, float Rh);
 
 float SatVaporPressure(float Temperature);
 
