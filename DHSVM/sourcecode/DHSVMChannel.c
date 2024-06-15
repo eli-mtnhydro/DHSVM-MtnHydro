@@ -200,7 +200,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 	     VEGTABLE *VType, VEGPIX **VegMap,
 	     PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap)
 {
-  int x, y;
+  int k, x, y;
   int flag;
   char buffer[32];
   float CulvertFlow;
@@ -271,62 +271,49 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   if (ChannelData->streams != NULL) {
     
     /* Account for infiltration out of streams that are above the water table */
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+    /* Loop thru all of the cells in descending order of elevation */
+    for (k = (Map->NumCells - 1); k > -1;  k--) {
+      y = Map->OrderedCells[k].y;
+      x = Map->OrderedCells[k].x;
+      
+      if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+        
+        /* Only allow stream re-infiltration if water table is below deepest channel */
+        max_bank_height = channel_grid_cell_maxbankht(ChannelData->stream_map, x, y);
+        if (SoilMap[y][x].TableDepth > max_bank_height){
+          
+          /* Find maximum amount of water that can be added to subsurface */
+          /* So that water table just reaches bottom of lowest channel cut */
+          MaxInfiltrationCap = 0.0;
+          Depth = 0.0;
+          for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < SoilMap[y][x].Depth; i++) {
+            if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
+              Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
+            else
+              Depth = SoilMap[y][x].Depth;
             
-            /* Only allow stream re-infiltration if water table is below deepest channel */
-            max_bank_height = channel_grid_cell_maxbankht(ChannelData->stream_map, x, y);
-            if (SoilMap[y][x].TableDepth > max_bank_height){
-              
-              /* Find maximum amount of water that can be added to subsurface */
-              /* So that water table just reaches bottom of lowest channel cut */
-              MaxInfiltrationCap = 0.0;
-              Depth = 0.0;
-              for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < SoilMap[y][x].Depth; i++) {
-                if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
-                  Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
-                else
-                  Depth = SoilMap[y][x].Depth;
-                
-                // if (x==117 && y==14)
-                //   printf("x %d y %d layer %d Depth: %6.6f MaxInfiltrationCap: %6.6f\n",
-                //          x, y, i, Depth, MaxInfiltrationCap);
-                
-                if (Depth > max_bank_height){
-                  EffThickness = ((Depth - max_bank_height) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
-                                    (Depth - max_bank_height) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
-                  MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
-                }
-              }
-              /* Also add deep layer water capacity if water table is below root zone layers */
-              if (SoilMap[y][x].TableDepth > Depth){
-                i = SType[SoilMap[y][x].Soil - 1].NLayers - 1;
-                MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
-              }
-              
-              // if (x==117 && y==14)
-              //   printf("x %d y %d layer %d Depth: %6.6f MaxInfiltrationCap: %6.6f\n",
-              //          x, y, i, Depth, MaxInfiltrationCap);
-              
-              MaxInfiltrationCap *= Map->DX * Map->DY;
-              
-              StreamInfiltration = channel_grid_infiltration(ChannelData->stream_map, x, y, Time->Dt,
-                                                             SoilMap[y][x].TableDepth, MaxInfiltrationCap);
-              
-              StreamInfiltration /= Map->DX * Map->DY;
-              
-              // printf("%6.6f Stream Infiltration (m)\n\n", StreamInfiltration);
-              
-              SoilMap[y][x].SatFlow += StreamInfiltration;
-              SoilMap[y][x].ChannelInfiltration += StreamInfiltration;
-              
-              // if (x==117 && y==14)
-              //   printf("x %d y %d SatFlow: %6.6f ChannelInfiltration: %6.6f\n\n",
-              //          x, y, SoilMap[y][x].SatFlow, SoilMap[y][x].ChannelInfiltration);
+            if (Depth > max_bank_height){
+              EffThickness = ((Depth - max_bank_height) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
+                                (Depth - max_bank_height) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
+              MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
             }
           }
+          /* Also add deep layer water capacity if water table is below root zone layers */
+          if (SoilMap[y][x].TableDepth > Depth){
+            i = SType[SoilMap[y][x].Soil - 1].NLayers - 1;
+            MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
+          }
+          
+          MaxInfiltrationCap *= Map->DX * Map->DY;
+          
+          StreamInfiltration = channel_grid_infiltration(ChannelData->stream_map, x, y, Time->Dt,
+                                                         SoilMap[y][x].TableDepth, MaxInfiltrationCap);
+          
+          StreamInfiltration /= Map->DX * Map->DY;
+          
+          SoilMap[y][x].SatFlow += StreamInfiltration;
+          SoilMap[y][x].ChannelInfiltration += StreamInfiltration;
+          
         }
       }
     }
