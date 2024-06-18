@@ -70,7 +70,7 @@ int main(int argc, char **argv)
   int *which_graphics;			/* which graphics for X11 */
 
   AGGREGATED Total = {			/* Total or average value of a  variable over the entire basin */
-    {0.0, NULL, NULL, NULL, NULL, 0.0},												/* EVAPPIX */
+    {0.0, NULL, NULL, NULL, NULL, 0.0, 0.0},												/* EVAPPIX */
     {0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0.0, 0, 0.0},								/* PRECIPPIX */
     {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
                                                                                 /* PIXRAD */
@@ -114,7 +114,7 @@ int main(int argc, char **argv)
   VEGTABLE *VType = NULL;
   DYNAVEG DVeg;
   WATERBALANCE Mass =			/* parameter for mass balance calculations */
-    {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
 
 /*****************************************************************************

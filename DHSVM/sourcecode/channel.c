@@ -257,6 +257,7 @@ static Channel *alloc_channel_segment(void)
   seg->outflow = 0.0;
   seg->storage = 0.0;
   seg->infiltration = 0.0;
+  seg->evaporation = 0.0;
   seg->outlet = NULL;
   seg->next = NULL;
 
@@ -565,6 +566,7 @@ int channel_step_initialize_network(Channel *net)
     net->last_outflow = net->outflow;
     net->last_storage = net->storage;
     net->infiltration = 0.0;
+    net->evaporation = 0.0;
 
     /* Initialzie variables for John's RBM model */ 
     net->ILW = 0.; /* incident longwave radiation */
@@ -612,6 +614,7 @@ int
   float total_storage_change = 0.0;
   float total_error = 0.0;
   float total_infiltration = 0.0;
+  float total_evaporation = 0.0;
 
   if (flag == 1) {
     fprintf(out2, "DATE ");
@@ -641,11 +644,12 @@ int
     total_storage += net->storage;
     total_storage_change += net->storage - net->last_storage;
     total_infiltration += net->infiltration;
+    total_evaporation += net->evaporation;
 
     if (net->record) {
-      if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g",
+      if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g",
         tstring, net->id, net->inflow, net->lateral_inflow,
-        net->outflow, net->storage - net->last_storage, net->infiltration) == EOF) {
+        net->outflow, net->storage - net->last_storage, net->infiltration, net->evaporation) == EOF) {
           error_handler(ERRHDL_ERROR,
             "channel_save_outflow: write error:%s", strerror(errno));
           err++;
@@ -674,15 +678,16 @@ int
       }
     }
     
-    /* Reset the segment infiltration tracker
+    /* Reset the segment infiltration and evaporation trackers
     (only used for text reporting, not mass balance) */
     net->infiltration = 0.0;
+    net->evaporation = 0.0;
   }
-  total_error = total_storage_change - total_lateral_inflow + total_outflow + total_infiltration;
-  if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g \"Totals\"\n",
+  total_error = total_storage_change - total_lateral_inflow + total_outflow + total_infiltration + total_evaporation;
+  if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g \"Totals\"\n",
     tstring, 0, total_lateral_inflow,
     total_outflow, total_storage,
-    total_storage_change, total_infiltration, total_error) == EOF) {
+    total_storage_change, total_infiltration, total_evaporation, total_error) == EOF) {
       error_handler(ERRHDL_ERROR,
         "channel_save_outflow: write error:%s", strerror(errno));
       err++;

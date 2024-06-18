@@ -23,8 +23,8 @@ ReadMetRecord.o ReadRadarMap.o ReportError.o ResetAggregate.o	     \
 RootBrent.o Round.o RouteSubSurface.o RouteSurface.o   \
 SatVaporPressure.o SensibleHeatFlux.o SeparateRadiation.o SizeOfNT.o \
 SlopeAspect.o SnowInterception.o SnowMelt.o SnowPackEnergyBalance.o \
-SoilEvaporation.o StabilityCorrection.o StoreModelState.o	     \
-SurfaceEnergyBalance.o UnsaturatedFlow.o VarID.o WaterTableDepth.o  \
+StabilityCorrection.o StoreModelState.o	SurfaceEnergyBalance.o      \
+SurfaceEvaporation.o UnsaturatedFlow.o VarID.o WaterTableDepth.o  \
 channel.o channel_grid.o equal.o errorhandler.o globals.o tableio.o \
 channel_complt.o RiparianShading.o CanopyGapEnergyBalance.o deg2utm.o \
 CanopyGapRadiation.o Avalanche.o DistributeSatflow.o InitParameterMaps.o\
@@ -272,8 +272,6 @@ SnowMelt.o: SnowMelt.c brent.h constants.h settings.h massenergy.h \
 SnowPackEnergyBalance.o: SnowPackEnergyBalance.c settings.h \
  constants.h massenergy.h data.h Calendar.h snow.h functions.h \
  DHSVMChannel.h getinit.h channel.h channel_grid.h
-SoilEvaporation.o: SoilEvaporation.c settings.h DHSVMerror.h \
- massenergy.h data.h Calendar.h constants.h
 StabilityCorrection.o: StabilityCorrection.c settings.h massenergy.h \
  data.h Calendar.h constants.h
 StoreModelState.o: StoreModelState.c settings.h data.h Calendar.h \
@@ -281,6 +279,8 @@ StoreModelState.o: StoreModelState.c settings.h data.h Calendar.h \
  channel_grid.h constants.h sizeofnt.h varid.h
 SurfaceEnergyBalance.o: SurfaceEnergyBalance.c settings.h massenergy.h \
  data.h Calendar.h constants.h
+SurfaceEvaporation.o: SurfaceEvaporation.c settings.h DHSVMerror.h \
+ massenergy.h data.h Calendar.h constants.h DHSVMChannel.h
 UnsaturatedFlow.o: UnsaturatedFlow.c constants.h settings.h \
  functions.h data.h Calendar.h DHSVMChannel.h getinit.h channel.h \
  channel_grid.h soilmoisture.h 

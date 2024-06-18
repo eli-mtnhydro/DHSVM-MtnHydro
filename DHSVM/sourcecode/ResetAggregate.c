@@ -46,6 +46,7 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
       Total->Evap.ESoil[i][j] = 0.0;
   }
   Total->Evap.EvapSoil = 0.0;
+  Total->Evap.EvapChannel = 0.0;
 
   /* initialize precipitation data */
   Total->Precip.Precip = 0.0;

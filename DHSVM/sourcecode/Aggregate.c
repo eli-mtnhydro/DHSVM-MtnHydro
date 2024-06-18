@@ -78,6 +78,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 			  }
 		  }
 		  Total->Evap.EvapSoil += Evap[y][x].EvapSoil;
+		  Total->Evap.EvapChannel += Evap[y][x].EvapChannel;
 		  
 		  /* aggregate precipitation data */
 		  Total->Precip.Precip += Precip[y][x].Precip;
@@ -201,7 +202,8 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
       Total->Evap.ESoil[i][j] /= NPixels;
     }
   }
-  Total->Evap.EvapSoil /= NPixels;;
+  Total->Evap.EvapSoil /= NPixels;
+  Total->Evap.EvapChannel /= NPixels;
 
   /* average precipitation data */
   Total->Precip.Precip /= NPixels;

@@ -208,7 +208,7 @@ Purpose      : Calculate the ET
 void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
   VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil, PIXMET *LocalMet,
   EVAPPIX *LocalEvap, ROADSTRUCT *LocalNetwork, int Dt, float UpperRa,
-  float LowerRa)
+  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData)
 {
   float NetRadiation;		/* Total Net long- and shortwave radiation (W/m2) */
   float Rp;					/* radiation flux in visible part of the spectrum (W/m^2) */
@@ -236,7 +236,19 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
     (*Gap)[Opening].NetRadiation[0] = 0;
     (*Gap)[Opening].NetRadiation[1] = 0.;
   }
-
+  
+  /* Calculate open water evaporation from surface ponding if present */
+  if ((*Gap)[Opening].HasSnow != TRUE && LocalSoil->IExcess > 0.) {
+    NetRadiation = (*Gap)[Opening].NetShort[1] + (*Gap)[Opening].LongIn[1] - (*Gap)[Opening].LongOut[1];
+    
+    (*Gap)[Opening].EvapSoil =
+      PondEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                      (*Gap)[Opening].MoistureFlux, &(LocalSoil->IExcess));
+  }
+  else
+    (*Gap)[Opening].EvapSoil = 0.0;
+  
   /* Calculate soil evaporation from the upper soil layer if no snow is
   present and there is no understory */
   if ((*Gap)[Opening].HasSnow != TRUE && VType->UnderStory != TRUE) {
@@ -244,19 +256,31 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
       (*Gap)[Opening].NetShort[1] + (*Gap)[Opening].LongIn[1] - (*Gap)[Opening].LongOut[1];
     (*Gap)[Opening].NetRadiation[1] = NetRadiation;
     (*Gap)[Opening].NetRadiation[0] = 0.;
-    (*Gap)[Opening].EvapSoil =
+    (*Gap)[Opening].EvapSoil +=
     SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
-        NetRadiation, UpperRa, (*Gap)[Opening].MoistureFlux, LocalSoil->Porosity[0],
-        LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
+        NetRadiation, LowerRa, ((*Gap)[Opening].MoistureFlux + (*Gap)[Opening].EvapSoil),
+        LocalSoil->Porosity[0], LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
         VType->RootDepth[0], &((*Gap)[Opening].Moist[0]),
         LocalNetwork->Adjust[0]);
   }
-  else
-    (*Gap)[Opening].EvapSoil = 0.0;
 
   (*Gap)[Opening].MoistureFlux += (*Gap)[Opening].EvapSoil;
   (*Gap)[Opening].ETot += (*Gap)[Opening].EvapSoil;
+  
+  /* Calculate open water evaporation from the stream channel */
+  if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+    NetRadiation = (*Gap)[Opening].NetShort[1] + (*Gap)[Opening].LongIn[1] - (*Gap)[Opening].LongOut[1];
+    (*Gap)[Opening].EvapChannel =
+      ChannelEvaporation(Dt, (DX*DY), LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                         (*Gap)[Opening].MoistureFlux, x, y, ChannelData);
+  }
+  else
+    (*Gap)[Opening].EvapChannel = 0.0;
+  
+  (*Gap)[Opening].MoistureFlux += (*Gap)[Opening].EvapChannel;
+  (*Gap)[Opening].ETot += (*Gap)[Opening].EvapChannel;
 }
 
 /*****************************************************************************
@@ -357,7 +381,7 @@ Purpose      :
 void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap, 
   SOILTABLE *SType, VEGTABLE *VType, PIXRAD *LocalRad, PIXMET *LocalMet, 
   SOILPIX *LocalSoil, ROADSTRUCT *LocalNetwork, float UpperRa, float LowerRa,
-  VEGPIX *LocalVeg)
+  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData)
 
 {
   float Rp;
@@ -393,28 +417,67 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
       (*Gap)[Forest].NetRadiation[1] = 0.;
     }
   }
-
+  
+  /* Calculate open water evaporation from surface ponding if present */
+  if ((*Gap)[Forest].HasSnow != TRUE && LocalSoil->IExcess > 0.) {
+    if (VType->OverStory == TRUE && VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
+    else if (VType->OverStory == TRUE && VType->UnderStory != TRUE)
+      NetRadiation = (*Gap)[Forest].NetShort[1] + (*Gap)[Forest].LongIn[1] - (*Gap)[Forest].LongOut[1];
+    else if (VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
+    else
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
+    
+    (*Gap)[Forest].EvapSoil =
+      PondEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                      (*Gap)[Forest].MoistureFlux, &(LocalSoil->IExcess));
+  }
+  else
+    (*Gap)[Forest].EvapSoil = 0.0;
+  
   /* Calculate soil evaporation from the upper soil layer if no snow is
-  present and there is no understory */
+   present and there is no understory */
   if ((*Gap)[Forest].HasSnow != TRUE && VType->UnderStory != TRUE) {
     if (VType->OverStory == TRUE) {
       NetRadiation =
         (*Gap)[Forest].NetShort[1] + (*Gap)[Forest].LongIn[1] - (*Gap)[Forest].LongOut[1];
       (*Gap)[Forest].NetRadiation[1] = NetRadiation;
     }
-    (*Gap)[Forest].EvapSoil =
-    SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-        LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
-        NetRadiation, LowerRa, (*Gap)[Forest].MoistureFlux, LocalSoil->Porosity[0],
-        LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
-        VType->RootDepth[0], &((*Gap)[Forest].Moist[0]),
-        LocalNetwork->Adjust[0]);
+    (*Gap)[Forest].EvapSoil +=
+      SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
+                      NetRadiation, LowerRa, ((*Gap)[Forest].MoistureFlux + (*Gap)[Forest].EvapSoil),
+                      LocalSoil->Porosity[0], LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
+                      VType->RootDepth[0], &((*Gap)[Forest].Moist[0]),
+                      LocalNetwork->Adjust[0]);
   }
-  else
-    (*Gap)[Forest].EvapSoil = 0.0;
 
   (*Gap)[Forest].MoistureFlux += (*Gap)[Forest].EvapSoil;
   (*Gap)[Forest].ETot += (*Gap)[Forest].EvapSoil;
+  
+  /* Calculate open water evaporation from the stream channel */
+  if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+    if (VType->OverStory == TRUE && VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
+    else if (VType->OverStory == TRUE && VType->UnderStory != TRUE)
+      NetRadiation = (*Gap)[Forest].NetShort[1] + (*Gap)[Forest].LongIn[1] - (*Gap)[Forest].LongOut[1];
+    else if (VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
+    else
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
+    
+    (*Gap)[Forest].EvapChannel =
+      ChannelEvaporation(Dt, (DX*DY), LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                         (*Gap)[Forest].MoistureFlux, x, y, ChannelData);
+  }
+  else
+    (*Gap)[Forest].EvapChannel = 0.0;
+  
+  (*Gap)[Forest].MoistureFlux += (*Gap)[Forest].EvapChannel;
+  (*Gap)[Forest].ETot += (*Gap)[Forest].EvapChannel;
 }
 
 /*****************************************************************************

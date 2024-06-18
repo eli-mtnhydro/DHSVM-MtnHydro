@@ -611,10 +611,6 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
       if (max_infiltration > MaxInfiltrationCap)
         max_infiltration = MaxInfiltrationCap;
       
-      // if (col==117 && row==14)
-      //   printf("x %d y %d infiltration: %6.6f max_infiltration: %6.6f storage: %6.6f cut_width: %6.6f\n",
-      //          col, row, infiltration, max_infiltration, cell->channel->storage, cell->cut_width);
-      
       if (infiltration > max_infiltration)
         infiltration = max_infiltration;
       if (infiltration < 0.0)
@@ -623,15 +619,52 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
       cell->channel->infiltration += infiltration;
       cell->channel->storage -= infiltration;
       cell_infiltration += infiltration;
-      
-      
-      
     }
     cell = cell->next;
   }
-  // printf("%6.6f Stream Infiltration (m^3)\n", cell_infiltration);
-  
   return cell_infiltration;
+}
+
+/* -------------------------------------------------------------
+ channel_grid_evaporation
+ If the channel(s) within the cell have nonzero water storage,
+ this function totals the mass of evaporation from the channel(s),
+ subtracts it from the respective channel segments, and returns
+ the total mass to be added to the channel evaporation.
+ ------------------------------------------------------------- */
+float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
+                                float EPot, float MaxEvapCap)
+{
+  ChannelMapPtr cell = map[col][row];
+  float evaporation; // From one channel segment
+  float max_evaporation;
+  float cell_evaporation = 0.0; // From all channel segments in cell
+  
+  while (cell != NULL) {
+    
+    if (cell->channel->storage > 0.0){
+      
+      evaporation = EPot * cell->cut_width * cell->length;
+      
+      max_evaporation = cell->channel->storage * (cell->length / cell->channel->length);
+      if (max_evaporation > MaxEvapCap)
+        max_evaporation = MaxEvapCap;
+      
+      if (evaporation > max_evaporation)
+        evaporation = max_evaporation;
+      if (evaporation < 0.0)
+        evaporation = 0.0;
+      
+      cell->channel->evaporation += evaporation;
+      cell->channel->storage -= evaporation;
+      cell_evaporation += evaporation;
+      
+      /* Keep track of remaining total grid cell EPot */
+      MaxEvapCap -= evaporation;
+    }
+    cell = cell->next;
+  }
+  return cell_evaporation;
 }
 
 /* -------------------------------------------------------------

@@ -397,7 +397,26 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     LocalRad->NetRadiation[0] = 0;
     LocalRad->NetRadiation[1] = 0.;
   }
-
+  
+  /* Calculate open water evaporation from surface ponding if present */
+  if (LocalSnow->HasSnow != TRUE && LocalSoil->IExcess > 0.) {
+    if (VType->OverStory == TRUE && VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
+    else if (VType->OverStory == TRUE && VType->UnderStory != TRUE)
+      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalRad->LongOut[1];
+    else if (VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
+    else
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
+    
+    LocalEvap->EvapSoil =
+      PondEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                      LocalVeg->MoistureFlux, &(LocalSoil->IExcess));
+  }
+  else
+    LocalEvap->EvapSoil = 0.0;
+  
   /* Calculate soil evaporation from the upper soil layer if no snow is
      present and there is no understory */
   if (LocalSnow->HasSnow != TRUE && VType->UnderStory != TRUE) {
@@ -412,31 +431,56 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       LocalRad->NetRadiation[0] = NetRadiation;
       LocalRad->NetRadiation[1] = 0.;
     }
-    LocalEvap->EvapSoil =
+    /* New: SoilEvaporation is added to the pre-existing value of EvapSoil,
+       which is either equal to SurfaceEvaporation or 0. */
+    LocalEvap->EvapSoil +=
       SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
-      NetRadiation, LowerRa, LocalVeg->MoistureFlux, LocalSoil->Porosity[0],
-      LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
+      NetRadiation, LowerRa, (LocalVeg->MoistureFlux + LocalEvap->EvapSoil),
+      LocalSoil->Porosity[0], LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
       VType->RootDepth[0], &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
   }
-  else
-    LocalEvap->EvapSoil = 0.0;
-
+  
   LocalVeg->MoistureFlux += LocalEvap->EvapSoil;
   LocalEvap->ETot += LocalEvap->EvapSoil;
-
+  
+  /* Calculate open water evaporation from the stream channel */
+  /* Note that it is assumed that the channel itself is always snow-free */
+  if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+    if (VType->OverStory == TRUE && VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
+    else if (VType->OverStory == TRUE && VType->UnderStory != TRUE)
+      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalRad->LongOut[1];
+    else if (VType->UnderStory == TRUE)
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
+    else
+      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
+    
+    LocalEvap->EvapChannel =
+      ChannelEvaporation(Dt, (DX*DY), LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+      LocalVeg->MoistureFlux, x, y, ChannelData);
+  }
+  else
+    LocalEvap->EvapChannel = 0.0;
+  
+  LocalVeg->MoistureFlux += LocalEvap->EvapChannel;
+  LocalEvap->ETot += LocalEvap->EvapChannel;
+  
   /* with canopy gaps */
   if (LocalVeg->Gapping > 0.0) {
 
     CalcGapSurroudingET(Dt, &(LocalVeg->Type), SType, VType, LocalRad, LocalMet,
-      LocalSoil, LocalNetwork, UpperRa, LowerRa, LocalVeg);
+      LocalSoil, LocalNetwork, UpperRa, LowerRa, LocalVeg,
+      DX, DY, x, y, ChannelData);
 
     /* update wind and aero resistance for gap opening */
     LowerWind = LocalVeg->Type[Opening].U[1] * LocalMet->Wind;
     LowerRa = LocalVeg->Type[Opening].Ra[1] / LocalMet->Wind;
 
     CalcCanopyGapET(&(LocalVeg->Type), MaxSoilLayers, VType, LocalVeg, SType,
-      LocalSoil, LocalMet, LocalEvap, LocalNetwork, Dt, UpperRa, LowerRa);
+      LocalSoil, LocalMet, LocalEvap, LocalNetwork, Dt, UpperRa, LowerRa,
+      DX, DY, x, y, ChannelData);
 
   }
 #endif

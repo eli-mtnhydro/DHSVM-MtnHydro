@@ -18,6 +18,7 @@
 
 #include "data.h"
 #include <stdarg.h>
+#include "DHSVMChannel.h"
 
 void AggregateRadiation(int MaxVegLayers, int NVegL, PIXRAD * Rad,
 			PIXRAD * TotalRad);
@@ -67,13 +68,19 @@ void ShortwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
               float F, float Rs, float Rsb, float Rsd, float Tau,
               float Taud, float *Albedo, PIXRAD * LocalRad);
 
+float PondEvaporation(int Dt, float Temp, float Slope, float Gamma,
+                      float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
+                      float Evapotranspiration, float *IExcess);
 
-float SoilEvaporation(int Dt, float Temp, float Slope, float Gamma, 
-              float Lv, float AirDens, float Vpd, float NetRad, 
-              float RaSoil, float Transpiration, float Porosity,
-              float Fcap, float Ks,
-		      float Press, float m, float RootDepth, float *MoistContent, 
-              float Adjust);
+float ChannelEvaporation(int Dt, float DXDY, float Temp, float Slope, float Gamma,
+                         float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
+                         float Evapotranspiration, int x, int y, CHANNEL *ChannelData);
+
+float SoilEvaporation(int Dt, float Temp, float Slope, float Gamma, float Lv,
+                      float AirDens, float Vpd, float NetRad, float RaSoil,
+                      float Evapotranspiration, float Porosity, float FCap, float Ks,
+                      float Press, float m, float RootDepth,
+                      float *MoistContent, float Adjust);
 
 float StabilityCorrection(float Z, float d, float Tsurf, float Tair,
 			  float Wind, float Z0);

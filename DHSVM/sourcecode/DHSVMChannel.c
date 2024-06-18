@@ -354,6 +354,44 @@ void ChannelCut(int y, int x, CHANNEL * ChannelData, ROADSTRUCT * Network)
 }
 
 /* -------------------------------------------------------------
+ ChannelLimitVegFC
+ adjusts fractional cover (FC) if necessary
+ so that FC does not exceed 1 - channel area / cell area
+ ------------------------------------------------------------- */
+void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
+                       VEGTABLE *VType, VEGPIX *LocalVeg)
+{
+  float cut_area = 0.0;
+  float FCmax = 0.0;
+  
+  /* Only understory FC is limited, while overstory FC can be > FCmax
+   since riparian forest canopies may overhang the stream channel */
+  
+  if (channel_grid_has_channel(ChannelData->stream_map, x, y) &&
+      VType->UnderStory == TRUE) {
+    
+    cut_area = channel_grid_cell_width(ChannelData->stream_map, x, y) * 
+      channel_grid_cell_length(ChannelData->stream_map, x, y);
+    
+    FCmax = 1. - cut_area / DXDY;
+    if (FCmax > 1.)
+      FCmax = 1.;
+    if (FCmax < 0.01) /* Require minimum of 1 percent FC if understory is present */
+      FCmax = 0.01;
+    
+    if (VType->OverStory == TRUE && LocalVeg->Fract[1] > FCmax) {
+      // printf("Warning: overriding understory FC %f with %f due to channel area\n",
+      //        LocalVeg->Fract[1],FCmax);
+      LocalVeg->Fract[1] = FCmax;
+    } else if (LocalVeg->Fract[0] > FCmax) {
+      // printf("Warning: overriding understory FC %f with %f due to channel area\n",
+      //        LocalVeg->Fract[0],FCmax);
+      LocalVeg->Fract[0] = FCmax;
+    }
+  }
+}
+
+/* -------------------------------------------------------------
    ChannelFraction
    This computes the (sub)surface flow fraction for a road
    ------------------------------------------------------------- */

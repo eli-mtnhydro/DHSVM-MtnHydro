@@ -47,7 +47,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
     Total->CanopyWater + Total->SoilWater +
     Total->Snow.Swq + Total->Soil.SatFlow + Total->Soil.DetentionStorage;
 
-  Output = (Mass->CumChannelInt - Mass->CumChannelInfiltration) +
+  Output = (Mass->CumChannelInt - Mass->CumChannelInfiltration - Mass->CumChannelEvap) +
     (Mass->CumRoadInt - Mass->CumCulvertReturnFlow) +
     Mass->CumET;
 
@@ -65,9 +65,13 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
   fprintf(stderr, "\n      Precip/Inflow ..............        %.3f", Mass->CumPrecipIn*1000); 
   fprintf(stderr, "\n      SnowVaporFlux ..............        %.3f", Mass->CumSnowVaporFlux*1000);
   fprintf(stderr, "\n  Total Outflow ..................        %.3f", Output*1000);
-  fprintf(stderr, "\n      ET .........................        %.3f", Mass->CumET*1000);   
-  fprintf(stderr, "\n      Channel Inflow..............        %.3f", Mass->CumChannelInt*1000);
-  fprintf(stderr, "\n      Channel Re-Infiltration.....       -%.3f", Mass->CumChannelInfiltration*1000); 
+  fprintf(stderr, "\n      ET .........................        %.3f", Mass->CumET*1000);
+  fprintf(stderr, "\n      Outlet Streamflow...........        %.3f", (Mass->CumChannelInt - 
+                                                                        Mass->CumChannelInfiltration -
+                                                                        Mass->CumChannelEvap)*1000);
+  fprintf(stderr, "\n          Channel Inflow..............    %.3f", Mass->CumChannelInt*1000);
+  fprintf(stderr, "\n          Channel Re-Infiltration.....    -%.3f", Mass->CumChannelInfiltration*1000);
+  fprintf(stderr, "\n          Channel Evaporation.........    -%.3f", Mass->CumChannelEvap*1000);
   fprintf(stderr, "\n      RoadInt ....................        %.3f", (Mass->CumRoadInt  -
                                                                         Mass->CumCulvertReturnFlow) * 1000);
   fprintf(stderr, "\n  Storage Change .................        %.3f", (NewWaterStorage - Mass->StartWaterStorage)*1000);
@@ -91,8 +95,12 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
   fprintf(Out->FilePtr, "\n      SnowVaporFlux ..............        %.3f", Mass->CumSnowVaporFlux*1000);
   fprintf(Out->FilePtr, "\n  Total Outflow ..................        %.3f", Output*1000);
   fprintf(Out->FilePtr, "\n      ET .........................        %.3f", Mass->CumET*1000);   
-  fprintf(Out->FilePtr, "\n      Channel Inflow..............        %.3f", Mass->CumChannelInt*1000);
-  fprintf(Out->FilePtr, "\n      Channel Re-Infiltration.....       -%.3f", Mass->CumChannelInfiltration*1000); 
+  fprintf(Out->FilePtr, "\n      Outlet Streamflow...........        %.3f", (Mass->CumChannelInt - 
+                                                                        Mass->CumChannelInfiltration -
+                                                                        Mass->CumChannelEvap)*1000);
+  fprintf(Out->FilePtr, "\n          Channel Inflow..............    %.3f", Mass->CumChannelInt*1000);
+  fprintf(Out->FilePtr, "\n          Channel Re-Infiltration.....    -%.3f", Mass->CumChannelInfiltration*1000);
+  fprintf(Out->FilePtr, "\n          Channel Evaporation.........    -%.3f", Mass->CumChannelEvap*1000);
   fprintf(Out->FilePtr, "\n      RoadInt ....................        %.3f", (Mass->CumRoadInt  -
                                                                         Mass->CumCulvertReturnFlow) * 1000);
   fprintf(Out->FilePtr, "\n  Storage Change .................        %.3f", (NewWaterStorage - Mass->StartWaterStorage)*1000);

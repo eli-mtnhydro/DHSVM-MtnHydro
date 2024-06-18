@@ -77,6 +77,7 @@ struct _channel_rec_ {
   float outflow;		/* cubic meters */
   float storage;		/* cubic meters */
   float infiltration;		/* cubic meters - completely separate from the road infiltration! */
+  float evaporation; /* cubic meters */
   float last_lateral_inflow;
   /* Added for John's RBM model */
   float ATP;	        /* Avg air temp (C) */

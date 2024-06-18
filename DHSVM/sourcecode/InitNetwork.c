@@ -78,12 +78,15 @@ void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
   numroads = 0;
 
   /* If a road/channel Network is imposed on the area, read the Network
-     information, and calculate the storage adjustment factors */
+     information, and calculate the storage adjustment factors; 
+     also limit overstory/understory fractional cover to 1 - channelfrac */
   if (Options->HasNetwork) {
     for (y = 0; y < NY; y++) {
       for (x = 0; x < NX; x++) {
         if (INBASIN(TopoMap[y][x].Mask)) {
           ChannelCut(y, x, ChannelData, &((*Network)[y][x]));
+          ChannelLimitVegFC(y, x, (DX*DY), ChannelData,
+            &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]));
           AdjustStorage(VType[VegMap[y][x].Veg - 1].NSoilLayers,
             SoilMap[y][x].Depth,
             VType[VegMap[y][x].Veg - 1].RootDepth,

@@ -75,6 +75,7 @@ typedef struct {
   float *EInt;			/* Evaporation from interception for each vegetation layer */
   float **ESoil;		/* Transpiration for each vegetation layer from each soil zone */
   float EvapSoil;		/* Evaporation from the upper soil layer */
+  float EvapChannel; /* Evaporation from the stream channel */
 } EVAPPIX;
 
 typedef struct {
@@ -510,6 +511,7 @@ typedef struct
                                 A negataive value indicates flux from snow -- sublimiation */
   float *Moist;			        /* Soil moisture content in layers (0-1) */
   float EvapSoil;		        /* Evaporation from the upper soil layer */
+  float EvapChannel;        /* Evaporation from the stream channel */
   float ETot;			        /* Total amount of evapotranspiration */
   float *EPot;			        /* Potential transpiration from each vegetation/soil layer */
   float *EAct;			        /* Actual transpiration from each vegetation soil layer */
@@ -615,6 +617,7 @@ typedef struct {
   float CumIExcess;
   float CumChannelInt;
   float CumChannelInfiltration;
+  float CumChannelEvap;
   float CumRoadInt;
   float CumSnowVaporFlux;
   float CumCulvertReturnFlow;
