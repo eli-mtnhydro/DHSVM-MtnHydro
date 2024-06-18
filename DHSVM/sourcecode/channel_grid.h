@@ -65,6 +65,11 @@ double channel_grid_cell_width(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_bankht(ChannelMapPtr **map, int col, int row);
 float channel_grid_cell_maxbankht(ChannelMapPtr **map, int col, int row);
 
+float channel_grid_saturated_inflow(ChannelMapPtr ** map, int col, int row,
+                                    float TableDepth,
+                                    float Transmissivity, float AvailableWater,
+                                    float DX, float DY, float Dt);
+
 void channel_grid_inc_inflow(ChannelMapPtr **map, int col, int row, float mass);
 void channel_grid_inc_melt(ChannelMapPtr **map, int col, int row, float mass);                                                                              
 double channel_grid_outflow(ChannelMapPtr **map, int col, int row);

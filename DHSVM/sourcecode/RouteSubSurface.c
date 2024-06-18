@@ -260,36 +260,28 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
         /* Compute stream interception if water table is above channel cut */
         if (SoilMap[y][x].TableDepth < BankHeight &&
         channel_grid_has_channel(ChannelData->stream_map, x, y)) {
-          float gradient = 4.0 * (BankHeight - SoilMap[y][x].TableDepth);
-          if (gradient < 0.0)
-            gradient = 0.0;
           Transmissivity =
             CalcTransmissivity(BankHeight, SoilMap[y][x].TableDepth,
                                SoilMap[y][x].KsLat,
                                SType[SoilMap[y][x].Soil - 1].KsLatExp,
                                SType[SoilMap[y][x].Soil - 1].DepthThresh);
           
-          water_out_stream = (Transmissivity * gradient * Dt) / (Map->DX * Map->DY);
-          
-          /* check whether enough water is available for redistribution */
           AvailableWater = 
-          CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-                             BankHeight, VType[VegMap[y][x].Veg - 1].RootDepth,
-                             SoilMap[y][x].Porosity,
-                             SoilMap[y][x].FCap, SoilMap[y][x].Moist,
-                             SoilMap[y][x].TableDepth, Adjust);
+            CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
+                               BankHeight, VType[VegMap[y][x].Veg - 1].RootDepth,
+                               SoilMap[y][x].Porosity,
+                               SoilMap[y][x].FCap, SoilMap[y][x].Moist,
+                               SoilMap[y][x].TableDepth, Adjust);
+          AvailableWater = AvailableWater - water_out_road;
           
-          water_out_stream = (water_out_stream > AvailableWater) ? AvailableWater : water_out_stream;
+          /* New method: contribute lateral inflow to each channel segment individually */
+          water_out_stream = channel_grid_saturated_inflow(ChannelData->stream_map, x, y,
+                                                           SoilMap[y][x].TableDepth,
+                                                           Transmissivity, AvailableWater,
+                                                           Map->DX, Map->DY, Dt);
+          water_out_stream /= (Map->DX * Map->DY);
           
-          if (water_out_stream + water_out_road > AvailableWater)
-            water_out_stream = AvailableWater - water_out_road;
-          if (water_out_stream < 0)
-            water_out_stream = 0.0;
-          
-          /* Contribute to channel segment lateral inflow */
           SoilMap[y][x].ChannelInt += water_out_stream;
-          channel_grid_inc_inflow(ChannelData->stream_map, x, y,
-                                  water_out_stream * Map->DX * Map->DY);
         }
         
         /* Subsurface Component - decrease water change only by as much

@@ -516,6 +516,58 @@ float channel_grid_cell_maxbankht(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
+   channel_grid_saturated_inflow
+   New method for calculating channel inflow from subsurface
+   taking into account the different cut depths so that only
+   channels with cut depth > water table get water
+ ------------------------------------------------------------- */
+float channel_grid_saturated_inflow(ChannelMapPtr ** map, int col, int row,
+                                    float TableDepth,
+                                    float Transmissivity, float AvailableWater,
+                                    float DX, float DY, float Dt)
+{
+  ChannelMapPtr cell = map[col][row];
+  float inflow; // Into one channel segment
+  float cell_inflow = 0.0; // Into all channel segments in cell
+  float max_inflow;
+  float eff_dist;
+  float drop;
+  float grad;
+  
+  max_inflow = AvailableWater * DX * DY;
+  
+  while (cell != NULL) {
+    if (cell->cut_height > TableDepth){
+      
+      /* Compute gradient from halfway between edge of cell and edge of channel */
+      /* But enforce upper limit of 1 m for steepest gradient calculation */
+      /* Assumes DX == DY */
+      eff_dist = (DX - cell->cut_width) / 4;
+      if (eff_dist < 1.0)
+        eff_dist = 1.0;
+      
+      /* Water can flow in from both sides of each channel segment */
+      drop = (cell->cut_height - TableDepth) / eff_dist;
+      grad = drop * (cell->length * 2);
+      
+      inflow = Transmissivity * grad * Dt;
+      
+      if (inflow > max_inflow)
+        inflow = max_inflow;
+      if (inflow < 0.0)
+        inflow = 0.0;
+      
+      max_inflow -= inflow;
+      
+      cell->channel->lateral_inflow += inflow;
+      cell_inflow += inflow;
+    }
+    cell = cell->next;
+  }
+  return (cell_inflow);
+}
+
+/* -------------------------------------------------------------
    channel_grid_inc_inflow
    Given a flow (or actually mass), this function increases the inflow
    any channel(s) in the cell in proportion to their length within the

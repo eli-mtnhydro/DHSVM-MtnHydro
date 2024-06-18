@@ -283,7 +283,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
             drop[n] = (celev - nelev[n]) / dx;
           
           if ((drop[n] < 0.0)&&(drop[n] > -0.001)){
-            //printf("Reset minor negative flow slope from %f to 0.0\n", drop[n]);
+            // printf("Reset minor negative flow slope from %f to 0.0\n", drop[n]);
             drop[n]=0.0;
           }
           
@@ -306,7 +306,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
           total_width = dx; 
       }
       else{
-        printf("one grid cell has minor sink, set flow width to cell size\n");
+        // printf("one grid cell has minor sink, set flow width to cell size\n");
         total_width = dx; 
       }
       *grad = slope * total_width;
