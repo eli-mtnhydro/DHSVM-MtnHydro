@@ -537,11 +537,15 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
   float eff_dist;
   float drop;
   float grad;
+  float water_depth;
   
   max_inflow = AvailableWater * DX * DY;
   
   while (cell != NULL) {
-    if (cell->cut_height > TableDepth){
+    
+    water_depth = cell->channel->storage / (cell->channel->length * cell->cut_width);
+    
+    if ((cell->cut_height - water_depth) > TableDepth){
       
       /* Compute gradient from halfway between edge of cell and edge of channel */
       /* But enforce upper limit of 1 m for steepest gradient calculation */
@@ -551,7 +555,7 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
         eff_dist = 1.0;
       
       /* Water can flow in from both sides of each channel segment */
-      drop = (cell->cut_height - TableDepth) / eff_dist;
+      drop = (cell->cut_height - TableDepth - water_depth) / eff_dist;
       grad = drop * (cell->length * 2);
       
       inflow = Transmissivity * grad * Dt;
