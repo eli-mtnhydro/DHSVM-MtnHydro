@@ -236,35 +236,38 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
                               ChannelData->roadout, ChannelData->roadflowout, flag);
   }
   
-  /* add culvert outflow to surface water */
-  /* ALSO add soil IExcess to the stream channels! */
+  /* Add IExcess and ChannelInt to stream channels (by descending elevation) */
+  /* Also add culvert outflow to surface water */
   Total->CulvertReturnFlow = 0.0;
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-		CulvertFlow = ChannelCulvertFlow(y, x, ChannelData);
-		CulvertFlow /= Map->DX * Map->DY;
-		
-		/* CulvertFlow = (CulvertFlow > 0.0) ? CulvertFlow : 0.0; */
-		if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
-		  channel_grid_inc_inflow(ChannelData->stream_map, x, y,
-				  (SoilMap[y][x].IExcess + CulvertFlow) * Map->DX * Map->DY);
-
-		  if (SnowMap[y][x].Outflow > SoilMap[y][x].IExcess)
+  for (k = (Map->NumCells - 1); k > -1;  k--) {
+    y = Map->OrderedCells[k].y;
+    x = Map->OrderedCells[k].x;
+    
+    CulvertFlow = ChannelCulvertFlow(y, x, ChannelData);
+    CulvertFlow /= Map->DX * Map->DY;
+    /* CulvertFlow = (CulvertFlow > 0.0) ? CulvertFlow : 0.0; */
+    
+    if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+      channel_grid_inc_inflow(ChannelData->stream_map, x, y,
+                              (SoilMap[y][x].IExcess + CulvertFlow) * Map->DX * Map->DY);
+      
+      channel_grid_satflow(ChannelData->stream_map, x, y);
+      
+      channel_grid_update_avail_storage(ChannelData->stream_map, x, y);
+      
+      if (SnowMap[y][x].Outflow > SoilMap[y][x].IExcess)
         temp = SoilMap[y][x].IExcess;
-		  else
+      else
         temp = SnowMap[y][x].Outflow;
-		  channel_grid_inc_melt(ChannelData->stream_map, x, y, temp * Map->DX * Map->DY);                                                                                  
-		  SoilMap[y][x].ChannelInt += SoilMap[y][x].IExcess;
-		  Total->CulvertToChannel += CulvertFlow;
-		  SoilMap[y][x].IExcess = 0.0f;
-		}
-		else {
-		  SoilMap[y][x].IExcess += CulvertFlow;
-		  Total->CulvertReturnFlow += CulvertFlow;
-		}
-  }
-  }
+      channel_grid_inc_melt(ChannelData->stream_map, x, y, temp * Map->DX * Map->DY);
+      SoilMap[y][x].ChannelInt += SoilMap[y][x].IExcess;
+      Total->CulvertToChannel += CulvertFlow;
+      SoilMap[y][x].IExcess = 0.0f;
+    }
+    else {
+      SoilMap[y][x].IExcess += CulvertFlow;
+      Total->CulvertReturnFlow += CulvertFlow;
+    }
   }
   
   /* route stream channels */
@@ -313,12 +316,12 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
           
           SoilMap[y][x].SatFlow += StreamInfiltration;
           SoilMap[y][x].ChannelInfiltration += StreamInfiltration;
-          
         }
       }
     }
     
     channel_route_network(ChannelData->streams, Time->Dt);
+    
     channel_save_outflow_text(buffer, ChannelData->streams,
 			      ChannelData->streamout,
 			      ChannelData->streamflowout, flag);

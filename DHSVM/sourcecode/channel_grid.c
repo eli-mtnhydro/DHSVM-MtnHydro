@@ -265,7 +265,7 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
     if (map[col][row] != NULL) {
       cell = map[col][row];
       while (cell->next != NULL)
-	cell = cell->next;
+        cell = cell->next;
       cell->next = alloc_channel_map_record();
       cell = cell->next;
     }
@@ -273,7 +273,7 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
       map[col][row] = alloc_channel_map_record();
       cell = map[col][row];
     }
-
+    
     for (i = 2; i < fields; i++) {
       if (map_fields[i].read) {
 	switch (i) {
@@ -323,6 +323,10 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
                    "%s, line %d: bad infiltration_rate", file, table_lineno());
 	    err++;
 	  }
+	  
+	  /* Initialize available storage for re-infiltration */
+	  cell->avail_storage = 0.0;
+	  
 	  break;
 	case 7:
 	  /* road aspect is read in degrees and
@@ -516,15 +520,15 @@ float channel_grid_cell_maxbankht(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
-   channel_grid_saturated_inflow
+ channel_grid_calc_satflow
    New method for calculating channel inflow from subsurface
    taking into account the different cut depths so that only
    channels with cut depth > water table get water
  ------------------------------------------------------------- */
-float channel_grid_saturated_inflow(ChannelMapPtr ** map, int col, int row,
-                                    float TableDepth,
-                                    float Transmissivity, float AvailableWater,
-                                    float DX, float DY, float Dt)
+float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
+                                float TableDepth,
+                                float Transmissivity, float AvailableWater,
+                                float DX, float DY, float Dt)
 {
   ChannelMapPtr cell = map[col][row];
   float inflow; // Into one channel segment
@@ -557,14 +561,28 @@ float channel_grid_saturated_inflow(ChannelMapPtr ** map, int col, int row,
       if (inflow < 0.0)
         inflow = 0.0;
       
-      max_inflow -= inflow;
-      
-      cell->channel->lateral_inflow += inflow;
+      cell->channel->satflow += inflow;
       cell_inflow += inflow;
+      max_inflow -= inflow;
     }
     cell = cell->next;
   }
   return (cell_inflow);
+}
+
+/* -------------------------------------------------------------
+ channel_grid_satflow
+ Transfer satflow to lateral inflow
+ ------------------------------------------------------------- */
+void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
+{
+  ChannelMapPtr cell = map[col][row];
+  
+  while (cell != NULL) {
+    cell->channel->lateral_inflow += cell->channel->satflow;
+    cell->channel->satflow = 0.0;
+    cell = cell->next;
+  }
 }
 
 /* -------------------------------------------------------------
@@ -638,6 +656,32 @@ double channel_grid_outflow(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
+ channel_grid_update_avail_storage
+ Updates the amount of water available for infiltration;
+ only water originating from inflow above the current cell
+ is eligible for infiltration at the current location.
+ ------------------------------------------------------------- */
+void channel_grid_update_avail_storage(ChannelMapPtr ** map, int col, int row)
+{
+  ChannelMapPtr cell = map[col][row];
+  float CellStorageFrac;
+  
+  while (cell != NULL) {
+    cell->avail_storage += (cell->channel->lateral_inflow +
+                            cell->channel->last_inflow) * (cell->length / cell->channel->length);
+    
+    if (cell->avail_storage < 0.0)
+      cell->avail_storage = 0.0;
+    
+    CellStorageFrac = cell->channel->storage * (cell->length / cell->channel->length);
+    if (cell->avail_storage > CellStorageFrac)
+      cell->avail_storage = CellStorageFrac;
+    
+    cell = cell->next;
+  }
+}
+
+/* -------------------------------------------------------------
  channel_grid_infiltration
  If the channel(s) within the cell are above the water table,
  this function totals the mass of infiltration from the channel(s),
@@ -649,7 +693,6 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
 {
   ChannelMapPtr cell = map[col][row];
   float infiltration; // From one channel segment
-  float max_infiltration;
   float cell_infiltration = 0.0; // From all channel segments in cell
   
   while (cell != NULL) {
@@ -659,15 +702,15 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
       /* Note infiltration_rate is in mm/s, so we convert to m/s then m^3 */
       infiltration = (cell->infiltration_rate / 1000.0) * cell->cut_width * cell->length * deltat;
       
-      max_infiltration = cell->channel->storage * (cell->length / cell->channel->length);
-      if (max_infiltration > MaxInfiltrationCap)
-        max_infiltration = MaxInfiltrationCap;
+      if (MaxInfiltrationCap > cell->avail_storage)
+        MaxInfiltrationCap = cell->avail_storage;
       
-      if (infiltration > max_infiltration)
-        infiltration = max_infiltration;
+      if (infiltration > MaxInfiltrationCap)
+        infiltration = MaxInfiltrationCap;
       if (infiltration < 0.0)
         infiltration = 0.0;
       
+      cell->avail_storage -= infiltration;
       cell->channel->infiltration += infiltration;
       cell->channel->storage -= infiltration;
       cell_infiltration += infiltration;
@@ -707,6 +750,7 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
       if (evaporation < 0.0)
         evaporation = 0.0;
       
+      cell->avail_storage -= evaporation;
       cell->channel->evaporation += evaporation;
       cell->channel->storage -= evaporation;
       cell_evaporation += evaporation;

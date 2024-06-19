@@ -249,6 +249,7 @@ static Channel *alloc_channel_segment(void)
   seg->length = 0.0;
   seg->slope = 0.0;
   seg->class2 = NULL;
+  seg->satflow = 0.0;
   seg->lateral_inflow = 0.0;
   seg->melt = 0.0;                  
   seg->last_inflow = 0.0;
@@ -501,12 +502,12 @@ static int channel_route_segment(Channel * segment, int deltat)
   int err = 0;
 
   /* change masses to rates */
-
+  
   last_inflow = segment->last_inflow / deltat;
   inflow = segment->inflow / deltat;
   last_outflow = segment->last_outflow / deltat;
   lateral_inflow = segment->lateral_inflow / deltat;
-
+  
   storage = ((inflow + lateral_inflow) / K) +
     (segment->storage - (inflow + lateral_inflow) / K) * X;
   if (storage < 0.0)
@@ -559,6 +560,7 @@ channel_step_initialize_network
 int channel_step_initialize_network(Channel *net)
 {
   if (net != NULL) {
+    
     net->last_inflow = net->inflow;
     net->inflow = 0.0;
     net->lateral_inflow = 0.0;
@@ -677,11 +679,6 @@ int
         }
       }
     }
-    
-    /* Reset the segment infiltration and evaporation trackers
-    (only used for text reporting, not mass balance) */
-    net->infiltration = 0.0;
-    net->evaporation = 0.0;
   }
   total_error = total_storage_change - total_lateral_inflow + total_outflow + total_infiltration + total_evaporation;
   if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g \"Totals\"\n",

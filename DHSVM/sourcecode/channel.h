@@ -69,6 +69,7 @@ struct _channel_rec_ {
   ChannelClass *class2;	/* ChannelClass identifier */
 
   /* necessary routing terms */
+  float satflow; /* cubic meters */
   float lateral_inflow;	/* cubic meters */
   float last_inflow;	/* cubic meters */
   float last_outflow;	/* cubic meters */

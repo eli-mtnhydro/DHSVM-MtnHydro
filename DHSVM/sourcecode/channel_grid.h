@@ -35,6 +35,7 @@ struct _channel_map_rec_ {
   char sink;			/* is this cell a channel sink? */
   float azimuth;        /* channel azimuth */
   float infiltration_rate; /* infiltration rate out of the bottom of the channel (mm/s) */
+  float avail_storage; /* amount of water (m^3) in segment that is derived from uphill */
   Channel *channel;		/* pointer to segment record */
 
   struct _channel_map_rec_ *next;
@@ -65,10 +66,10 @@ double channel_grid_cell_width(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_bankht(ChannelMapPtr **map, int col, int row);
 float channel_grid_cell_maxbankht(ChannelMapPtr **map, int col, int row);
 
-float channel_grid_saturated_inflow(ChannelMapPtr ** map, int col, int row,
-                                    float TableDepth,
-                                    float Transmissivity, float AvailableWater,
-                                    float DX, float DY, float Dt);
+float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
+                                float TableDepth,
+                                float Transmissivity, float AvailableWater,
+                                float DX, float DY, float Dt);
 
 void channel_grid_inc_inflow(ChannelMapPtr **map, int col, int row, float mass);
 void channel_grid_inc_melt(ChannelMapPtr **map, int col, int row, float mass);                                                                              
@@ -78,6 +79,7 @@ double channel_grid_flowlength(ChannelMapPtr **map, int col, int row,
 double channel_grid_flowslope(ChannelMapPtr **map, int col, int row);
 ChannelClass* channel_grid_class(ChannelMapPtr **map, int col, int row);
 
+void channel_grid_update_avail_storage(ChannelMapPtr ** map, int col, int row);
 float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int deltat,
                                 float TableDepth, float MaxInfiltrationCap);
 
