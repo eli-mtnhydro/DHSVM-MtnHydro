@@ -28,7 +28,8 @@
    -------------------------------------------------------------------------- */
 void
 InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
-	    SOILPIX ** SoilMap, int *MaxStreamID, int *MaxRoadID, OPTIONSTRUCT *Options)
+	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
+	    int *MaxStreamID, int *MaxRoadID, OPTIONSTRUCT *Options)
 {
   int i;
   STRINIENTRY StrEnv[] = {
@@ -85,7 +86,7 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
     }
     if ((channel->stream_map =
 	 channel_grid_read_map(channel->streams,
-			       StrEnv[stream_map].VarStr, SoilMap)) == NULL) {
+			       StrEnv[stream_map].VarStr, SType, SoilMap, VType, VegMap)) == NULL) {
       ReportError(StrEnv[stream_map].VarStr, 5);
     }
     error_handler(ERRHDL_STATUS,
@@ -115,7 +116,7 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
     }
     if ((channel->road_map =
 	 channel_grid_read_map(channel->roads,
-			       StrEnv[road_map].VarStr, SoilMap)) == NULL) {
+			       StrEnv[road_map].VarStr, SType, SoilMap, VType, VegMap)) == NULL) {
       ReportError(StrEnv[road_map].VarStr, 5);
     }
     error_handler(ERRHDL_STATUS,

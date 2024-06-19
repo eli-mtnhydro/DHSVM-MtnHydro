@@ -34,7 +34,7 @@ struct _channel_map_rec_ {
   float cut_width;		/* "effective" cut width (m) */
   char sink;			/* is this cell a channel sink? */
   float azimuth;        /* channel azimuth */
-  float infiltration_rate; /* infiltration rate out of the bottom of the channel (mm/s) */
+  float infiltration_rate; /* infiltration rate out of the bottom of the channel (m/s) */
   float avail_storage; /* amount of water (m^3) in segment that is derived from uphill */
   Channel *channel;		/* pointer to segment record */
 
@@ -55,7 +55,7 @@ void channel_grid_done(void);
 				/* Input Functions */
 
 ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
-				      SOILPIX **SoilMap);
+				      SOILTABLE *SType, SOILPIX **SoilMap, VEGTABLE *VType, VEGPIX **VegMap);
 
 				/* Query Functions */
 

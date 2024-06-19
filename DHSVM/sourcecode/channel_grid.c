@@ -176,25 +176,26 @@ void channel_grid_free_map(ChannelMapPtr ** map)
    channel_grid_read_map
    ------------------------------------------------------------- */
 ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
-				      SOILPIX ** SoilMap)
+				      SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap)
 {
   ChannelMapPtr **map;
-  static const int fields = 9;
+  static const int fields = 8;
   static char *sink_words[2] = {
     "SINK", "\n"
   };
-  static TableField map_fields[9] = {
+  static TableField map_fields[8] = {
     {"Column", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
     {"Row", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
     {"Segment ID", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
     {"Segment Length", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
     {"Cut Height", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
     {"Cut Width", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Infiltration Rate", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
     {"Segment Azimuth", TABLE_REAL, FALSE, FALSE, {0.0}, "", NULL},
     {"Sink?", TABLE_WORD, FALSE, FALSE, {0.0}, "", sink_words}
   };
   int done, err = 0;
+  int iSoil;
+  float Depth;
 
   if (!channel_grid_initialized) {
     error_handler(ERRHDL_ERROR,
@@ -317,34 +318,36 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
 	  }
 	  break;
 	case 6:
-	  cell->infiltration_rate = map_fields[i].value.real;
-	  if (cell->infiltration_rate < 0.0) {
-	    error_handler(ERRHDL_ERROR,
-                   "%s, line %d: bad infiltration_rate", file, table_lineno());
-	    err++;
-	  }
-	  
-	  /* Initialize available storage for re-infiltration */
-	  cell->avail_storage = 0.0;
-	  
-	  break;
-	case 7:
 	  /* road aspect is read in degrees and
 	     stored in radians */
 	  cell->azimuth = (float)(map_fields[i].value.real);
 	  cell->aspect = map_fields[i].value.real * PI / 180.0;
 	  break;
-	case 8:
+	case 7:
 	  cell->sink = TRUE;
 	  break;
 	default:
 	  error_handler(ERRHDL_FATAL,
 			"channel_grid_read_map: this should not happen");
 	  break;
-	}
-      }
+	  }
     }
-
+    }
+    
+    /* Set infiltration rate to vertical hydraulic conductivity
+       of soil layer containing bottom of channel cut */
+    Depth = 0.0;
+    for (iSoil = 0; iSoil < SType[SoilMap[row][col].Soil - 1].NLayers && Depth < cell->cut_height; iSoil++) {
+      if (VType[VegMap[row][col].Veg - 1].RootDepth[iSoil] < (SoilMap[row][col].Depth - Depth))
+        Depth += VType[VegMap[row][col].Veg - 1].RootDepth[iSoil];
+      else
+        Depth = SoilMap[row][col].Depth;
+    }
+    cell->infiltration_rate = SType[SoilMap[row][col].Soil - 1].Ks[iSoil - 1];
+    
+    /* Initialize available storage for re-infiltration */
+    cell->avail_storage = 0.0;
+    
   }
 
   table_errors += err;
@@ -543,7 +546,7 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
   
   while (cell != NULL) {
     
-    water_depth = cell->channel->storage / (cell->channel->length * cell->cut_width);
+    water_depth = cell->avail_storage / (cell->length * cell->cut_width);
     
     if ((cell->cut_height - water_depth) > TableDepth){
       
@@ -671,8 +674,8 @@ void channel_grid_update_avail_storage(ChannelMapPtr ** map, int col, int row)
   float CellStorageFrac;
   
   while (cell != NULL) {
-    cell->avail_storage += (cell->channel->lateral_inflow +
-                            cell->channel->last_inflow) * (cell->length / cell->channel->length);
+    cell->avail_storage += (cell->channel->lateral_inflow + cell->channel->last_inflow) *
+                           (cell->length / cell->channel->length);
     
     if (cell->avail_storage < 0.0)
       cell->avail_storage = 0.0;
@@ -698,19 +701,34 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row, int delt
   ChannelMapPtr cell = map[col][row];
   float infiltration; // From one channel segment
   float cell_infiltration = 0.0; // From all channel segments in cell
+  float cut_area;
+  float gradient;
   
   while (cell != NULL) {
     
-    if (TableDepth > cell->cut_height){
+    if (TableDepth > cell->cut_height && cell->avail_storage > 0.0) {
       
-      /* Note infiltration_rate is in mm/s, so we convert to m/s then m^3 */
-      infiltration = (cell->infiltration_rate / 1000.0) * cell->cut_width * cell->length * deltat;
+      /* Infiltration rate is assumed equal to vertical hydraulic conductivity */
+      /* Infiltration volume = conductivity * gradient * area * time */
+      /* Hydraulic gradient = channel head / dist from channel bottom to water table  */
+      /* Channel head = water surface elev in channel - water table elev */
+      
+      cut_area = cell->length * cell->cut_width;
+      
+      gradient = (TableDepth - cell->cut_height) + (cell->avail_storage / cut_area);
+      gradient /= (TableDepth - cell->cut_height);
+      
+      /* Avoid exploding gradients when water table is very close to channel bottom */
+      if (gradient > 100.0)
+        gradient = 100.0;
+      
+      infiltration = cell->infiltration_rate * gradient * cut_area * deltat;
       
       if (MaxInfiltrationCap > cell->avail_storage)
         MaxInfiltrationCap = cell->avail_storage;
-      
       if (infiltration > MaxInfiltrationCap)
         infiltration = MaxInfiltrationCap;
+      
       if (infiltration < 0.0)
         infiltration = 0.0;
       
