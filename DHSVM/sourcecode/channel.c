@@ -249,7 +249,6 @@ static Channel *alloc_channel_segment(void)
   seg->length = 0.0;
   seg->slope = 0.0;
   seg->class2 = NULL;
-  seg->satflow = 0.0;
   seg->lateral_inflow = 0.0;
   seg->melt = 0.0;                  
   seg->last_inflow = 0.0;
@@ -258,6 +257,7 @@ static Channel *alloc_channel_segment(void)
   seg->outflow = 0.0;
   seg->storage = 0.0;
   seg->infiltration = 0.0;
+  seg->remaining_infil = 0.0;
   seg->evaporation = 0.0;
   seg->outlet = NULL;
   seg->next = NULL;
@@ -495,33 +495,36 @@ static int channel_route_segment(Channel * segment, int deltat)
 {
   float K = segment->K;
   float X = segment->X;
-  /*   float C1, C2, C3, C4; */
-  float inflow, last_inflow;
-  float outflow, last_outflow, lateral_inflow;
-  float storage;
+  float inflow, lateral_inflow, outflow, storage;
+  float infiltration, tot_available, storage_loss;
   int err = 0;
-
-  /* change masses to rates */
   
-  last_inflow = segment->last_inflow / deltat;
+  /* Account for infiltration prior to routing each segment */
+  tot_available = segment->inflow + segment->lateral_inflow + segment->storage;
+  if (segment->infiltration > tot_available)
+    segment->infiltration = tot_available;
+  segment->remaining_infil = segment->infiltration;
+  
+  /* Subtract any necessary water from storage instead of inflow */
+  storage_loss = segment->infiltration - (segment->inflow + segment->lateral_inflow);
+  if (storage_loss < 0.0)
+    storage_loss = 0.0;
+  segment->storage -= storage_loss;
+  
+  /* Change masses to rates */
   inflow = segment->inflow / deltat;
-  last_outflow = segment->last_outflow / deltat;
   lateral_inflow = segment->lateral_inflow / deltat;
+  infiltration = (segment->infiltration - storage_loss) / deltat;
   
-  storage = ((inflow + lateral_inflow) / K) +
-    (segment->storage - (inflow + lateral_inflow) / K) * X;
+  storage = ((inflow + lateral_inflow - infiltration) / K) +
+    (segment->storage - (inflow + lateral_inflow - infiltration) / K) * X;
   if (storage < 0.0)
     storage = 0.0;
-  outflow = (inflow + lateral_inflow) - (storage - segment->storage) / deltat;
-
-  /*  FOR TEST  
-  outflow = inflow + lateral_inflow;
-  storage = 0.0;   
-  */
-
+  outflow = (inflow + lateral_inflow - infiltration) - (storage - segment->storage) / deltat;
+  
   segment->outflow = outflow * deltat;
   segment->storage = storage;
-
+  
   if (segment->outlet != NULL)
     segment->outlet->inflow += segment->outflow;
   
@@ -568,6 +571,7 @@ int channel_step_initialize_network(Channel *net)
     net->last_outflow = net->outflow;
     net->last_storage = net->storage;
     net->infiltration = 0.0;
+    net->remaining_infil = 0.0;
     net->evaporation = 0.0;
 
     /* Initialzie variables for John's RBM model */ 

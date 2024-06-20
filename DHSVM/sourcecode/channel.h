@@ -69,7 +69,6 @@ struct _channel_rec_ {
   ChannelClass *class2;	/* ChannelClass identifier */
 
   /* necessary routing terms */
-  float satflow; /* cubic meters */
   float lateral_inflow;	/* cubic meters */
   float last_inflow;	/* cubic meters */
   float last_outflow;	/* cubic meters */
@@ -78,6 +77,7 @@ struct _channel_rec_ {
   float outflow;		/* cubic meters */
   float storage;		/* cubic meters */
   float infiltration;		/* cubic meters - completely separate from the road infiltration! */
+  float remaining_infil; /* cubic meters */
   float evaporation; /* cubic meters */
   float last_lateral_inflow;
   /* Added for John's RBM model */

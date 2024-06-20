@@ -216,7 +216,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   SPrintDate(&(Time->Current), buffer);
   flag = IsEqualTime(&(Time->Current), &(Time->Start));
   
-  /* give any surface water to roads w/o sinks */
+  /* Give any surface water to roads w/o sinks */
   if (ChannelData->roads != NULL) {
     for (y = 0; y < Map->NY; y++) {
       for (x = 0; x < Map->NX; x++) {
@@ -231,7 +231,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
       }
     }
     
-    /* route the road network and save results */
+    /* Route the road network and save results */
     channel_route_network(ChannelData->roads, Time->Dt);
     channel_save_outflow_text(buffer, ChannelData->roads,
                               ChannelData->roadout, ChannelData->roadflowout, flag);
@@ -254,13 +254,12 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
       
       channel_grid_satflow(ChannelData->stream_map, x, y);
       
-      channel_grid_update_avail_storage(ChannelData->stream_map, x, y);
-      
       if (SnowMap[y][x].Outflow > SoilMap[y][x].IExcess)
         temp = SoilMap[y][x].IExcess;
       else
         temp = SnowMap[y][x].Outflow;
       channel_grid_inc_melt(ChannelData->stream_map, x, y, temp * Map->DX * Map->DY);
+      
       SoilMap[y][x].ChannelInt += SoilMap[y][x].IExcess;
       Total->CulvertToChannel += CulvertFlow;
       SoilMap[y][x].IExcess = 0.0f;
@@ -271,7 +270,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
     }
   }
   
-  /* route stream channels */
+  /* Route stream channels */
   if (ChannelData->streams != NULL) {
     
     /* Account for infiltration out of streams that are above the water table */
@@ -279,7 +278,6 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
     for (k = (Map->NumCells - 1); k > -1;  k--) {
       y = Map->OrderedCells[k].y;
       x = Map->OrderedCells[k].x;
-      
       if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
         
         /* Only allow stream re-infiltration if water table is below deepest channel */
@@ -307,21 +305,29 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
             i = SType[SoilMap[y][x].Soil - 1].NLayers - 1;
             MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
           }
-          
           MaxInfiltrationCap *= Map->DX * Map->DY;
-          
-          StreamInfiltration = channel_grid_infiltration(ChannelData->stream_map, x, y, Time->Dt,
-                                                         SoilMap[y][x].TableDepth, MaxInfiltrationCap);
-          
-          StreamInfiltration /= Map->DX * Map->DY;
-          
-          SoilMap[y][x].SatFlow += StreamInfiltration;
-          SoilMap[y][x].ChannelInfiltration += StreamInfiltration;
-        }
-      }
+        } else
+          MaxInfiltrationCap = 0.0;
+        
+        channel_grid_calc_infiltration(ChannelData->stream_map, x, y, Time->Dt,
+                                       SoilMap[y][x].TableDepth, MaxInfiltrationCap);
+    }
     }
     
     channel_route_network(ChannelData->streams, Time->Dt);
+    
+    for (k = (Map->NumCells - 1); k > -1;  k--) {
+      y = Map->OrderedCells[k].y;
+      x = Map->OrderedCells[k].x;
+      if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+        
+        StreamInfiltration = channel_grid_infiltration(ChannelData->stream_map, x, y);
+        StreamInfiltration /= Map->DX * Map->DY;
+        
+        SoilMap[y][x].SatFlow += StreamInfiltration;
+        SoilMap[y][x].ChannelInfiltration += StreamInfiltration;
+    }
+    }
     
     channel_save_outflow_text(buffer, ChannelData->streams,
 			      ChannelData->streamout,
