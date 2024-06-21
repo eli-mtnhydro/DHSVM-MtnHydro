@@ -682,7 +682,7 @@ double channel_grid_outflow(ChannelMapPtr ** map, int col, int row)
 /* -------------------------------------------------------------
  channel_grid_calc_infiltration
  If the channel(s) within the cell are above the water table,
- this function calculates the POTENTAIL infiltration from the channel(s)
+ this function calculates the POTENTIAL infiltration from the channel(s)
  so that it can be subtracted during stream network routing.
  ------------------------------------------------------------- */
 void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int deltat,
@@ -690,7 +690,6 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
 {
   ChannelMapPtr cell = map[col][row];
   float infiltration; // From one channel segment
-  float cut_area;
   float gradient;
   
   while (cell != NULL) {
@@ -702,9 +701,8 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       /* Hydraulic gradient = channel head / dist from channel bottom to water table  */
       /* Channel head = water surface elev in channel - water table elev */
       
-      cut_area = cell->length * cell->cut_width;
-      
-      gradient = (TableDepth - cell->cut_height) + (cell->avail_water / cut_area);
+      gradient = (TableDepth - cell->cut_height) +
+                 (cell->channel->storage / (cell->channel->length * cell->cut_width));
       gradient /= (TableDepth - cell->cut_height);
       
       /* Avoid exploding gradients when water table is very close to channel bottom */
@@ -724,6 +722,7 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       cell->channel->infiltration += infiltration;
     } else
       cell->infiltration = 0.0;
+    
     cell = cell->next;
   }
 }

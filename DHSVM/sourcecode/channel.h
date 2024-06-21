@@ -63,7 +63,10 @@ struct _channel_rec_ {
   char *record_name;	/* The name this segment is to have in the output, if output is recorded */
   char record;			/* TRUE if outflow values are to be saved by channel_save_outflow */
   float length;			/* Parameters */
-  float slope;
+  float slope;              /* Effective water surface slope, m/m (recomputed each timestep) */
+  float ground_slope;       /* Ground slope, m/m (equal to slope if water depth is uniform) */
+  float top_water_depth;    /* Depth of water storage (m) at top of channel segment */
+  float bottom_water_depth; /* Depth of water storage (m) at bottom of channel segment */
   float K;              /* Travel time constant, a function of slope */
   float X;              /* Weighting factor (0~1), exponential function of K */
   ChannelClass *class2;	/* ChannelClass identifier */
@@ -114,6 +117,7 @@ void channel_free_classes(ChannelClass *head);
 Channel *channel_read_network(const char *file, ChannelClass * class_list, int *MaxID);
 int channel_read_rveg_param(Channel *net, const char *file, int *MaxID);
 void channel_routing_parameters(Channel *net, int deltat);
+void channel_update_routing_parameters(Channel *network, int deltat, int max_order);
 Channel *channel_find_segment(Channel *net, SegmentID id);
 int channel_step_initialize_network(Channel *net);
 int channel_incr_lat_inflow(Channel *segment, float linflow);

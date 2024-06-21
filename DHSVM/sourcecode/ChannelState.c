@@ -86,6 +86,11 @@ void ReadChannelState(char *Path, DATE *Now, Channel *Head)
     if (Match == NULL)
       ReportError("ReadChannelState", 55);
     Current->storage = Match->storage;
+    
+    /* Initialize depth uniformly in each segment */
+    Current->top_water_depth = Current->storage / (Current->class2->width * Current->length);
+    Current->bottom_water_depth = Current->top_water_depth;
+    
     Current = Current->next;
   }
 

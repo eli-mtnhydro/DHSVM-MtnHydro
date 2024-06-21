@@ -306,18 +306,89 @@ channel_routing_parameters
 ------------------------------------------------------------- */
 void channel_routing_parameters(Channel *network, int deltat)
 {
-  /*   float ck; */
-  float y;
+  float Rh;
   Channel *segment;
 
   for (segment = network; segment != NULL; segment = segment->next) {
-    y = segment->class2->bank_height * 0.75;
-    /*  for new routing scheme */
-    segment->K = sqrt(segment->slope) * pow((double)y, 2.0 / 3.0) /
-      (segment->class2->friction * segment->length);
+    /* Initialized assuming uniform depth */
+    segment->slope = segment->ground_slope;
+    
+    Rh = segment->class2->bank_height * 0.75;
+    segment->K = sqrt(segment->slope) * pow((double) Rh, 2.0 / 3.0) /
+                 (segment->class2->friction * segment->length);
     segment->X = exp(-segment->K * deltat);
   }
+  return;
+}
 
+/* -------------------------------------------------------------
+ channel_update_routing_parameters
+ ------------------------------------------------------------- */
+void channel_update_routing_parameters(Channel *network, int deltat, int max_order)
+{
+  float WaterDepth; /* Length-average depth in channel (m) */
+  float Kold, Rh;
+  Channel *segment;
+  int order;
+  
+  for (order = max_order; order >= 1; order--) {
+    segment = network;
+    while (segment != NULL) {
+      if (segment->storage > 0 && segment->order == order){
+        
+        Kold = segment->K;
+        WaterDepth = segment->storage / (segment->class2->width * segment->length);
+        
+        /* Assume uniform water depth in outlet segment, and back-propagate uphill */
+        if (segment->outlet != NULL)
+          segment->bottom_water_depth = segment->outlet->top_water_depth;
+        else
+          segment->bottom_water_depth = WaterDepth;
+        
+        /* Assume bottom depth is no greater than cut depth
+         (perhaps extra flow expands the channel width into a floodplain) */
+        if (segment->bottom_water_depth > segment->class2->bank_height)
+          segment->bottom_water_depth = segment->class2->bank_height;
+        /* Enforce topographic constraint so the network doesn't "flatten" upstream */
+        if (segment->bottom_water_depth < 0.0)
+          segment->bottom_water_depth = 0.0;
+        
+        segment->top_water_depth = 2 * WaterDepth - segment->bottom_water_depth;
+        
+        segment->slope = segment->ground_slope;
+        segment->slope += (segment->top_water_depth - segment->bottom_water_depth) / segment->length;
+        
+        /* Don't allow slope to exceed 45 degrees unless ground slope is steeper */
+        if (segment->slope > 1.0 && segment->slope > segment->ground_slope)
+          segment->slope = segment->ground_slope;
+        
+        Rh = (WaterDepth * segment->class2->width) / (WaterDepth * 2 + segment->class2->width);
+        
+        if (segment->slope > 0.0)
+          segment->K = sqrt(segment->slope) * pow((double) Rh, 2.0 / 3.0) /
+                       (segment->class2->friction * segment->length);
+        else
+          segment->K = 0.0;
+        
+        /* Use average to prevent numeric oscillation across timesteps */
+        segment->K = (segment->K + Kold) / 2.0;
+        
+        /* Avoid divide-by-zero problem */
+        if (segment->K <= 0.0){
+          if (Kold > 0.0)
+            segment->K = Kold;
+          else if (segment->ground_slope > 0.0)
+            segment->K = sqrt(segment->ground_slope) * pow((double) Rh, 2.0 / 3.0) /
+                         (segment->class2->friction * segment->length);
+          else
+            segment->K = 1.0; /* Should not happen, but just in case */
+        }
+        segment->X = exp(-segment->K * deltat);
+      }
+      segment = segment->next;
+    }
+  }
+  
   return;
 }
 
@@ -405,7 +476,7 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
           break;
         case 2:
           if (chan_fields[i].value.real > 0) {
-            current->slope = chan_fields[i].value.real;
+            current->ground_slope = chan_fields[i].value.real;
           }
           else {
             error_handler(ERRHDL_ERROR,
@@ -540,12 +611,13 @@ int channel_route_network(Channel * net, int deltat)
   int order_count;
   int err = 0;
   Channel *current;
-
+  
   for (order = 1;; order += 1) {
     order_count = 0;
     current = net;
     while (current != NULL) {
       if (current->order == order) {
+        
         err += channel_route_segment(current, deltat);
         order_count += 1;
       }
@@ -554,6 +626,9 @@ int channel_route_network(Channel * net, int deltat)
     if (order_count == 0)
       break;
   }
+  
+  channel_update_routing_parameters(net, deltat, (order - 1));
+  
   return (err);
 }
 
