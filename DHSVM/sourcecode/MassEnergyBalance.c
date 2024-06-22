@@ -107,7 +107,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /*Add a function to modify soil moisture by add/extract SatFlow from previous time step*/
   DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow, SType->NLayers,
     LocalSoil->Depth, LocalNetwork->Area, VType->RootDepth,
-    SType->Ks, SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
+    LocalSoil->KsVert, SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
     LocalSoil->Perc, LocalNetwork->PercArea,
     LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth),
@@ -437,7 +437,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
       NetRadiation, LowerRa, (LocalVeg->MoistureFlux + LocalEvap->EvapSoil),
-      LocalSoil->Porosity[0], LocalSoil->FCap[0], SType->Ks[0], SType->Press[0], SType->PoreDist[0],
+      LocalSoil->Porosity[0], LocalSoil->FCap[0], LocalSoil->KsVert[0], SType->Press[0], SType->PoreDist[0],
       VType->RootDepth[0], &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
   }
   
@@ -536,7 +536,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     (LocalPrecip->RainFall + LocalSnow->Outflow)) + LocalNetwork->IExcess;
 
   if (InfiltOption == STATIC)
-    MaxInfiltration = (1. - VType->ImpervFrac) * PercArea * SType->MaxInfiltrationRate * Dt;
+    MaxInfiltration = (1. - VType->ImpervFrac) * PercArea * LocalSoil->MaxInfiltrationRate * Dt;
   else { /* InfiltOption == DYNAMIC
         Dynamic Infiltration Capacity after Parlange and Smith 1978,
         as used in KINEROS and THALES */
@@ -551,7 +551,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       /* Check that the B parameter > 0 */
       if ((LocalSoil->InfiltAcc > 0.) && (LocalSoil->Porosity[0] > LocalSoil->MoistInit)) {
         B = (LocalSoil->Porosity[0] - LocalSoil->MoistInit) * (SType->G_Infilt + SurfaceWater);
-        Infiltrability = SType->Ks[0] * exp((LocalSoil->InfiltAcc) / B) /
+        Infiltrability = LocalSoil->KsVert[0] * exp((LocalSoil->InfiltAcc) / B) /
           (exp((LocalSoil->InfiltAcc) / B) - 1.);
       }
       else
@@ -590,7 +590,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* Calculate unsaturated soil water movement, and adjust soil water table depth */
   UnsaturatedFlow(Dt, DX, DY, Infiltration, RoadbedInfiltration,
     LocalSoil->SatFlow, SType->NLayers, LocalSoil->Depth,
-    LocalNetwork->Area, VType->RootDepth, SType->Ks,
+    LocalNetwork->Area, VType->RootDepth, LocalSoil->KsVert,
     SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,
     LocalNetwork->PercArea, LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth), &(LocalSoil->IExcess),

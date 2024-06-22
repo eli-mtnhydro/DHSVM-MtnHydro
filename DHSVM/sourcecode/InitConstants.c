@@ -73,6 +73,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "MULTIPLE FLOW DIRECTIONS", "", "TRUE"},
     {"OPTIONS", "SENSIBLE HEAT FLUX", "", ""},
     {"OPTIONS", "OVERLAND ROUTING", "", ""},
+    {"OPTIONS", "VERTICAL KSAT SOURCE", "", "TABLE"},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
     {"OPTIONS", "MM5", "", ""},
@@ -191,11 +192,11 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     ReportError(StrEnv[routing_neighbors].KeyName, 51);
   }
   /* Determine whether to use MFD-8 or D8 routing */
-  if (strncmp(StrEnv[routing_mfd].VarStr, "TRUE", 4) == 0){
+  if (strncmp(StrEnv[routing_mfd].VarStr, "TRUE", 4) == 0) {
     Options->MultiFlowDir = TRUE;
     printf("Using %d neighbors with multiple flow directions for surface/subsurface routing\n", NDIRS);
   }
-  else if (strncmp(StrEnv[routing_mfd].VarStr, "FALSE", 5) == 0){
+  else if (strncmp(StrEnv[routing_mfd].VarStr, "FALSE", 5) == 0) {
     Options->MultiFlowDir = FALSE;
     if (NDIRS == 8)
       printf("Using %d neighbors with steepest descent for surface/subsurface routing\n", NDIRS);
@@ -252,11 +253,19 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->Routing = FALSE;
   else
     ReportError(StrEnv[routing].KeyName, 51);
- 
+  
+  /* Determine if vertical conductivity is calculated from map anisotropy
+   or read from default soil table */
+  if (strncmp(StrEnv[vertksatsource].VarStr, "ANISOTROPY", 6) == 0)
+    Options->UseKsatAnisotropy = TRUE;
+  else if (strncmp(StrEnv[vertksatsource].VarStr, "TABLE", 12) == 0)
+    Options->UseKsatAnisotropy = FALSE;
+  else
+    ReportError(StrEnv[vertksatsource].KeyName, 51);
+  
   /* Determine if the maximum infiltration rate is static or dynamic */
-  if (strncmp(StrEnv[infiltration].VarStr, "STATIC", 6) == 0) {
+  if (strncmp(StrEnv[infiltration].VarStr, "STATIC", 6) == 0)
     Options->Infiltration = STATIC;
-  }
   else if (strncmp(StrEnv[infiltration].VarStr, "DYNAMIC", 7) == 0) {
     Options->Infiltration = DYNAMIC ;
     printf("WARNING: Dynamic maximum infiltration capacity has\n");

@@ -78,10 +78,6 @@ void CheckOut(OPTIONSTRUCT *Options, LAYER Veg, LAYER Soil, VEGTABLE *VType, SOI
       printf
       ("Class # %d of Type: %s has fraction basin area: %5.3f\n",
         i + 1, VType[i].Desc, (float)count[i] / (float)npixels);
-    VType[i].TotalDepth = 0.0;
-    for (y = 0; y < VType[i].NSoilLayers; y++) {
-      VType[i].TotalDepth += VType[i].RootDepth[y];
-    }
   }
 
   printf("\nThe following SOIL types are in the current basin \n");

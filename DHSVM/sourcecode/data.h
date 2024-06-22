@@ -227,6 +227,7 @@ typedef struct {
   int HeatFlux;					/* Specifies whether a sensible heat flux 
                            should be calculated, TRUE or FALSE */
   int Routing;          /* Overland flow routing indicator, either CONVENTIONAL (FALSE) or KINEMATIC (TRUE) */
+  int UseKsatAnisotropy;/* Vertical Ksat from lateral Ksat and anisotropy (TRUE) or default table (FALSE) */
   int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
   int FlowGradient;			/* Specifies whether the flow gradient is based
                            on the terrain elevation (TOPOGRAPHY) or the 
@@ -417,10 +418,11 @@ typedef struct {
   float DetentionStorage;        /* amount of water kept in detention storage when impervious fraction > 0 */
   float DetentionIn;			 /* detention storage change in current time step */
   float DetentionOut;            /* water flow out of detention storage */
-  
+  float MaxInfiltrationRate; /* Maximum surface infiltration rate (m/s) */
   float KsLat;      		/* Soil Lateral Conductivity */
-  float *Porosity;          	/* Soil Porosity */
-  float *FCap;			/* Soil Field Capacity */
+  float *KsVert;         /* Soil Vertical Conductivity - each layer */
+  float *Porosity;          	/* Soil Porosity - each layer */
+  float *FCap;			/* Soil Field Capacity - each layer */
 } SOILPIX;
 
 typedef struct {
@@ -438,12 +440,13 @@ typedef struct {
   float *Ks;				/* Saturated hydraulic conductivity (vertical) for each layer */
   float KsLat;				/* Saturated hydraulic conductivity (lateral) */
   float KsLatExp;		    /* Exponent for vertical change of KsLat */
+  float DepthThresh;    /* Threshold water table depth, beyond which transmissivity decays linearly with water table depth */
+  float KsAnisotropy; /* KsVert = KsLat / KsAnisotropy */
+  float MaxInfiltrationRate;/* Maximum infiltration rate for upper layer (m/s) */
   float *KhDry;				/* Thermal conductivity for dry soil (W/(m*K)) */
   float *KhSol;				/* Effective solids thermal conductivity (W/(M*K)) */
   float *Ch;				/* Heat capacity for soil medium */
-  float MaxInfiltrationRate;/* Maximum infiltration rate for upper layer (m/s) */
   float G_Infilt;                /* Mean capillary drive for dynamic maximum infiltration rate (m)   */
-  float DepthThresh;    /* Threshold water table depth, beyond which transmissivity decays linearly with water table depth */
 } SOILTABLE;
 
 typedef struct {

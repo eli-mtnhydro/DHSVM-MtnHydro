@@ -41,8 +41,8 @@ void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   printf("\nInitializing terrain maps\n");
 
   InitTopoMap(Input, Options, Map, TopoMap);
-  InitSoilMap(Input, Options, Map, Soil, *TopoMap, SoilMap, SType);
   InitVegMap(Options, Input, Map, VegMap, VType, DVeg);
+  InitSoilMap(Input, Options, Map, Soil, *TopoMap, SoilMap, SType, VegMap, VType);
   if (Options->CanopyGapping)
     InitCanopyGapMap(Options, Input, Map, Soil, Veg, VType, VegMap, SType, SoilMap);
 }
@@ -172,7 +172,8 @@ void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   InitSoilMap()
 *****************************************************************************/
 void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
-  LAYER * Soil, TOPOPIX ** TopoMap, SOILPIX *** SoilMap, SOILTABLE * SType)
+  LAYER * Soil, TOPOPIX ** TopoMap, SOILPIX *** SoilMap, SOILTABLE * SType,
+  VEGPIX *** VegMap, VEGTABLE * VType)
 {
   const char *Routine = "InitSoilMap";
   char VarName[BUFSIZE + 1];	/* Variable name */
@@ -186,8 +187,9 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   float *Porosity = NULL;	/* Soil Porosity */
   float *FC = NULL;		/* Soil Field Capacity */
   int flag;
-  int NSet;
+  int NSet, VSet;
   int sidx;
+  float LayerDepth, Transmissivity, KsVertCalc;
   
   STRINIENTRY StrEnv[] = {
     {"SOILS", "SOIL MAP FILE", "", ""},
@@ -245,7 +247,9 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     }
   }
   else ReportError((char *)Routine, 57);
-
+  
+  /******************************************************************/
+  
   /* Read the total soil depth  */
   GetVarName(004, 0, VarName);
   GetVarNumberType(004, &NumberType);
@@ -322,7 +326,103 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
       }
     }
   }
-
+  
+  /******************************************************************/
+  
+  /* Allocate memory for vertical conductivity */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (!((*SoilMap)[y][x].KsVert =
+          (float *)calloc(Soil->MaxLayers + 1, sizeof(float *))))
+        ReportError((char *)Routine, 1);
+    }
+  }
+  
+  /* Creating spatial layered vertical conductivity */
+  for (NSet = 0; NSet < Soil->MaxLayers; NSet++) {
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        if (INBASIN((TopoMap)[y][x].Mask)) {
+          sidx = (*SoilMap)[y][x].Soil - 1;
+          if (NSet < Soil->NLayers[sidx]) {
+            if (Options->UseKsatAnisotropy &&
+                VType[(*VegMap)[y][x].Veg - 1].NSoilLayers > NSet &&
+                VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet] > 0.001) {
+              
+              /* Get total depth of current soil layer bottom */
+              LayerDepth = 0.0;
+              for (VSet = 0; VSet <= NSet; VSet++)
+                LayerDepth += VType[(*VegMap)[y][x].Veg - 1].RootDepth[VSet];
+              
+              /* Calculate effective lateral conductivity of current soil layer */
+              Transmissivity =
+                CalcTransmissivity(LayerDepth,
+                                   LayerDepth - VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet],
+                                   (*SoilMap)[y][x].KsLat,
+                                   SType[(*SoilMap)[y][x].Soil - 1].KsLatExp,
+                                   SType[(*SoilMap)[y][x].Soil - 1].DepthThresh);
+              KsVertCalc = Transmissivity / VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet];
+              
+              /* Account for user-supplied vertical anisotropy */
+              KsVertCalc /= SType[(*SoilMap)[y][x].Soil - 1].KsAnisotropy;
+              
+              (*SoilMap)[y][x].KsVert[NSet] = KsVertCalc;
+            }
+            else
+              (*SoilMap)[y][x].KsVert[NSet] = SType[sidx].Ks[NSet];
+          }
+        }            
+      }
+    }
+  }
+  
+  /* Calculate deep layer vertical conductivity */
+  NSet = Soil->MaxLayers;
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN((TopoMap)[y][x].Mask)) {
+        sidx = (*SoilMap)[y][x].Soil - 1;
+        if (NSet == Soil->NLayers[sidx]) {
+          if (Options->UseKsatAnisotropy &&
+              VType[(*VegMap)[y][x].Veg - 1].NSoilLayers > NSet &&
+              ((*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth) > 0.001) {
+            
+            /* Calculate effective lateral conductivity of current soil layer */
+            Transmissivity =
+              CalcTransmissivity((*SoilMap)[y][x].Depth,
+                                 (*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth,
+                                 (*SoilMap)[y][x].KsLat,
+                                 SType[(*SoilMap)[y][x].Soil - 1].KsLatExp,
+                                 SType[(*SoilMap)[y][x].Soil - 1].DepthThresh);
+            KsVertCalc = Transmissivity / ((*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth);
+            
+            /* Account for user-supplied vertical anisotropy */
+            KsVertCalc /= SType[(*SoilMap)[y][x].Soil - 1].KsAnisotropy;
+            
+            (*SoilMap)[y][x].KsVert[NSet] = KsVertCalc;
+          }
+          else
+            (*SoilMap)[y][x].KsVert[NSet] = SType[sidx].Ks[NSet - 1];
+        }
+      }
+    }
+  }
+  
+  /* Copy surface layer KsVert to MaxInfiltrationRate map */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN((TopoMap)[y][x].Mask)) {
+        sidx = (*SoilMap)[y][x].Soil - 1;
+        if (Options->UseKsatAnisotropy)
+          (*SoilMap)[y][x].MaxInfiltrationRate = (*SoilMap)[y][x].KsVert[0];
+        else
+          (*SoilMap)[y][x].MaxInfiltrationRate = SType[sidx].MaxInfiltrationRate;
+      }
+    }
+  }
+  
+  /******************************************************************/
+  
   /* Read the spatial field capacity map */
   GetVarNumberType(015, &NumberType);
 
@@ -378,7 +478,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 if (((*SoilMap)[y][x].FCap[NSet] <SType[sidx].WP[NSet]))
                   ReportError(SType[sidx].Desc, 11);
               }
-            }  
+            }
           }
         }
       }
@@ -399,23 +499,24 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
             if (((*SoilMap)[y][x].FCap[NSet] <SType[sidx].WP[NSet]))
               ReportError(SType[sidx].Desc, 11);
           }
-        } 
+        }
       }
     }
   }
   
   /* Copy deep layer field capacity from deepest root layer */
   NSet = Soil->MaxLayers;
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
       if (INBASIN((TopoMap)[y][x].Mask)) {
         sidx = (*SoilMap)[y][x].Soil - 1;
-        if (NSet == Soil->NLayers[sidx]) {
+        if (NSet == Soil->NLayers[sidx])
           (*SoilMap)[y][x].FCap[NSet] = (*SoilMap)[y][x].FCap[NSet - 1];
-        }
-      }            
+      }
     }
   }
+  
+  /******************************************************************/
   
   /* Read the spatial porosity map */
   GetVarNumberType(013, &NumberType);
@@ -475,7 +576,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
                     || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
                   ReportError(SType[sidx].Desc, 11);
               }
-            }  
+            }
           }
         }
       }
@@ -498,21 +599,20 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
               ReportError(SType[sidx].Desc, 11);
           }
-        } 
+        }
       }
     }
   }
   
   /* Copy deep layer porosity from deepest root layer */
   NSet = Soil->MaxLayers;
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
       if (INBASIN((TopoMap)[y][x].Mask)) {
         sidx = (*SoilMap)[y][x].Soil - 1;
-        if (NSet == Soil->NLayers[sidx]) {
+        if (NSet == Soil->NLayers[sidx])
           (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].Porosity[NSet - 1];
-        }
-      }            
+      }
     }
   }
 

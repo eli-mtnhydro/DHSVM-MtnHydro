@@ -344,7 +344,10 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
       else
         Depth = SoilMap[row][col].Depth;
     }
-    cell->infiltration_rate = SType[SoilMap[row][col].Soil - 1].Ks[iSoil - 1];
+    if (Depth > cell->cut_height)
+      cell->infiltration_rate = SoilMap[row][col].KsVert[iSoil - 1];
+    else /* Channel bottom is below root zone */
+      cell->infiltration_rate = SoilMap[row][col].KsVert[iSoil];
     
     /* Initialize available storage for re-infiltration */
     cell->avail_water = 0.0;

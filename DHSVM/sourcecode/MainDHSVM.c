@@ -78,7 +78,7 @@ int main(int argc, char **argv)
 	  {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0},     /* SNOWPIX */ 
     {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL},			                /* SOILPIX */
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL},	    /* SOILPIX */
     {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0, 0.0
   };
@@ -153,8 +153,7 @@ int main(int argc, char **argv)
   InitConstants(Input, &Options, &Map, &SolarGeo, &Time);
 
   InitFileIO(Options.FileFormat);
-  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg); 
-
+  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg);
   InitTerrainMaps(Input, &Options, &Map, &Soil, &Veg, &TopoMap, SType, &SoilMap, VType, &VegMap, &DVeg);
 
   InitSnowMap(&Map, &SnowMap, &Time);

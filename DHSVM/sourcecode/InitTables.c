@@ -83,6 +83,7 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
     "LATERAL CONDUCTIVITY",
     "EXPONENTIAL DECREASE",
     "DEPTH THRESHOLD",
+    "VERTICAL ANISOTROPY",
     "MAXIMUM INFILTRATION",
     "CAPILLARY DRIVE",
     "SURFACE ALBEDO",
@@ -145,7 +146,10 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
 
     if (!CopyFloat(&((*SType)[i].DepthThresh), VarStr[depth_thresh], 1))
       ReportError(KeyName[depth_thresh], 51);
-
+    
+    if (!CopyFloat(&((*SType)[i].KsAnisotropy), VarStr[anisotropy], 1))
+      ReportError(KeyName[exponent], 51);
+    
     if (!CopyFloat(&((*SType)[i].MaxInfiltrationRate), VarStr[max_infiltration], 1))
       ReportError(KeyName[max_infiltration], 51);
 
@@ -266,7 +270,8 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
   const char *Routine = "InitVegTable";
   int i;			/* Counter */
   int j;			/* Counter */
-  int k;            /* counter */
+  int k;      /* counter */
+  int y;      /* counter */
   float impervious;	/* flag to check whether impervious layers are specified */
 
   int NVegs;		/* Number of vegetation types */
@@ -617,6 +622,11 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
         }
       }
     }
+    
+    (*VType)[i].TotalDepth = 0.0;
+    for (y = 0; y < (*VType)[i].NSoilLayers; y++)
+      (*VType)[i].TotalDepth += (*VType)[i].RootDepth[y];
+    
   } /* end of the VEG TYPE loop */
 
   if (impervious) {
