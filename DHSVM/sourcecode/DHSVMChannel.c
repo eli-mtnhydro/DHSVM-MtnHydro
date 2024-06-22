@@ -89,6 +89,10 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
 			       StrEnv[stream_map].VarStr, SType, SoilMap, VType, VegMap)) == NULL) {
       ReportError(StrEnv[stream_map].VarStr, 5);
     }
+    
+    /* Associate each channel segment with its constituent map cells */
+    channel_combine_map_network(channel->streams, channel->stream_map, Map);
+    
     error_handler(ERRHDL_STATUS,
 		  "InitChannel: computing stream network routing coefficients");
     channel_routing_parameters(channel->streams, (double) deltat);
@@ -280,9 +284,9 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
       x = Map->OrderedCells[k].x;
       if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
         
-        /* Only allow stream re-infiltration if water table is below deepest channel */
+        /* Only allow stream re-infiltration if water table is 1 mm below deepest channel */
         max_bank_height = channel_grid_cell_maxbankht(ChannelData->stream_map, x, y);
-        if (SoilMap[y][x].TableDepth > max_bank_height){
+        if (SoilMap[y][x].TableDepth > (max_bank_height + 0.001)) {
           
           /* Find maximum amount of water that can be added to subsurface */
           /* So that water table just reaches bottom of lowest channel cut */
@@ -301,7 +305,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
             }
           }
           /* Also add deep layer water capacity if water table is below root zone layers */
-          if (SoilMap[y][x].TableDepth > Depth){
+          if (SoilMap[y][x].TableDepth > Depth) {
             i = SType[SoilMap[y][x].Soil - 1].NLayers - 1;
             MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
           }

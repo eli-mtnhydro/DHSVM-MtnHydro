@@ -18,6 +18,7 @@ $Id: channel.c,v3.1.2 2014/1/2 Ning Exp $
 #include "errorhandler.h"
 #include "DHSVMerror.h"
 #include "channel.h"
+#include "channel_grid.h"
 #include "constants.h"
 #include "tableio.h"
 #include "settings.h"
@@ -261,6 +262,7 @@ static Channel *alloc_channel_segment(void)
   seg->evaporation = 0.0;
   seg->outlet = NULL;
   seg->next = NULL;
+  seg->grid = NULL;
 
   /* Initialize the variables required by John's RBM model */
   seg->ISW = 0.;   /* incident shortwave radiation */
@@ -310,6 +312,7 @@ void channel_routing_parameters(Channel *network, int deltat)
   Channel *segment;
 
   for (segment = network; segment != NULL; segment = segment->next) {
+    
     /* Initialized assuming uniform depth */
     segment->slope = segment->ground_slope;
     
@@ -318,7 +321,6 @@ void channel_routing_parameters(Channel *network, int deltat)
                  (segment->class2->friction * segment->length);
     segment->X = exp(-segment->K * deltat);
   }
-  return;
 }
 
 /* -------------------------------------------------------------
@@ -334,62 +336,59 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
   for (order = max_order; order >= 1; order--) {
     segment = network;
     while (segment != NULL) {
-      if (segment->storage > 0 && segment->order == order){
+      if (segment->order == order) {
         
         Kold = segment->K;
-        WaterDepth = segment->storage / (segment->class2->width * segment->length);
         
-        /* Assume uniform water depth in outlet segment, and back-propagate uphill */
-        if (segment->outlet != NULL)
-          segment->bottom_water_depth = segment->outlet->top_water_depth;
-        else
-          segment->bottom_water_depth = WaterDepth;
-        
-        /* Assume bottom depth is no greater than cut depth
-         (perhaps extra flow expands the channel width into a floodplain) */
-        if (segment->bottom_water_depth > segment->class2->bank_height)
-          segment->bottom_water_depth = segment->class2->bank_height;
-        /* Enforce topographic constraint so the network doesn't "flatten" upstream */
-        if (segment->bottom_water_depth < 0.0)
-          segment->bottom_water_depth = 0.0;
-        
-        segment->top_water_depth = 2 * WaterDepth - segment->bottom_water_depth;
-        
-        segment->slope = segment->ground_slope;
-        segment->slope += (segment->top_water_depth - segment->bottom_water_depth) / segment->length;
-        
-        /* Don't allow slope to exceed 45 degrees unless ground slope is steeper */
-        if (segment->slope > 1.0 && segment->slope > segment->ground_slope)
+        if (segment->storage > 0.0) {
+          
+          WaterDepth = segment->storage / (segment->class2->width * segment->length);
+          
+          /* Assume uniform water depth in outlet segment, and back-propagate uphill */
+          if (segment->outlet != NULL)
+            segment->bottom_water_depth = segment->outlet->top_water_depth;
+          else
+            segment->bottom_water_depth = WaterDepth;
+          
+          /* Assume bottom depth is no greater than cut depth
+           (perhaps extra flow expands the channel width into a floodplain) */
+          if (segment->bottom_water_depth > segment->class2->bank_height)
+            segment->bottom_water_depth = segment->class2->bank_height;
+          
+          /* Enforce topographic constraint so the network doesn't "flatten" upstream */
+          if (segment->bottom_water_depth < 0.0)
+            segment->bottom_water_depth = 0.0;
+          
+          segment->top_water_depth = 2 * WaterDepth - segment->bottom_water_depth;
+          
           segment->slope = segment->ground_slope;
-        
-        Rh = (WaterDepth * segment->class2->width) / (WaterDepth * 2 + segment->class2->width);
-        
-        if (segment->slope > 0.0)
-          segment->K = sqrt(segment->slope) * pow((double) Rh, 2.0 / 3.0) /
-                       (segment->class2->friction * segment->length);
-        else
+          segment->slope += (segment->top_water_depth - segment->bottom_water_depth) / segment->length;
+          
+          /* Don't allow slope to exceed 45 degrees unless ground slope is steeper */
+          if (segment->slope > 1.0 && segment->slope > segment->ground_slope)
+            segment->slope = segment->ground_slope;
+          
+          Rh = (WaterDepth * segment->class2->width) / (WaterDepth * 2 + segment->class2->width);
+          
+          if (segment->slope > 0.0)
+            segment->K = sqrt(segment->slope) * pow((double) Rh, 2.0 / 3.0) /
+              (segment->class2->friction * segment->length);
+          else
+            segment->K = 0.0;
+        } else
           segment->K = 0.0;
         
-        /* Use average to prevent numeric oscillation across timesteps */
+        /* Use moving average to prevent numeric oscillation across timesteps */
         segment->K = (segment->K + Kold) / 2.0;
         
-        /* Avoid divide-by-zero problem */
-        if (segment->K <= 0.0){
-          if (Kold > 0.0)
-            segment->K = Kold;
-          else if (segment->ground_slope > 0.0)
-            segment->K = sqrt(segment->ground_slope) * pow((double) Rh, 2.0 / 3.0) /
-                         (segment->class2->friction * segment->length);
-          else
-            segment->K = 1.0; /* Should not happen, but just in case */
-        }
+        if (segment->K < MINSTORAGEK)
+          segment->K = MINSTORAGEK;
+        
         segment->X = exp(-segment->K * deltat);
       }
       segment = segment->next;
     }
   }
-  
-  return;
 }
 
 /* -------------------------------------------------------------
@@ -560,20 +559,56 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
 }
 
 /* -------------------------------------------------------------
+ channel_segment_infiltration
+------------------------------------------------------------- */
+void channel_segment_infiltration(Channel * segment)
+{
+  ChannelMapPtr cell = segment->grid;
+  float max_avail;
+  
+  segment->infiltration = 0.0;
+  max_avail = segment->storage + segment->inflow + segment->lateral_inflow;
+  
+  while (cell != NULL) {
+    
+    /* Update available storage with water entering segment from upstream */
+    cell->avail_water += segment->inflow;
+    
+    /* Limit available water to a maximum of the latest inflow and storage,
+       only considering amount originating uphill of current grid cell */
+    if (cell->avail_water > max_avail)
+      cell->avail_water = max_avail;
+    if (cell->infiltration > cell->avail_water)
+      cell->infiltration = cell->avail_water;
+    
+    segment->infiltration += cell->infiltration;
+    cell = cell->next_seg;
+    
+  }
+  if (segment->infiltration > max_avail)
+    segment->infiltration = max_avail;
+  if (segment->infiltration < 0.0)
+    segment->infiltration = 0.0;
+}
+
+/* -------------------------------------------------------------
 channel_route_segment
 ------------------------------------------------------------- */
 static int channel_route_segment(Channel * segment, int deltat)
 {
-  float K = segment->K;
-  float X = segment->X;
   float inflow, lateral_inflow, outflow, storage;
-  float infiltration, tot_available, storage_loss;
+  float infiltration, storage_loss;
   int err = 0;
   
+  if (segment->inflow < 0.0)
+    segment->inflow = 0.0;
+  if (segment->lateral_inflow < 0.0)
+    segment->lateral_inflow = 0.0;
+  if (segment->storage < 0.0)
+    segment->storage = 0.0;
+  
   /* Account for infiltration prior to routing each segment */
-  tot_available = segment->inflow + segment->lateral_inflow + segment->storage;
-  if (segment->infiltration > tot_available)
-    segment->infiltration = tot_available;
+  channel_segment_infiltration(segment);
   segment->remaining_infil = segment->infiltration;
   
   /* Subtract any necessary water from storage instead of inflow */
@@ -587,11 +622,19 @@ static int channel_route_segment(Channel * segment, int deltat)
   lateral_inflow = segment->lateral_inflow / deltat;
   infiltration = (segment->infiltration - storage_loss) / deltat;
   
-  storage = ((inflow + lateral_inflow - infiltration) / K) +
-    (segment->storage - (inflow + lateral_inflow - infiltration) / K) * X;
+  if (segment->K > 1e-10)
+    storage = ((inflow + lateral_inflow - infiltration) / segment->K) +
+      (segment->storage - (inflow + lateral_inflow - infiltration) / segment->K) * segment->X;
+  else
+    storage = (inflow + lateral_inflow - infiltration);
+  
   if (storage < 0.0)
     storage = 0.0;
+  
   outflow = (inflow + lateral_inflow - infiltration) - (storage - segment->storage) / deltat;
+  
+  if (outflow < 0.0)
+    outflow = 0.0;
   
   segment->outflow = outflow * deltat;
   segment->storage = storage;
@@ -612,14 +655,14 @@ int channel_route_network(Channel * net, int deltat)
   int err = 0;
   Channel *current;
   
-  for (order = 1;; order += 1) {
+  for (order = 1;; order++) {
     order_count = 0;
     current = net;
     while (current != NULL) {
       if (current->order == order) {
         
         err += channel_route_segment(current, deltat);
-        order_count += 1;
+        order_count++;
       }
       current = current->next;
     }

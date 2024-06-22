@@ -41,6 +41,7 @@ struct _channel_map_rec_ {
   Channel *channel;		/* pointer to segment record */
 
   struct _channel_map_rec_ *next;
+  struct _channel_map_rec_ *next_seg; /* Subset of cells in a particular segment only */
 };
 typedef struct _channel_map_rec_ ChannelMapRec;
 typedef struct _channel_map_rec_ *ChannelMapPtr;

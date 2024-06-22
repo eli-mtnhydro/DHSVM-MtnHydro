@@ -102,6 +102,7 @@ struct _channel_rec_ {
 
   struct _channel_rec_ *outlet;	/* NULL if does not drain to another segment */
   struct _channel_rec_ *next;
+  struct _channel_map_rec_ *grid; /* Pointer to first map cell in current segment */
 };
 typedef struct _channel_rec_ Channel, *ChannelPtr;
 
@@ -121,6 +122,7 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
 Channel *channel_find_segment(Channel *net, SegmentID id);
 int channel_step_initialize_network(Channel *net);
 int channel_incr_lat_inflow(Channel *segment, float linflow);
+void channel_segment_infiltration(Channel * segment);
 int channel_route_network(Channel *net, int deltat);
 int channel_save_outflow(double time, Channel * net, FILE *file, FILE *file2);
 int channel_save_outflow_text(char *tstring, Channel *net, FILE *out,

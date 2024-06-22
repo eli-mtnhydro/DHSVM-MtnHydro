@@ -102,6 +102,7 @@ static ChannelMapRec *alloc_channel_map_record(void)
   p->sink = FALSE;
   p->channel = NULL;
   p->next = NULL;
+  p->next_seg = NULL;
   return (p);
 }
 
@@ -347,7 +348,6 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
     
     /* Initialize available storage for re-infiltration */
     cell->avail_water = 0.0;
-    
   }
 
   table_errors += err;
@@ -368,6 +368,46 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
   }
 
   return (map);
+}
+
+/* -------------------------------------------------------------
+ channel_combine_map_network
+ ------------------------------------------------------------- */
+void channel_combine_map_network(Channel * net, ChannelMapPtr ** map, MAPSIZE * Map)
+{
+  Channel *segment;
+  ChannelMapPtr cell, cell2;
+  int j, k, col, row;
+  
+  for (segment = net; segment != NULL; segment = segment->next) {
+    /* Check all grid cells to see if they contain the current segment */
+    for (k = (Map->NumCells - 1); k > -1;  k--) {
+      row = Map->OrderedCells[k].y;
+      col = Map->OrderedCells[k].x;
+      cell = map[col][row];
+      while (cell != NULL) {
+        if (cell->channel->id == segment->id){
+          
+          /* Entry point from network to map */
+          if (segment->grid == NULL)
+            segment->grid = cell;
+          
+          /* Find next downstream cell which also matches channel id */
+          for (j = (k - 1); (cell->next_seg == NULL && j > -1);  j--) {
+            row = Map->OrderedCells[j].y;
+            col = Map->OrderedCells[j].x;
+            cell2 = map[col][row];
+            while (cell2 != NULL && cell->next_seg == NULL) {
+              if (cell2->channel->id == segment->id)
+                cell->next_seg = cell2;
+              cell2 = cell2->next;
+            }
+          } /* End of finding downstream cell */
+        }
+        cell = cell->next;
+      }
+    }
+  }
 }
 
 /* -------------------------------------------------------------
@@ -534,8 +574,8 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
                                 float DX, float DY, float Dt)
 {
   ChannelMapPtr cell = map[col][row];
-  float inflow; // Into one channel segment
-  float cell_inflow = 0.0; // Into all channel segments in cell
+  float inflow; /* Into one channel segment */
+  float cell_inflow = 0.0; /* Into all channel segments in cell */
   float max_inflow;
   float eff_dist;
   float drop;
@@ -548,7 +588,7 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
     
     water_depth = cell->channel->storage / (cell->cut_width * cell->channel->length);
     
-    if ((cell->cut_height - water_depth) > TableDepth){
+    if ((cell->cut_height - water_depth) > TableDepth) {
       
       /* Compute gradient from halfway between edge of cell and edge of channel */
       /* But enforce upper limit of 1 m for steepest gradient calculation */
@@ -584,7 +624,6 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
 void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
 {
   ChannelMapPtr cell = map[col][row];
-  float max_avail;
   
   while (cell != NULL) {
     cell->channel->lateral_inflow += cell->satflow;
@@ -596,14 +635,6 @@ void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
     if (cell->avail_water < 0.0)
       cell->avail_water = 0.0;
     cell->avail_water += cell->channel->lateral_inflow;
-    
-    /* Update available storage with water entering segment from upstream */
-    cell->avail_water += cell->channel->last_inflow;
-    
-    /* Limit available water to a maximum of the latest inflow and storage */
-    max_avail = cell->channel->storage + cell->channel->last_inflow + cell->channel->lateral_inflow;
-    if (cell->avail_water > max_avail)
-      cell->avail_water = max_avail;
     
     cell = cell->next;
   }
@@ -689,12 +720,12 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
                                     float TableDepth, float MaxInfiltrationCap)
 {
   ChannelMapPtr cell = map[col][row];
-  float infiltration; // From one channel segment
+  float infiltration; /* From one channel segment */
   float gradient;
   
   while (cell != NULL) {
     
-    if (MaxInfiltrationCap > 0.0 && TableDepth > cell->cut_height) {
+    if (MaxInfiltrationCap > 0.0) {
       
       /* Infiltration rate is assumed equal to vertical hydraulic conductivity */
       /* Infiltration volume = conductivity * gradient * area * time */
@@ -711,15 +742,13 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       
       infiltration = cell->infiltration_rate * gradient * cell->length * cell->cut_width * deltat;
       
-      if (infiltration > cell->avail_water)
-        infiltration = cell->avail_water;
       if (infiltration > MaxInfiltrationCap)
         infiltration = MaxInfiltrationCap;
       if (infiltration < 0.0)
         infiltration = 0.0;
       
       cell->infiltration = infiltration;
-      cell->channel->infiltration += infiltration;
+      
     } else
       cell->infiltration = 0.0;
     
@@ -736,7 +765,7 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
 float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row)
 {
   ChannelMapPtr cell = map[col][row];
-  float tot_infiltration = 0.0; // From all channel segments in cell
+  float tot_infiltration = 0.0; /* From all channel segments in cell */
   
   while (cell != NULL) {
     
@@ -766,9 +795,9 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
                                 float EPot, float MaxEvapCap)
 {
   ChannelMapPtr cell = map[col][row];
-  float evaporation; // From one channel segment
+  float evaporation; /* From one channel segment */
   float max_evaporation;
-  float cell_evaporation = 0.0; // From all channel segments in cell
+  float cell_evaporation = 0.0; /*  From all channel segments in cell */
   float water_depth;
   
   while (cell != NULL) {

@@ -55,6 +55,7 @@
 #define WATER_DENSITY 1000.		/* Density of water in kg/m3 */
 #define Z0_MULTIPLIER 0.13		/* Multiplier for vegetation height to get roughness length (m) */
 #define MinDiff   (1.e-8)
+#define MINSTORAGEK (1e-10)   /* Minimum allowed value of the linear storage parameter for numerical stability */
 
 /**************** extern constants - see globals.c ****************/
 
