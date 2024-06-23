@@ -589,7 +589,7 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
   
   while (cell != NULL) {
     
-    water_depth = cell->channel->storage / (cell->cut_width * cell->channel->length);
+    water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
     
     if ((cell->cut_height - water_depth) > TableDepth) {
       
@@ -736,7 +736,7 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       /* Channel head = water surface elev in channel - water table elev */
       
       gradient = (TableDepth - cell->cut_height) +
-                 (cell->channel->storage / (cell->channel->length * cell->cut_width));
+                 (cell->channel->storage / (cell->channel->length * cell->channel->class2->width));
       gradient /= (TableDepth - cell->cut_height);
       
       /* Avoid exploding gradients when water table is very close to channel bottom */
@@ -812,7 +812,7 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
       /* Maximum evaporation is proportional to the channel length
          unless water depth < 1 mm, in which case all water
          is allowed to evaporate from a single grid cell */
-      water_depth = cell->channel->storage / (cell->cut_width * cell->channel->length);
+      water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
       if (water_depth < 0.001)
         max_evaporation = cell->channel->storage;
       else
