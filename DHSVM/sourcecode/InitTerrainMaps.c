@@ -184,6 +184,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   unsigned char *Type;		/* Soil Type */
   float *Depth;			/* Soil Depth */
   float *KsLat = NULL;		/* Soil Lateral Conductivity */
+  float *KsLatExp = NULL;		/* Soil Exponential Decrease */
   float *Porosity = NULL;	/* Soil Porosity */
   float *FC = NULL;		/* Soil Field Capacity */
   int flag;
@@ -195,6 +196,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     {"SOILS", "SOIL MAP FILE", "", ""},
     {"SOILS", "SOIL DEPTH FILE", "", ""},
     {"SOILS", "SOIL CONDUCTIVITY MAP FILE", "", "none"},
+    {"SOILS", "SOIL EXPONENTIAL DECREASE MAP FILE", "", "none"},
     {"SOILS", "SOIL POROSITY MAP FILE", "", "none"},
     {"SOILS", "SOIL FIELD CAPACITY FILE", "", "none"},
     {NULL, NULL, "", NULL}
@@ -329,6 +331,49 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   
   /******************************************************************/
   
+  /* Read the spatial exponential decrease map */
+  GetVarName(016, 0, VarName);
+  GetVarNumberType(016, &NumberType);
+  
+  if (strncmp(StrEnv[expdec_file].VarStr, "none", 4)) {
+    printf("Spatial exponential decrease map provided, reading map\n");
+    if (!(KsLatExp = (float *)calloc(Map->NX * Map->NY,
+                      SizeOfNumberType(NumberType))))
+      ReportError((char *)Routine, 1);
+    flag = Read2DMatrix(StrEnv[expdec_file].VarStr, KsLatExp, NumberType, 
+                        Map, 0, VarName, 0);
+    
+    if ((Options->FileFormat == NETCDF && flag == 0)
+          || (Options->FileFormat == BIN))
+    {
+      for (y = 0, i = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          (*SoilMap)[y][x].KsLatExp = KsLatExp[i];
+        }
+      }
+    }
+    else if (Options->FileFormat == NETCDF && flag == 1) {
+      for (y = Map->NY - 1, i = 0; y >= 0; y--) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          (*SoilMap)[y][x].KsLatExp = KsLatExp[i];
+        }
+      }
+    }
+    else ReportError((char *)Routine, 57);
+    free(KsLatExp);
+    KsLatExp = NULL;
+  }
+  else{
+    printf("Spatial exponential decrease map not provided, generating map\n");
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        (*SoilMap)[y][x].KsLatExp = SType[(*SoilMap)[y][x].Soil - 1].KsLatExp;
+      }
+    }
+  }
+  
+  /******************************************************************/
+  
   /* Allocate memory for vertical conductivity */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
@@ -359,7 +404,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 CalcTransmissivity(LayerDepth,
                                    LayerDepth - VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet],
                                    (*SoilMap)[y][x].KsLat,
-                                   SType[(*SoilMap)[y][x].Soil - 1].KsLatExp,
+                                   (*SoilMap)[y][x].KsLatExp,
                                    SType[(*SoilMap)[y][x].Soil - 1].DepthThresh);
               KsVertCalc = Transmissivity / VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet];
               
@@ -392,7 +437,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
               CalcTransmissivity((*SoilMap)[y][x].Depth,
                                  (*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth,
                                  (*SoilMap)[y][x].KsLat,
-                                 SType[(*SoilMap)[y][x].Soil - 1].KsLatExp,
+                                 (*SoilMap)[y][x].KsLatExp,
                                  SType[(*SoilMap)[y][x].Soil - 1].DepthThresh);
             KsVertCalc = Transmissivity / ((*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth);
             

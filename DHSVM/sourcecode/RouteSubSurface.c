@@ -208,7 +208,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       
       Transmissivity = CalcTransmissivity(SoilMap[y][x].Depth, depth,
                                           SoilMap[y][x].KsLat,
-                                          SType[SoilMap[y][x].Soil - 1].KsLatExp,
+                                          SoilMap[y][x].KsLatExp,
                                           SType[SoilMap[y][x].Soil - 1].DepthThresh);
       
       OutFlow = (Transmissivity * fract_used * SubFlowGrad[y][x] * Dt) / (Map->DX * Map->DY);
@@ -236,7 +236,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       Transmissivity =
         CalcTransmissivity(BankHeight, SoilMap[y][x].TableDepth,
                            SoilMap[y][x].KsLat,
-                           SType[SoilMap[y][x].Soil - 1].KsLatExp,
+                           SoilMap[y][x].KsLatExp,
                            SType[SoilMap[y][x].Soil - 1].DepthThresh);
       
       water_out_road = (Transmissivity * fract_used * SubFlowGrad[y][x] * Dt) / (Map->DX * Map->DY);
@@ -262,7 +262,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       Transmissivity =
         CalcTransmissivity(BankHeight, SoilMap[y][x].TableDepth,
                            SoilMap[y][x].KsLat,
-                           SType[SoilMap[y][x].Soil - 1].KsLatExp,
+                           SoilMap[y][x].KsLatExp,
                            SType[SoilMap[y][x].Soil - 1].DepthThresh);
       
       AvailableWater = 

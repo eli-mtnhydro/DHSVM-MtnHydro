@@ -85,6 +85,9 @@ struct {
   015, "Soil.FCap",
        "Soil Field Capacity", "%.3f", 
        "", "Soil Field Capacity", NC_FLOAT, TRUE, FALSE, FALSE, 0 },{  
+  016, "Soil.KsLatExp",
+       "Soil Exponential Decrease", "%.6f", 
+       "", "Soil Exponential Decrease", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{  
   100, "Met.PrecipMultiplier",
 	   "PptMultiplier", "%.8f",
 	   "", "Precipitation Multiplier", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{
