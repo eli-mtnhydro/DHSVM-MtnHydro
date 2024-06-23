@@ -135,7 +135,7 @@ enum KEYS {
   snow_lai_multiplier, min_intercepted_snow, outside_basin,
   temp_lapse_rate, precip_lapse_rate, 
   max_swe, snowslide_parameter1,
-  snowslide_parameter2, gapwind_adj, 
+  snowslide_parameter2, gapwind_adj, temperature_offset,
   /* Constants that can vary spatially */
   rain_threshold = 0,
   snow_threshold,

@@ -146,6 +146,8 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
       
       TempLapseRate += CurrentWeight * Stat[i].Data.TempLapse;
     }
+    LocalMet.Tair += TEMPERATURE_OFFSET;
+    
     if (Options->WindSource == MODEL)
       LocalMet.Wind = ScaleWind * WindModel[WindDirection - 1][y][x];
 
@@ -268,6 +270,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
           exit(0);
         }
       }
+      PrecipMap->Precip *= precipMultiplier;
     }
   }
 

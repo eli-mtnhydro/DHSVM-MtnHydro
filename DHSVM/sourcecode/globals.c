@@ -33,6 +33,7 @@ unsigned char OUTSIDEBASIN;	    /* Mask value indicating outside the basin */
 float PRECIPLAPSE;		        /* Precipitation lapse rate in m/timestep / m */
 float MINELEV;          /* Smallest elevation of all grid cells (m) */
 float TEMPLAPSE;		/* Temperature lapse rate in C/m */
+float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
 float Z0_GROUND;		/* Roughness length for bare soil (m) */
 float Z0_SNOW;			/* Roughness length for snow (m) */
 float Zref;			    /* Reference height (m) */

@@ -132,6 +132,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SNOWSLIDE PARAMETER1", "", "" },
     {"CONSTANTS", "SNOWSLIDE PARAMETER2", "", "" },
     {"CONSTANTS", "GAP WIND ADJ FACTOR", "", "" },
+    {"CONSTANTS", "TEMPERATURE OFFSET", "", "" },
     {NULL, NULL, "", NULL}
   };
 
@@ -603,6 +604,9 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   }
   else
     PRECIPLAPSE = NOT_APPLICABLE;
+
+  if (!CopyFloat(&TEMPERATURE_OFFSET, StrEnv[temperature_offset].VarStr, 1))
+    ReportError(StrEnv[temperature_offset].KeyName, 51);
 
 
   /* maximum depth of the surface layer in snow water equivalent (m) */
