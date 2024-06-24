@@ -70,8 +70,12 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
             PrecipMap, SnowMap, MetMap, VegMap, Veg,
             SoilMap, Soil, Network, HydrographInfo, Hydrograph,
             ChannelData);
-          if (Options->HasNetwork)
-            StoreChannelState(Dump->Path, Current, ChannelData->streams);
+          if (Options->HasNetwork) {
+            if (Options->DumpExtraStream)
+              StoreChannelStateExtra(Dump->Path, Current, ChannelData->streams);
+            else
+              StoreChannelState(Dump->Path, Current, ChannelData->streams);
+          }
         }
       }
     }

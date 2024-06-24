@@ -250,12 +250,13 @@ typedef struct {
   int Shading;					/* if TRUE then terrain shading for solar is on */
   int StreamTemp;
   int CanopyShading;
-  int ImprovRadiation;          /* if TRUE then improved radiation scheme is on */
-  int CanopyGapping;            /* if canopy gapping is on */
-  int SnowSlide;                /* if snow sliding option is true */
-  int PrecipSepr;               /* if TRUE use separate input of rain and snow */
-  int SnowStats;               /* if TRUE dumps snow statistics for each water year */
-  int DynamicVeg;               /* if TRUE update vegetation maps at user defined dates*/
+  int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
+  int CanopyGapping;    /* if canopy gapping is on */
+  int SnowSlide;        /* if snow sliding option is true */
+  int PrecipSepr;       /* if TRUE use separate input of rain and snow */
+  int SnowStats;        /* if TRUE dumps snow statistics for each water year */
+  int DynamicVeg;       /* if TRUE update vegetation maps at user defined dates*/
+  int DumpExtraStream;  /* Whether to save extra stream data when dumping model state */
   char PrismDataPath[BUFSIZE + 1];
   char PrismDataExt[BUFSIZE + 1];
   char ShadingDataPath[BUFSIZE + 1];

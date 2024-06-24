@@ -114,7 +114,7 @@ void StoreChannelState(char *Path, DATE * Now, Channel * Head)
   Channel *Current = NULL;
   FILE *OutFile = NULL;
 
-  printf("storing channel state \n");
+  printf("Storing channel state\n");
   /* Create storage file */
   sprintf(Str, "%02d.%02d.%04d.%02d.%02d.%02d", Now->Month, Now->Day,
 	  Now->Year, Now->Hour, Now->Min, Now->Sec);
@@ -129,6 +129,48 @@ void StoreChannelState(char *Path, DATE * Now, Channel * Head)
     Current = Current->next;
   }
 
+  /* Close file */
+  fclose(OutFile);
+}
+
+/*****************************************************************************
+  StoreChannelStateExtra()
+  
+  Store extra information about the channel state,
+  i.e. storage, inflow, lateral inflow, infiltration, evaporation, and outflow
+  
+*****************************************************************************/
+void StoreChannelStateExtra(char *Path, DATE * Now, Channel * Head)
+{
+  char OutFileName[BUFSIZ + 1] = "";
+  char Str[BUFSIZ + 1] = "";
+  Channel *Current = NULL;
+  FILE *OutFile = NULL;
+  
+  printf("Storing channel state with extra information\n");
+  /* Create storage file */
+  sprintf(Str, "%02d.%02d.%04d.%02d.%02d.%02d", Now->Month, Now->Day,
+          Now->Year, Now->Hour, Now->Min, Now->Sec);
+  sprintf(OutFileName, "%sChannel.State.Extra.%s", Path, Str);
+  OpenFile(&OutFile, OutFileName, "w", TRUE);
+  
+  fprintf(OutFile, "%12s %12s %12s %12s %12s %12s %12s\n",
+          "ID", "Storage", "Inflow", "LateralFlow",
+          "Infiltration", "Evaporation", "Outflow");
+  
+  /* Store data */
+  Current = Head;
+  while (Current) {
+    fprintf(OutFile, "%12hu ", Current->id);
+    fprintf(OutFile, "%12g ", Current->storage);
+    fprintf(OutFile, "%12g ", Current->inflow);
+    fprintf(OutFile, "%12g ", Current->lateral_inflow);
+    fprintf(OutFile, "%12g ", Current->infiltration);
+    fprintf(OutFile, "%12g ", Current->evaporation);
+    fprintf(OutFile, "%12g\n", Current->outflow);
+    Current = Current->next;
+  }
+  
   /* Close file */
   fclose(OutFile);
 }
