@@ -602,8 +602,6 @@ static int channel_route_segment(Channel * segment, int deltat)
   
   if (segment->inflow < 0.0)
     segment->inflow = 0.0;
-  if (segment->lateral_inflow < 0.0)
-    segment->lateral_inflow = 0.0;
   if (segment->storage < 0.0)
     segment->storage = 0.0;
   

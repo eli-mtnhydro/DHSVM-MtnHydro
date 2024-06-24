@@ -25,11 +25,6 @@
 #include "slopeaspect.h"
 #include "DHSVMChannel.h"
 
-#ifndef MIN_GRAD
-#define MIN_GRAD .3		/* minimum slope for flow to channel */
-#endif
-
-
 /*****************************************************************************
   RouteSubSurface()
 
@@ -112,12 +107,16 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   int y;			/* counter */
   int i, j;	        /* counters */
   float BankHeight;
+  float ChannelWaterLevel;
+  float EffThickness;
+  float SoilDeficit;
   float *Adjust;
   float fract_used;
-  float depth;
+  float Depth;
   float OutFlow;
   float water_out_road;
   float water_out_stream;
+  float water_in_stream;
   float Transmissivity;
   float TotalAvailableWater; /* Including water that flows laterally and to channels/roads */
   float AvailableWater;
@@ -192,6 +191,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     fract_used = 0.0f;
     water_out_road = 0.0;
     water_out_stream = 0.0;
+    water_in_stream = 0.0;
     
     for (k = 0; k < NDIRS; k++) {
       fract_used += (float) SubDir[y][x][k];
@@ -203,10 +203,10 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     
     /* Only bother calculating subsurface flow if water table is above bedrock */
     if (SoilMap[y][x].TableDepth < SoilMap[y][x].Depth) {
-      depth = ((SoilMap[y][x].TableDepth > BankHeight) ?
+      Depth = ((SoilMap[y][x].TableDepth > BankHeight) ?
                  SoilMap[y][x].TableDepth : BankHeight);
       
-      Transmissivity = CalcTransmissivity(SoilMap[y][x].Depth, depth,
+      Transmissivity = CalcTransmissivity(SoilMap[y][x].Depth, Depth,
                                           SoilMap[y][x].KsLat,
                                           SoilMap[y][x].KsLatExp,
                                           SType[SoilMap[y][x].Soil - 1].DepthThresh);
@@ -220,10 +220,8 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                          SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                          SoilMap[y][x].TableDepth, Adjust);
     }
-    else {
-      depth = SoilMap[y][x].Depth;
+    else
       OutFlow = 0.0f;
-    }
     
     /* Compute road interception if water table is above road cut */
     if (SoilMap[y][x].TableDepth < BankHeight &&
@@ -256,31 +254,83 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                               water_out_road * Map->DX * Map->DY);
     }
     
-    /* Compute stream interception if water table is above channel cut */
+    /* Compute stream lateral inflow/outflow if water table is above channel cut */
     if (SoilMap[y][x].TableDepth < BankHeight &&
     channel_grid_has_channel(ChannelData->stream_map, x, y)) {
-      Transmissivity =
-        CalcTransmissivity(BankHeight, SoilMap[y][x].TableDepth,
-                           SoilMap[y][x].KsLat,
-                           SoilMap[y][x].KsLatExp,
-                           SType[SoilMap[y][x].Soil - 1].DepthThresh);
       
-      AvailableWater = 
-        CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-                           BankHeight, VType[VegMap[y][x].Veg - 1].RootDepth,
-                           SoilMap[y][x].Porosity,
-                           SoilMap[y][x].FCap, SoilMap[y][x].Moist,
-                           SoilMap[y][x].TableDepth, Adjust);
-      AvailableWater = AvailableWater - water_out_road;
-      
-      /* New method: contribute lateral inflow to each channel segment individually */
-      water_out_stream = channel_grid_calc_satflow(ChannelData->stream_map, x, y,
-                                                   SoilMap[y][x].TableDepth,
-                                                   Transmissivity, AvailableWater,
-                                                   Map->DX, Map->DY, Dt);
-      water_out_stream /= (Map->DX * Map->DY);
-      
-      SoilMap[y][x].ChannelInt += water_out_stream;
+      /* Also consider depth of water stored in channel */
+      ChannelWaterLevel = BankHeight - channel_grid_cell_water_depth(ChannelData->stream_map, x, y);
+      if (ChannelWaterLevel < 0.0)
+        ChannelWaterLevel = 0.0;
+      if (SoilMap[y][x].TableDepth < ChannelWaterLevel) {
+        /* Water table is above water level in channel,
+           channel gains water laterally */
+        Transmissivity =
+          CalcTransmissivity(ChannelWaterLevel, SoilMap[y][x].TableDepth,
+                             SoilMap[y][x].KsLat,
+                             SoilMap[y][x].KsLatExp,
+                             SType[SoilMap[y][x].Soil - 1].DepthThresh);
+        
+        AvailableWater = 
+          CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
+                             ChannelWaterLevel, VType[VegMap[y][x].Veg - 1].RootDepth,
+                             SoilMap[y][x].Porosity,
+                             SoilMap[y][x].FCap, SoilMap[y][x].Moist,
+                             SoilMap[y][x].TableDepth, Adjust);
+        AvailableWater = AvailableWater - water_out_road;
+        
+        /* New method: contribute lateral inflow to each channel segment individually */
+        water_out_stream = channel_grid_calc_satflow(ChannelData->stream_map, x, y,
+                                                     SoilMap[y][x].TableDepth,
+                                                     Transmissivity, AvailableWater,
+                                                     Map->DX, Map->DY, Dt);
+        water_out_stream /= (Map->DX * Map->DY);
+        
+        SoilMap[y][x].ChannelInt += water_out_stream;
+      } else {
+        /* Water table is above bottom of channel but below channel water level,
+           channel loses water laterally */
+        Transmissivity =
+          CalcTransmissivity(SoilMap[y][x].TableDepth, ChannelWaterLevel,
+                             SoilMap[y][x].KsLat,
+                             SoilMap[y][x].KsLatExp,
+                             SType[SoilMap[y][x].Soil - 1].DepthThresh);
+
+        /* Find capacity (porosity - moist) of unsaturated soil below channel water level */
+        SoilDeficit = 0.0;
+        Depth = 0.0;
+        for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < SoilMap[y][x].TableDepth; i++) {
+          if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
+            Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
+          else
+            Depth = SoilMap[y][x].Depth;
+
+          if (Depth > ChannelWaterLevel) {
+            if (Depth < SoilMap[y][x].TableDepth)
+              EffThickness = ((Depth - ChannelWaterLevel) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
+                                (Depth - ChannelWaterLevel) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
+            else
+              EffThickness = VType[VegMap[y][x].Veg - 1].RootDepth[i] - (Depth - SoilMap[y][x].TableDepth);
+
+            SoilDeficit += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
+          }
+        }
+        /* Also add deep layer water capacity if water table is below root zone layers */
+        if (SoilMap[y][x].TableDepth > Depth) {
+          i = SType[SoilMap[y][x].Soil - 1].NLayers;
+          SoilDeficit += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - SoilMap[y][x].TableDepth);
+        }
+        SoilDeficit /= (SoilMap[y][x].TableDepth - ChannelWaterLevel); /* Convert from depth to percentage capacity */
+        
+        water_in_stream = channel_grid_lateral_outflow(ChannelData->stream_map, x, y,
+                                                       SoilMap[y][x].TableDepth,
+                                                       Transmissivity, SoilDeficit,
+                                                       Map->DX, Map->DY, Dt);
+        water_in_stream /= (Map->DX * Map->DY);
+        water_out_stream -= water_in_stream;
+        
+        SoilMap[y][x].ChannelInfiltration += water_in_stream;
+      }
     }
     
     /* Subsurface Component - decrease water change only by as much

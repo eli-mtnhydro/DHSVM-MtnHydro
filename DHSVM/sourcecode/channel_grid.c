@@ -568,11 +568,97 @@ float channel_grid_cell_maxbankht(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
- channel_grid_calc_satflow
+   channel_grid_cell_water_depth
+   ------------------------------------------------------------- */
+float channel_grid_cell_water_depth(ChannelMapPtr ** map, int col, int row)
+{
+  ChannelMapPtr cell = map[col][row];
+  float len = channel_grid_cell_length(map, col, row);
+  float water_depth;
+  float water_depth_avg = 0.0;
+
+  if (len > 0.0) {
+    while (cell != NULL) {
+      water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
+      water_depth_avg += water_depth * cell->length;
+      cell = cell->next;
+    }
+    water_depth_avg /= len;
+  }
+  return (water_depth_avg);
+}
+
+/* -------------------------------------------------------------
+   channel_grid_lateral_outflow
    New method for calculating channel inflow from subsurface
    taking into account the different cut depths so that only
    channels with cut depth > water table get water
- ------------------------------------------------------------- */
+   ------------------------------------------------------------- */
+float channel_grid_lateral_outflow(ChannelMapPtr ** map, int col, int row,
+                                   float TableDepth,
+                                   float Transmissivity,  float SoilDeficit,
+                                   float DX, float DY, float Dt)
+{
+  ChannelMapPtr cell = map[col][row];
+  float outflow; /* From one channel segment */
+  float cell_outflow = 0.0; /* From all channel segments in cell */
+  float max_outflow;
+  float eff_dist;
+  float drop;
+  float grad;
+  float water_depth;
+  
+  while (cell != NULL) {
+    
+    water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
+    
+    if ((cell->cut_height - water_depth) < TableDepth) {
+      
+      /* Compute gradient from halfway between edge of cell and edge of channel */
+      /* But enforce upper limit of 1 m for steepest gradient calculation */
+      /* Assumes DX == DY */
+      eff_dist = (DX - cell->cut_width) / 4;
+      if (eff_dist < 1.0)
+        eff_dist = 1.0;
+      
+      /* Water can flow out from both sides of each channel segment */
+      if (water_depth > cell->cut_height)
+        water_depth = cell->cut_height;
+      drop = (TableDepth - (cell->cut_height - water_depth)) / eff_dist;
+      grad = drop * (cell->length * 2);
+      
+      outflow = Transmissivity * grad * Dt;
+      
+      /* Limit outflow to amount that would equilibrate channel water level and TableDepth */
+      /* Let TableDepthNew = cut_height - WaterDepthNew */
+      /* TableDepthNew = TableDepth - outflow / (SoilDeficit * DX * DY) */
+      /* WaterDepthNew = water_depth - outflow / (channel width * channel length) */
+      if (SoilDeficit < 0.00001)
+        max_outflow = 0.0;
+      else
+        max_outflow = (TableDepth - (cell->cut_height - water_depth)) /
+          (1.0 / (SoilDeficit * DX * DY) + 1.0 / (cell->channel->class2->width * cell->channel->length));
+      if (max_outflow > cell->channel->storage)
+        max_outflow = cell->channel->storage;
+      if (outflow > max_outflow)
+        outflow = max_outflow;
+      if (outflow < 0.0)
+        outflow = 0.0;
+      
+      cell->satflow -= outflow;
+      cell_outflow += outflow;
+      TableDepth -= outflow / (SoilDeficit * DX * DY);
+    }
+    cell = cell->next;
+  }
+  return (cell_outflow);
+}
+/* -------------------------------------------------------------
+   channel_grid_calc_satflow
+   New method for calculating channel inflow from subsurface
+   taking into account the different cut depths so that only
+   channels with cut depth > water table get water
+   ------------------------------------------------------------- */
 float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
                                 float TableDepth,
                                 float Transmissivity, float AvailableWater,
@@ -613,7 +699,7 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
       if (inflow < 0.0)
         inflow = 0.0;
       
-      cell->satflow = inflow;
+      cell->satflow += inflow;
       cell_inflow += inflow;
       max_inflow -= inflow;
     }
@@ -623,9 +709,9 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
 }
 
 /* -------------------------------------------------------------
- channel_grid_satflow
- Transfer satflow to lateral inflow
- ------------------------------------------------------------- */
+   channel_grid_satflow
+   Transfer satflow to lateral inflow
+   ------------------------------------------------------------- */
 void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
 {
   ChannelMapPtr cell = map[col][row];
@@ -637,9 +723,9 @@ void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
     /* Updates the amount of water available for infiltration;
        only water originating from inflow above the current cell
        is eligible for infiltration at the current location. */
+    cell->avail_water += cell->channel->lateral_inflow;
     if (cell->avail_water < 0.0)
       cell->avail_water = 0.0;
-    cell->avail_water += cell->channel->lateral_inflow;
     
     cell = cell->next;
   }

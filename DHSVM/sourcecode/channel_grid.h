@@ -60,6 +60,8 @@ void channel_grid_done(void);
 ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
 				      SOILTABLE *SType, SOILPIX **SoilMap, VEGTABLE *VType, VEGPIX **VegMap);
 
+void channel_combine_map_network(Channel * net, ChannelMapPtr ** map, MAPSIZE * Map);
+
 				/* Query Functions */
 
 int channel_grid_has_channel(ChannelMapPtr **map, int col, int row);
@@ -68,6 +70,12 @@ double channel_grid_cell_length(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_width(ChannelMapPtr **map, int col, int row);
 double channel_grid_cell_bankht(ChannelMapPtr **map, int col, int row);
 float channel_grid_cell_maxbankht(ChannelMapPtr **map, int col, int row);
+float channel_grid_cell_water_depth(ChannelMapPtr ** map, int col, int row);
+
+float channel_grid_lateral_outflow(ChannelMapPtr ** map, int col, int row,
+                                   float TableDepth,
+                                   float Transmissivity,  float SoilDeficit,
+                                   float DX, float DY, float Dt);
 
 float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
                                 float TableDepth,

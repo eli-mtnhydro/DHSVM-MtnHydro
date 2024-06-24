@@ -298,7 +298,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
             else
               Depth = SoilMap[y][x].Depth;
             
-            if (Depth > max_bank_height){
+            if (Depth > max_bank_height) {
               EffThickness = ((Depth - max_bank_height) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
                                 (Depth - max_bank_height) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
               MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
@@ -306,7 +306,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
           }
           /* Also add deep layer water capacity if water table is below root zone layers */
           if (SoilMap[y][x].TableDepth > Depth) {
-            i = SType[SoilMap[y][x].Soil - 1].NLayers - 1;
+            i = SType[SoilMap[y][x].Soil - 1].NLayers;
             MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
           }
           MaxInfiltrationCap *= Map->DX * Map->DY;
