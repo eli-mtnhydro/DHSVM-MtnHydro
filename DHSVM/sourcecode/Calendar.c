@@ -507,8 +507,6 @@ double GregorianToJulianDay(int year, int mon, int day, int h, int mi,
 void JulianDayToGregorian(double jd, int *y, int *m, int *d, int *h, int *mi,
 			  double *sec)
 {
-  static int ret[4];
-
   long j = jd;
   double tmp, frac = jd - j;
 
@@ -529,7 +527,6 @@ void JulianDayToGregorian(double jd, int *y, int *m, int *d, int *h, int *mi,
     frac = frac + 0.5;
   }
 
-  ret[3] = (j + 1L) % 7L;
   j -= 1721119L;
   *y = (4L * j - 1L) / 146097L;
   j = 4L * j - 1L - 146097L * *y;

@@ -98,12 +98,9 @@ void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
                             capacity of the tree (m) */
   float EsSnow;			    /* saturated vapor pressure in the snow pack (Pa)  */
   float InitialSnowInt;		/* Initial intercepted snow (m) */
-  float InitialWaterInt;	/* Initial intercepted water (snow and rain) (m) */
   float LatentHeat;		    /* Latent heat flux (W/m2) */
   float LongOut;		    /* Longwave radiation emitted by canopy (W/m2) */
   float Ls;			        /* Latent heat of sublimation (J/(kg K) */
-  float MassBalanceError;	/* Mass blalnce to make sure no water is
-                            being destroyed/created (m) */
   float MaxWaterInt;		/* Water interception capacity (m) */
   float MaxSnowInt;		    /* Snow interception capacity (m) - multiplier w/ temp */
   float NetRadiation;
@@ -119,12 +116,7 @@ void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
                             or condensation */
   float intrainfrac;		/* fraction of intercepted water which is liquid */
   float intsnowfrac;		/*fraction of intercepted water which is solid */
-  float OriginalRainfall;
-
-  /* Initialize Drip, H2O balance, and mass release variables. */
-  OriginalRainfall = *RainFall;
-  InitialWaterInt = *IntSnow + *IntRain;
-
+  
   /* Convert from pixel depth to physical depth*/
   *IntSnow /= F;
   *IntRain /= F;
@@ -355,10 +347,6 @@ void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
   *VaporMassFlux *= F;
   Drip *= F;
   ReleasedMass *= F;
-
-  /* Calculate intercepted H2O balance. */
-  MassBalanceError = (InitialWaterInt - (*IntSnow + *IntRain)) + (*SnowFall + *RainFall) -
-    (SnowThroughFall + RainThroughFall + Drip + ReleasedMass) + *VaporMassFlux;
 
   *RainFall = RainThroughFall + Drip;
   *SnowFall = SnowThroughFall + ReleasedMass;

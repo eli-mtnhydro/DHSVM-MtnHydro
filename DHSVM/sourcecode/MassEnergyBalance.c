@@ -72,7 +72,6 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   float B;                  /* Capillary drive and soil saturation deficit used
                                in dynamic infiltration calculation*/
   float LowerRa;		    /* Aerodynamic resistance for lower layer (s/m) */
-  float LowerWind;			/* Wind for lower layer (m/s) */
   float MaxInfiltration;	/* Maximum infiltration into the top soil layer (m) */
   float MaxRoadbedInfiltration;	/* Maximum infiltration through the road bed soil layer (m) */
   float NetRadiation;		/* Total Net long- and shortwave radiation for each veg layer (W/m2) */
@@ -104,7 +103,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /*Add a function to modify soil moisture by add/extract SatFlow from previous time step*/
   DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow, SType->NLayers,
     LocalSoil->Depth, LocalNetwork->Area, VType->RootDepth,
-    LocalSoil->KsVert, SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
+    SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
     LocalSoil->Perc, LocalNetwork->PercArea,
     LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth),
@@ -171,14 +170,10 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* calculate the actual aerodynamic resistances and wind speeds */
   UpperWind = VType->U[0] * LocalMet->Wind;
   UpperRa = VType->Ra[0] / LocalMet->Wind;
-  if (VType->OverStory == TRUE) {
-    LowerWind = VType->U[1] * LocalMet->Wind;
+  if (VType->OverStory == TRUE)
     LowerRa = VType->Ra[1] / LocalMet->Wind;
-  }
-  else {
-    LowerWind = UpperWind;
+  else
     LowerRa = UpperRa;
-  }
   if (LocalVeg->Gapping > 0.0) {
     /* calculate the aerodynamic resistance */
     CalcCanopyGapAerodynamic(&(LocalVeg->Type), VType->NVegLayers, VType->Height);
@@ -488,7 +483,6 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       DX, DY, x, y, ChannelData);
 
     /* update wind and aero resistance for gap opening */
-    LowerWind = LocalVeg->Type[Opening].U[1] * LocalMet->Wind;
     LowerRa = LocalVeg->Type[Opening].Ra[1] / LocalMet->Wind;
 
     CalcCanopyGapET(&(LocalVeg->Type), MaxSoilLayers, VType, LocalVeg, SType,

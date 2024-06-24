@@ -244,6 +244,7 @@ static Channel *alloc_channel_segment(void)
     return NULL;
   }
   seg->id = 0;
+  seg->outid = 0;
   seg->order = 0;
   seg->record_name = NULL;
   seg->record = FALSE;
@@ -506,7 +507,7 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
           }
           break;
         case 5:
-          current->outlet = (Channel *) chan_fields[i].value.integer;
+          current->outid = chan_fields[i].value.integer;
           break;
         case 6:
           current->record = TRUE;
@@ -529,14 +530,12 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
   specified */
 
   for (current = head; current != NULL; current = current->next) {
-    int outid = (int) current->outlet;
-
-    if (outid != 0) {
-      current->outlet = channel_find_segment(head, outid);
+    if (current->outid != 0) {
+      current->outlet = channel_find_segment(head, current->outid);
       if (current->outlet == NULL) {
         error_handler(ERRHDL_ERROR,
           "%s: cannot find outlet (%d) for segment %d",
-          file, outid, current->id);
+          file, current->outid, current->id);
         err++;
       }
     }

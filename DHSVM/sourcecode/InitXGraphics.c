@@ -39,7 +39,7 @@ void InitXGraphics(int argc, char **argv, int ny, int nx, int nd,
 {
   /* following is for the X11 libraries */
 
-  int i, x, y, screen;		/* screen is an int. */
+  int i, y, screen;		/* screen is an int. */
   int border_width;
   int c1, c2, c3;
   float re, best_re;
@@ -69,7 +69,6 @@ void InitXGraphics(int argc, char **argv, int ny, int nx, int nd,
   dy = 0.95 * DisplayHeight(display, screen);
 
   border_width = 4;
-  x = 0;
   y = 0;
 
   /* figure out the actual size of the window and stuff */

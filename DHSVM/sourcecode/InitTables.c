@@ -39,7 +39,6 @@ void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options,
   MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType,
   LAYER *Veg)
 {
-  int y, x; //counter
   printf("Initializing tables\n");
 
   if ((Soil->NTypes = InitSoilTable(Options, SType, Input, Soil,

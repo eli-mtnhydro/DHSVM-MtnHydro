@@ -62,7 +62,7 @@ void StoreModelState(char *Path, DATE * Current, MAPSIZE * Map,
   const char *Routine = "StoreModelState";
   char Str[NAMESIZE + 1];
   char FileLabel[MAXSTRING + 1];
-  char FileName[NAMESIZE + 1];
+  char FileName[NAMESIZE + 20];
   FILE *HydroStateFile;
   int i;			/* counter */
   int x;			/* counter */

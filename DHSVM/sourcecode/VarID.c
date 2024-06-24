@@ -380,7 +380,7 @@ void GetVarFileName(int ID, int Layer, unsigned char Resolution, char *FileName)
 {
   char *Routine = "GetVarFileName";
   char Name[BUFSIZE + 1];
-  char Str[BUFSIZE + 1];
+  char Str[BUFSIZE + 7];
   int i;
 
   i = 0;

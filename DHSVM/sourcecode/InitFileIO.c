@@ -150,9 +150,7 @@ int
 Read2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
              int NDataSet, char *VarName, int index)
 {
-  const char Routine[] = "Read2DMatrix";
   int result;
-
   result = Read2DMatrixFmt(FileName, Matrix, NumberType,
                            Map->NY, Map->NX, NDataSet, VarName, index);
   return result;
@@ -165,7 +163,6 @@ int
 Write2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
               MAPDUMP *DMap, int index)
 {
-  const char Routine[] = "Write2DMatrix";
   int result;
   result = Write2DMatrixFmt(FileName, Matrix, NumberType, 
                             Map->NY, Map->NX, DMap, index);

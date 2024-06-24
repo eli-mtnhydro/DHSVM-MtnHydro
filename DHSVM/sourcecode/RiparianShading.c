@@ -67,8 +67,7 @@ void CalcCanopyShading(TIMESTRUCT *Time, Channel *Channel, SOLARGEOMETRY *SolarG
 	float Net_Shade_Fctr = 0.;  /* the effective shade density fro beam radiation */
 	float SKOP = 0.;            /* sky openess ranging from 0 to 1 */
 	int ShadeCase;
-	float debug;
-
+	
 	/* compute solar altitude in radians */
 	SolarAltitude = asin(SolarGeo->SineSolarAltitude);
 	
@@ -157,7 +156,6 @@ void CalcCanopyShading(TIMESTRUCT *Time, Channel *Channel, SOLARGEOMETRY *SolarG
 
 	  /* compute the net shortwave raidation adjusted by canopy shading */
 	  Channel->NSW = Channel->Diffuse + Channel->Beam;
-	  debug = Channel->NLW;
 	  Channel->NLW = Channel->NLW * MIN(Channel->skyview, SKOP) + 
 		   0.96*(1-MIN(Channel->skyview, SKOP))*0.96*STEFAN*pow((double)(Channel->ATP+273.15),4);
 
@@ -180,21 +178,18 @@ float CalcShadeDensity(int ShadeCase, float HDEM, float WStream,
 {
 	double Pavg;   // the average path length of a sunbeam through the buffer
 	double SHDDEN;  // the effective shade density
-	float Shaded, Not_Shaded;
+	float Shaded;
 	float Net_Shade_Fctr;
 	
 	/* Initialize the parameters */
 	Shaded = WStream;
-	Not_Shaded = 0;
-
+	
 	switch (ShadeCase) {
 	  case 2:
-		Not_Shaded = WStream -Dx2;
         Shaded = Dx2;
         Pavg = 0.5 * Dx2 /cos(SunAltitude)/fabs(sin(SunAzimuth - StreamAzim));
 		break;
 	  case 3:
-		Not_Shaded = WStream - Dx2;
         Shaded = Dx2;
         Pavg = 0.5 * BUFFERWIDTH /cos(SunAltitude)/fabs(sin(SunAzimuth - StreamAzim));
 		break;

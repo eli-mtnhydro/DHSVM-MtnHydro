@@ -20,12 +20,10 @@
 #include "settings.h"
 #include "functions.h"
 #include "soilmoisture.h"
-#include <assert.h>
-
 
 /*****************************************************************************/
 void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayers,
-  float TotalDepth, float Area, float *RootDepth, float *Ks,
+  float TotalDepth, float Area, float *RootDepth,
   float *PoreDist, float *Porosity, float *FCap,
   float *Perc, float *PercArea, float *Adjust,
   int CutBankZone, float BankHeight, float *TableDepth,
@@ -34,8 +32,6 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayer
 {
   float DeepLayerDepth;		/* depth of the layer below the deepest root layer */
   int i;			        /* counter */
-
- /*Following variables adde by Zhuoran*/
   float DeepFCap;		/* field capacity of the layer below the deepest root layer */
   float DeepPorosity;		/* porosity of the layer below the deepest root layer */
   float DeepAvaWater;
@@ -48,9 +44,7 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayer
 
   DeepPorosity = Porosity[NSoilLayers - 1];
   DeepFCap = FCap[NSoilLayers - 1];
-
-  /*end of adding variable*/
-
+  
   DeepLayerDepth = TotalDepth;
   for (i = 0; i < NSoilLayers; i++)
     DeepLayerDepth -= RootDepth[i];
@@ -63,12 +57,11 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayer
   to redistribution of water extraction. The outflow starts from the (top) water table layer, extract the 
   excess water larger than field capacity. While there's no enough water from the current layer, extract 
   water from one layer below it until it reaches bottom layer. */
-
-
+  
   /*New algorithm for SatFlow, remove water from top layer to bottom layer*/
-  Depth = 0.0;
   if (SatFlow < 0.0) {
-    // printf("SatFlow before distribution is %.6f\n",SatFlow);
+    
+    Depth = 0.0;
     for (i = 0; i < NSoilLayers && Depth < TotalDepth; i++) {
       AvaWater = 0.0;
       ExtracWater = 0.0;
@@ -90,67 +83,33 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayer
       Moist[i] += ExtracWater / (RootDepth[i] * Adjust[i]);
 
       SatFlow -= ExtracWater;
-      // printf("SatFlow after layer %d is %.6f\n",i,SatFlow);
-      if (SatFlow == 0.0)
+      if (fequal(SatFlow, 0.0))
         break;
     }
 
-    if (SatFlow<0.0) {
+    if (SatFlow < 0.0) {
       DeepAvaWater = 0.0;
       DeepExtracWater = 0.0;
       if (Depth < TotalDepth) {
-
-        // DeepPorosity = Porosity[NSoilLayers - 1];
-        // DeepFCap = FCap[NSoilLayers - 1];
-
-        // DeepLayerDepth = TotalDepth - Depth;
         Depth = TotalDepth;
-
         if ((Depth - *TableDepth) > DeepLayerDepth)
           DeepAvaWater = (DeepPorosity - DeepFCap) * DeepLayerDepth * Adjust[NSoilLayers];
         else
           DeepAvaWater = (Moist[NSoilLayers] - DeepFCap) * DeepLayerDepth * Adjust[NSoilLayers];;
       }
 
-      // printf("Deep Layer Availabe Water is %.6f\n",DeepAvaWater);
-
       DeepExtracWater = (-SatFlow > DeepAvaWater) ? -DeepAvaWater : SatFlow;
 
       Moist[NSoilLayers] += DeepExtracWater / (DeepLayerDepth * Adjust[NSoilLayers]);
 
       SatFlow -= DeepExtracWater;
-
-      //printf("SatFlow before deep distribution is %.6f\n",SatFlow);
-      //printf("Deep Ava Water is %.6f\n",DeepAvaWater);
-      //printf("DeepMoistLayer before adjust is %.6f\n",Moist[NSoilLayers]);
-      /*if (-SatFlow >= DeepAvaWater){
-      Moist[NSoilLayers] = DeepFCap;
-      SatFlow += DeepAvaWater;
-      }
-      else{
-      Moist[NSoilLayers] += SatFlow / ( DeepLayerDepth * Adjust[NSoilLayers]);
-      SatFlow = 0.0;
-      }*/
-
-
-      // printf("SatFlow after distribution is %.6f\n",SatFlow);
-      // printf("DeepMoistLayer is %.6f\n",Moist[NSoilLayers]);
-      // printf("DeepAdjust is %.6f\n",Adjust[NSoilLayers]);
-      // printf("DeepFCap is %.6f\n",DeepFCap);
-      // printf("DeepPorosity is %.6f\n",DeepPorosity);
-      // printf("Table Depth is %.6f\n",*TableDepth);
     }
+  } else if (SatFlow > 0.0) {
 
-    //printf("SatFlow after distribution is %.6f\n",SatFlow);
-
-  }
-
-  if (SatFlow > 0.0) {
-
-    Depth += DeepLayerDepth;
+    Depth = DeepLayerDepth;
     DeepWaterGap = 0.0;
     DeepExtracWater = 0.0;
-    if (Depth > (TotalDepth - *TableDepth)); {
+    if (Depth > (TotalDepth - *TableDepth)) {
       DeepWaterGap = (DeepPorosity - Moist[NSoilLayers]) * DeepLayerDepth * Adjust[NSoilLayers];
       DeepExtracWater = (SatFlow > DeepWaterGap) ? DeepWaterGap : SatFlow;
       SatFlow -= DeepExtracWater;
@@ -162,62 +121,21 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayer
         WaterGap = 0.0;
         ExtracWater = 0.0;
         Depth += RootDepth[i];
-        if (Depth > (TotalDepth - *TableDepth)); {
+        if (Depth > (TotalDepth - *TableDepth)) {
           WaterGap = (Porosity[i] - Moist[i]) * RootDepth[i] * Adjust[i];
           ExtracWater = (SatFlow > WaterGap) ? WaterGap : SatFlow;
           SatFlow -= ExtracWater;
           Moist[i] += ExtracWater / (RootDepth[i] * Adjust[i]);
         }
-        if (SatFlow == 0.0)
-          break
-          ;
-
+        if (fequal(SatFlow, 0.0))
+          break;
       }
     }
   }
 
-  /*MoistureTransfer = 0.0;
-  Moist[NSoilLayers] += SatFlow / (DeepLayerDepth * Adjust[NSoilLayers]);
-
-  if (Moist[NSoilLayers] >= DeepPorosity){
-  MoistureTransfer = (Moist[NSoilLayers] - DeepPorosity) * DeepLayerDepth * Adjust[NSoilLayers];
-  SatFlow = MoistureTransfer;
-  Moist[NSoilLayers] = DeepPorosity;
-
-  for (i = NSoilLayers - 1; i >= 0; i--) {
-  MoistureTransfer = 0.0;
-  Moist[i] += SatFlow / (RootDepth[i] * Adjust[i]);
-
-  if (Moist[i] >= Porosity[i]) {
-  MoistureTransfer = (Moist[i] - Porosity[i]) * RootDepth[i] * Adjust[i];
-  SatFlow = MoistureTransfer;
-  Moist[i] = Porosity[i];
-  }
-  else{
-  SatFlow = 0.0;
-  }
-  if (SatFlow == 0.0)
-  break;
-  }
-  }
-  else{
-  SatFlow = 0.0;
-  }
-
-  }
-  */
-
   if (SatFlow > 0.0)
     *Runoff += SatFlow;
-
-  // if (SatFlow < -0.000001)
-  //   printf("%f SatFlow\n", SatFlow);
   
-  assert(SatFlow >= -0.000001);
-
+  if (SatFlow < 0.0)
+    SatFlow = 0.0;
 }
-
-
-/*End of Eidt by ZDuan*/
-
-

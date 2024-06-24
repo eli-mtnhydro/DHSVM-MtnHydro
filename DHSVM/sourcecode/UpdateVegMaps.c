@@ -108,7 +108,7 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE 
   const char *Routine = "UpdateVegMap";
   char VarName[BUFSIZE + 1];
   char Path[BUFSIZE + 1];
-  char FileName[NAMESIZE + 1];
+  char FileName[BUFSIZE * 2 + 19];
   char Str[NAMESIZE + 1];
   int i;			/* counter */
   int x;			/* counter */
@@ -260,19 +260,17 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE 
       {
         for (y = 0, i = 0; y < Map->NY; y++) {
           for (x = 0; x < Map->NX; x++, i++) {
-            if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
             if (LAIMonthly[i] > 0.0)
                 (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
             else
               (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-
-              if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory  == TRUE )
-                (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
+            
+            if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory  == TRUE )
+              (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
             }
-            else{
-              if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-                (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-            }
+            else if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
+              (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
           }
         }
       }

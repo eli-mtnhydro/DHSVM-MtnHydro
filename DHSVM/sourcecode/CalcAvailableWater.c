@@ -15,7 +15,6 @@
  * $Id: CalcAvailableWater.c,v 3.1.3 2017/10/01 Ning Exp $
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "settings.h"
@@ -42,8 +41,7 @@
                         soil moisture
 
 
-   Returns      :
-     float AvailableWater - Total water available for saturated flow
+   Returns      : float AvailableWater - Total water available for saturated flow
 
    Modifies     : void
 
@@ -71,15 +69,6 @@ float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
   for (i = 0; i < NRootLayers; i++)
     DeepLayerDepth -= RootDepth[i];
   
-  // if (PrintDebug){
-  //   printf("\nTotalDepth is is %.6f\n",TotalDepth);
-  //   printf("First layer Adjust is %.6f\n",Adjust[0]);
-  //   printf("DeepAdjust is %.6f\n",Adjust[NRootLayers]);
-  //   printf("DeepMoistLayer is %.6f\n",Moist[NRootLayers]);
-  //   printf("DeepFCap is %.6f\n",DeepFCap);
-  //   printf("DeepPorosity is %.6f\n",DeepPorosity);
-  // }
-  
   AvailableWater = 0.0;
 
   Depth = 0.0;
@@ -94,19 +83,9 @@ float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
       else
         AvailableWater += (Moist[i] - FCap[i]) * RootDepth[i] * Adjust[i];
     }
-    
-    // if (PrintDebug){
-    //   printf("\nDepth is %.6f\n",Depth);
-    //   printf("AvailableWater after layer %d is is %.6f\n",i,AvailableWater);
-    // }
   }
 
   if (Depth < TotalDepth) {
-
-    // DeepPorosity = Porosity[NRootLayers - 1];
-    // DeepFCap = FCap[NRootLayers - 1];
-
-    // DeepLayerDepth = TotalDepth - Depth;
     Depth = TotalDepth;
 
     if ((Depth - TableDepth) > DeepLayerDepth)
@@ -114,12 +93,10 @@ float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
     else
       AvailableWater += (Moist[NRootLayers] - DeepFCap) * DeepLayerDepth * Adjust[NRootLayers];
     
-    // if (PrintDebug){
-    //   printf("\nDepth is %.6f\n",TotalDepth);
-    //   printf("AvailableWater after deep layer is is %.6f\n",AvailableWater);
-    // }
   }
-
-  assert(AvailableWater >= 0.0);
+  
+  if (AvailableWater < 0.0)
+    AvailableWater = 0.0;
+  
   return AvailableWater;
 }

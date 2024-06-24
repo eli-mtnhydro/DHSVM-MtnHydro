@@ -44,7 +44,7 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   METLOCATION *Stat, char *Path, VEGPIX ***VegMap)
 {
   const char *Routine = "InitNewMonth";
-  char FileName[MAXSTRING + 1];
+  char FileName[BUFSIZE * 2 + 5];
   char VarName[BUFSIZE + 1];	/* Variable name */
   int i;
   int j, jj;
@@ -255,7 +255,6 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
   int y;			/* counter */
   int Step;			/* Step in the MM5 Input */
   float *Array = NULL;
-  int MM5Y, MM5X;
   int rdprecip, rdstep;
   uchar first;
   const int NumberType = NC_FLOAT;
@@ -440,7 +439,6 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
 void InitNewWaterYear(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
                 TOPOPIX **TopoMap, SNOWPIX **SnowMap)
 {
-  const char *Routine = "InitNewYear";
   int y, x;
   if (DEBUG)
     printf("Initializing new water year \n");

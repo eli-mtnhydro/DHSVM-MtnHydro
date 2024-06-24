@@ -54,7 +54,7 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
 {
   const char *Routine = "InitModelState";
   char Str[NAMESIZE + 1];
-  char FileName[NAMESIZE + 1];
+  char FileName[NAMESIZE + 20];
   FILE *HydroStateFile;
   int i, j;		         /* counter */
   int CountGap, Count;

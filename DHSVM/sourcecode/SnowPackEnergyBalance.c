@@ -129,7 +129,7 @@ float SnowPackEnergyBalance(float TSurf, va_list ap)
      think that it is more correct to calculate ALL fluxes at the same
      reference level */
   if (Wind > 0.0)
-    Ra /= StabilityCorrection(2.0f, 0.f, TMean, Tair, Wind, Z0);
+    Ra /= StabilityCorrection(Z, Displacement, TMean, Tair, Wind, Z0);
   else
     Ra = DHSVM_HUGE;
 

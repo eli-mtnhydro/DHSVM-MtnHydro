@@ -65,7 +65,6 @@ float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
   float MoistureTransfer;	/* amount of soil moisture transferred from
                                the current layer to the layer above (m) */
   int i;			        /* counter */
-  float TotalStorage = 0.0;
   float ExcessFCap;
   float Storage;
   float DeepStorage;
@@ -119,7 +118,7 @@ float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
     table depth. Should we allow subsurface flow to occur, should we include the saturation
     of disconnected overlying layers in the calculation of the hydraulic gradient.
     At this point, just be cautious.  Using any combination of soil parameters or
-    intial water states which can cause the lower layers of the soil profile
+    initial water states which can cause the lower layers of the soil profile
     to drain more quickly than water can flow down through the matrix will
     result in mass balance problems.  I.e. water will be forced out of the cell
     to the downslope, this water will be taken from the deepest soil layer, which

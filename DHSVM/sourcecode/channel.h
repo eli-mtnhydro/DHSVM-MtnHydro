@@ -59,6 +59,7 @@ typedef struct {
    ------------------------------------------------------------- */
 struct _channel_rec_ {
   SegmentID id;
+  SegmentID outid;
   unsigned order;		/* determines computation order */
   char *record_name;	/* The name this segment is to have in the output, if output is recorded */
   char record;			/* TRUE if outflow values are to be saved by channel_save_outflow */

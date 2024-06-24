@@ -41,8 +41,7 @@ void InitSnowMap(MAPSIZE *Map, SNOWPIX ***SnowMap, TIMESTRUCT *Time)
 {
   const char *Routine = "InitSnowMap";
   int y;			/* counter */
-  int x;
-
+  
   printf("Initializing snow map\n");
 
   if (!(*SnowMap = (SNOWPIX **) calloc(Map->NY, sizeof(SNOWPIX *))))

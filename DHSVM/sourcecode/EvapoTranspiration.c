@@ -35,7 +35,6 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
 {
   float *Rc;			/* canopy resistance associated with
                         conditions in each soil layer (s/m) */
-  float DryArea;		/* relative dry leaf area  */
   float DryEvapTime;	/* amount of time remaining during a timestep
                         after the interception storage is depleted (sec) */
   float F;			    /* Fractional coverage by vegetation layer */
@@ -84,8 +83,7 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   WetArea = cbrt(*Int / LocalVeg->MaxInt[Layer]);
   WetArea = MIN(WetArea, 1);
   WetArea = WetArea * WetArea;
-  DryArea = 1 - WetArea;
-
+  
   /* calculate the amount of water that can evaporate from the interception
   storage.  Given this evaporation rate, calculate the amount of time it
   will take to evaporate the entire amount of intercepted water.  If this

@@ -59,7 +59,7 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
     NetWaterIn1 = 0.;
   
   /* 2nd approach */
-  if (Total->Snow.Swq>0|| (Total->Snow.Swq==0 && deltaSWE>0))
+  if (Total->Snow.Swq>0 || (Total->Snow.Swq==0 && deltaSWE>0))
      NetWaterIn2 = Total->Snow.Melt;
   else
      NetWaterIn2 = Total->Precip.Precip - Total->Precip.SnowFall;
@@ -68,13 +68,12 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
     Total->CanopyWater + Total->SoilWater +
     Total->Snow.Swq + Total->Soil.SatFlow + Total->Soil.DetentionStorage;
 
-  Output = (Total->ChannelInt - Total->ChannelInfiltration - Total->Evap.EvapChannel) + Total->RoadInt + Total->Evap.ETot;
+  Output = (Total->ChannelInt - Total->ChannelInfiltration - Total->Evap.EvapChannel) +
+    Total->RoadInt + Total->Evap.ETot;
   Input = Total->Precip.Precip + Total->Snow.VaporMassFlux +
     Total->Snow.CanopyVaporMassFlux + Total->CulvertReturnFlow;
 
-  MassError = (NewWaterStorage - Mass->OldWaterStorage) + Output -
-    Total->Precip.Precip - Total->Snow.VaporMassFlux -
-    Total->Snow.CanopyVaporMassFlux - Total->CulvertReturnFlow;
+  MassError = (NewWaterStorage - Mass->OldWaterStorage) + Output - Input;
 
   /* update */
   Mass->OldWaterStorage = NewWaterStorage;

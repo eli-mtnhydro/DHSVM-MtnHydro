@@ -67,7 +67,7 @@ void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLay
                    dump maps */
   int temp_count;
   uchar **BasinMask;
-  char sumoutfile[100];
+  char sumoutfile[BUFSIZ + 20];
 
 
   STRINIENTRY StrEnv[] = {

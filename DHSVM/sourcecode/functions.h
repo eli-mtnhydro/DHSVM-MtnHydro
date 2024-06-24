@@ -357,6 +357,8 @@ void SkipLines(FILES *InFile, int NLines);
 
 void StoreChannelState(char *Path, DATE *Current, Channel *Head);
 
+void StoreChannelStateExtra(char *Path, DATE *Current, Channel *Head);
+
 void StoreModelState(char *Path, DATE *Current, MAPSIZE *Map,
 		     OPTIONSTRUCT *Options, TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, 
              SNOWPIX **SnowMap, MET_MAP_PIX **MetMap, VEGPIX **VegMap, 

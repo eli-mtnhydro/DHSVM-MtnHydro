@@ -35,7 +35,7 @@ void CutBankGeometry(int i, float RootDepth, float TopZone, float BankHeight,
 		     float *Adjust, int *CutBankZone);
 
 void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayers,
-		     float TotalDepth, float Area, float *RootDepth, float *Ks,
+		     float TotalDepth, float Area, float *RootDepth,
 		     float *PoreDist, float *Porosity, float *FCap,
 		     float *Perc, float *PercArea, float *Adjust,
 		     int CutBankZone, float BankHeight, float *TableDepth,

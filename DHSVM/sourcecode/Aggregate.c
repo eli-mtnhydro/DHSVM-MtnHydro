@@ -58,37 +58,37 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-		  NPixels++;
-		  NSoilL = Soil->NLayers[SoilMap[y][x].Soil - 1];
-		  NVegL = Veg->NLayers[VegMap[y][x].Veg - 1];
-		  
-		  /* aggregate the evaporation data */
-		  Total->Evap.ETot += Evap[y][x].ETot;
-		  for (i = 0; i < NVegL; i++) {
-			  Total->Evap.EPot[i] += Evap[y][x].EPot[i];
-			  Total->Evap.EAct[i] += Evap[y][x].EAct[i];
-			  Total->Evap.EInt[i] += Evap[y][x].EInt[i];
-		  }
-		  Total->Evap.EPot[Veg->MaxLayers] += Evap[y][x].EPot[NVegL];
-		  Total->Evap.EAct[Veg->MaxLayers] += Evap[y][x].EAct[NVegL];
-		  
-		  for (i = 0; i < NVegL; i++) {
-			  for (j = 0; j < NSoilL; j++) {
-				  Total->Evap.ESoil[i][j] += Evap[y][x].ESoil[i][j];
-			  }
-		  }
-		  Total->Evap.EvapSoil += Evap[y][x].EvapSoil;
-		  Total->Evap.EvapChannel += Evap[y][x].EvapChannel;
-		  
-		  /* aggregate precipitation data */
-		  Total->Precip.Precip += Precip[y][x].Precip;
-          Total->Precip.SnowFall += Precip[y][x].SnowFall;
-		  for (i = 0; i < NVegL; i++) {
-			  Total->Precip.IntRain[i] += Precip[y][x].IntRain[i];
-			  Total->Precip.IntSnow[i] += Precip[y][x].IntSnow[i];
-			  Total->CanopyWater += Precip[y][x].IntRain[i] +
-			  Precip[y][x].IntSnow[i];
-		  }
+  NPixels++;
+  NSoilL = Soil->NLayers[SoilMap[y][x].Soil - 1];
+  NVegL = Veg->NLayers[VegMap[y][x].Veg - 1];
+  
+  /* aggregate the evaporation data */
+  Total->Evap.ETot += Evap[y][x].ETot;
+  for (i = 0; i < NVegL; i++) {
+	  Total->Evap.EPot[i] += Evap[y][x].EPot[i];
+	  Total->Evap.EAct[i] += Evap[y][x].EAct[i];
+	  Total->Evap.EInt[i] += Evap[y][x].EInt[i];
+  }
+  Total->Evap.EPot[Veg->MaxLayers] += Evap[y][x].EPot[NVegL];
+  Total->Evap.EAct[Veg->MaxLayers] += Evap[y][x].EAct[NVegL];
+  
+  for (i = 0; i < NVegL; i++) {
+	  for (j = 0; j < NSoilL; j++) {
+		  Total->Evap.ESoil[i][j] += Evap[y][x].ESoil[i][j];
+	  }
+  }
+  Total->Evap.EvapSoil += Evap[y][x].EvapSoil;
+  Total->Evap.EvapChannel += Evap[y][x].EvapChannel;
+  
+  /* aggregate precipitation data */
+  Total->Precip.Precip += Precip[y][x].Precip;
+      Total->Precip.SnowFall += Precip[y][x].SnowFall;
+  for (i = 0; i < NVegL; i++) {
+	  Total->Precip.IntRain[i] += Precip[y][x].IntRain[i];
+	  Total->Precip.IntSnow[i] += Precip[y][x].IntSnow[i];
+	  Total->CanopyWater += Precip[y][x].IntRain[i] +
+	  Precip[y][x].IntSnow[i];
+  }
 
 	/* aggregate radiation data */
 	if (Options->MM5 == TRUE) {
@@ -98,88 +98,88 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	else {
       Total->Rad.Tair += RadMap[y][x].Tair;
       Total->Rad.ObsShortIn += RadMap[y][x].ObsShortIn;
-	  Total->Rad.BeamIn += RadMap[y][x].BeamIn;
-	  Total->Rad.DiffuseIn += RadMap[y][x].DiffuseIn;
+	    Total->Rad.BeamIn += RadMap[y][x].BeamIn;
+	    Total->Rad.DiffuseIn += RadMap[y][x].DiffuseIn;
       Total->Rad.PixelNetShort += RadMap[y][x].PixelNetShort;
       Total->NetRad += RadMap[y][x].NetRadiation[0] + RadMap[y][x].NetRadiation[1];
 	}
 
 	/* aggregate snow data */
 	if (Snow[y][x].HasSnow)
-		Total->Snow.HasSnow = TRUE;
-		Total->Snow.Swq += Snow[y][x].Swq;
-		Total->Snow.Glacier += Snow[y][x].Glacier;
-		/* Total->Snow.Melt += Snow[y][x].Melt; */
-		Total->Snow.Melt += Snow[y][x].Outflow;
-		Total->Snow.PackWater += Snow[y][x].PackWater;
-		Total->Snow.TPack += Snow[y][x].TPack;
-		Total->Snow.SurfWater += Snow[y][x].SurfWater;
-		Total->Snow.TSurf += Snow[y][x].TSurf;
-		Total->Snow.ColdContent += Snow[y][x].ColdContent;
-		Total->Snow.Albedo += Snow[y][x].Albedo;
-		Total->Snow.Depth += Snow[y][x].Depth;
-		Total->Snow.Qe += Snow[y][x].Qe;
-		Total->Snow.Qs += Snow[y][x].Qs;
-		Total->Snow.Qsw += Snow[y][x].Qsw;
-		Total->Snow.Qlw += Snow[y][x].Qlw;
-		Total->Snow.Qp += Snow[y][x].Qp;
-		Total->Snow.MeltEnergy += Snow[y][x].MeltEnergy;
-		Total->Snow.VaporMassFlux += Snow[y][x].VaporMassFlux;
-		Total->Snow.CanopyVaporMassFlux += Snow[y][x].CanopyVaporMassFlux;
+	  Total->Snow.HasSnow = TRUE;
+  Total->Snow.Swq += Snow[y][x].Swq;
+  Total->Snow.Glacier += Snow[y][x].Glacier;
+  /* Total->Snow.Melt += Snow[y][x].Melt; */
+  Total->Snow.Melt += Snow[y][x].Outflow;
+  Total->Snow.PackWater += Snow[y][x].PackWater;
+  Total->Snow.TPack += Snow[y][x].TPack;
+  Total->Snow.SurfWater += Snow[y][x].SurfWater;
+  Total->Snow.TSurf += Snow[y][x].TSurf;
+  Total->Snow.ColdContent += Snow[y][x].ColdContent;
+  Total->Snow.Albedo += Snow[y][x].Albedo;
+  Total->Snow.Depth += Snow[y][x].Depth;
+  Total->Snow.Qe += Snow[y][x].Qe;
+  Total->Snow.Qs += Snow[y][x].Qs;
+  Total->Snow.Qsw += Snow[y][x].Qsw;
+  Total->Snow.Qlw += Snow[y][x].Qlw;
+  Total->Snow.Qp += Snow[y][x].Qp;
+  Total->Snow.MeltEnergy += Snow[y][x].MeltEnergy;
+  Total->Snow.VaporMassFlux += Snow[y][x].VaporMassFlux;
+  Total->Snow.CanopyVaporMassFlux += Snow[y][x].CanopyVaporMassFlux;
 
-		if (VegMap[y][x].Gapping > 0.0 ) {
-		  Total->Veg.Type[Opening].Qsw += VegMap[y][x].Type[Opening].Qsw;
-		  Total->Veg.Type[Opening].Qlin += VegMap[y][x].Type[Opening].Qlin;
-		  Total->Veg.Type[Opening].Qlw += VegMap[y][x].Type[Opening].Qlw;
-		  Total->Veg.Type[Opening].Qe += VegMap[y][x].Type[Opening].Qe;
-		  Total->Veg.Type[Opening].Qs += VegMap[y][x].Type[Opening].Qs;
-		  Total->Veg.Type[Opening].Qp += VegMap[y][x].Type[Opening].Qp;
-		  Total->Veg.Type[Opening].Swq += VegMap[y][x].Type[Opening].Swq;
-		  Total->Veg.Type[Opening].MeltEnergy += VegMap[y][x].Type[Opening].MeltEnergy;
-		}
-		/* aggregate soil moisture data */
-		Total->Soil.Depth += SoilMap[y][x].Depth;
-		DeepDepth = 0.0;
+	if (VegMap[y][x].Gapping > 0.0 ) {
+	  Total->Veg.Type[Opening].Qsw += VegMap[y][x].Type[Opening].Qsw;
+	  Total->Veg.Type[Opening].Qlin += VegMap[y][x].Type[Opening].Qlin;
+	  Total->Veg.Type[Opening].Qlw += VegMap[y][x].Type[Opening].Qlw;
+	  Total->Veg.Type[Opening].Qe += VegMap[y][x].Type[Opening].Qe;
+	  Total->Veg.Type[Opening].Qs += VegMap[y][x].Type[Opening].Qs;
+	  Total->Veg.Type[Opening].Qp += VegMap[y][x].Type[Opening].Qp;
+	  Total->Veg.Type[Opening].Swq += VegMap[y][x].Type[Opening].Swq;
+	  Total->Veg.Type[Opening].MeltEnergy += VegMap[y][x].Type[Opening].MeltEnergy;
+	}
+	/* aggregate soil moisture data */
+	Total->Soil.Depth += SoilMap[y][x].Depth;
+	DeepDepth = 0.0;
 
-		for (i = 0; i < NSoilL; i++) {
-			Total->Soil.Moist[i] += SoilMap[y][x].Moist[i];
-			assert(SoilMap[y][x].Moist[i] >= 0.0);
-			Total->Soil.Perc[i] += SoilMap[y][x].Perc[i];
-			Total->Soil.Temp[i] += SoilMap[y][x].Temp[i];
-			Total->SoilWater += SoilMap[y][x].Moist[i] * VType[VegMap[y][x].Veg - 1].RootDepth[i] * Network[y][x].Adjust[i]; 
-			DeepDepth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
-		}
+	for (i = 0; i < NSoilL; i++) {
+		Total->Soil.Moist[i] += SoilMap[y][x].Moist[i];
+		assert(SoilMap[y][x].Moist[i] >= 0.0);
+		Total->Soil.Perc[i] += SoilMap[y][x].Perc[i];
+		Total->Soil.Temp[i] += SoilMap[y][x].Temp[i];
+		Total->SoilWater += SoilMap[y][x].Moist[i] * VType[VegMap[y][x].Veg - 1].RootDepth[i] * Network[y][x].Adjust[i]; 
+		DeepDepth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
+	}
 
-		Total->Soil.Moist[Soil->MaxLayers] += SoilMap[y][x].Moist[NSoilL];
-		Total->SoilWater += SoilMap[y][x].Moist[NSoilL] * (SoilMap[y][x].Depth - DeepDepth) * Network[y][x].Adjust[NSoilL];
-		Total->Soil.TableDepth += SoilMap[y][x].TableDepth;
+	Total->Soil.Moist[Soil->MaxLayers] += SoilMap[y][x].Moist[NSoilL];
+	Total->SoilWater += SoilMap[y][x].Moist[NSoilL] * (SoilMap[y][x].Depth - DeepDepth) * Network[y][x].Adjust[NSoilL];
+	Total->Soil.TableDepth += SoilMap[y][x].TableDepth;
 
-		if (SoilMap[y][x].TableDepth <= 0)
-			(Total->Saturated)++;
-		
-		Total->Soil.WaterLevel += SoilMap[y][x].WaterLevel;
-		Total->Soil.SatFlow += SoilMap[y][x].SatFlow;
-		Total->Soil.TSurf += SoilMap[y][x].TSurf;
-		Total->Soil.Qnet += SoilMap[y][x].Qnet;
-		Total->Soil.Qs += SoilMap[y][x].Qs;
-		Total->Soil.Qe += SoilMap[y][x].Qe;
-		Total->Soil.Qg += SoilMap[y][x].Qg;
-		Total->Soil.Qst += SoilMap[y][x].Qst;
-		Total->Soil.IExcess += SoilMap[y][x].IExcess;
-		Total->Soil.DetentionStorage += SoilMap[y][x].DetentionStorage;
-		
-		if (Options->Infiltration == DYNAMIC)
-			Total->Soil.InfiltAcc += SoilMap[y][x].InfiltAcc;
-		
-		Total->Soil.Runoff += SoilMap[y][x].Runoff;
-		Total->ChannelInt += SoilMap[y][x].ChannelInt;
-		Total->ChannelInfiltration += SoilMap[y][x].ChannelInfiltration;
-		SoilMap[y][x].ChannelInt = 0.0;
-		SoilMap[y][x].ChannelInfiltration = 0.0;
-		Total->RoadInt += SoilMap[y][x].RoadInt;
-		SoilMap[y][x].RoadInt = 0.0;
-      }
-    }
+	if (SoilMap[y][x].TableDepth <= 0)
+		(Total->Saturated)++;
+	
+	Total->Soil.WaterLevel += SoilMap[y][x].WaterLevel;
+	Total->Soil.SatFlow += SoilMap[y][x].SatFlow;
+	Total->Soil.TSurf += SoilMap[y][x].TSurf;
+	Total->Soil.Qnet += SoilMap[y][x].Qnet;
+	Total->Soil.Qs += SoilMap[y][x].Qs;
+	Total->Soil.Qe += SoilMap[y][x].Qe;
+	Total->Soil.Qg += SoilMap[y][x].Qg;
+	Total->Soil.Qst += SoilMap[y][x].Qst;
+	Total->Soil.IExcess += SoilMap[y][x].IExcess;
+	Total->Soil.DetentionStorage += SoilMap[y][x].DetentionStorage;
+	
+	if (Options->Infiltration == DYNAMIC)
+		Total->Soil.InfiltAcc += SoilMap[y][x].InfiltAcc;
+	
+	Total->Soil.Runoff += SoilMap[y][x].Runoff;
+	Total->ChannelInt += SoilMap[y][x].ChannelInt;
+	Total->ChannelInfiltration += SoilMap[y][x].ChannelInfiltration;
+	SoilMap[y][x].ChannelInt = 0.0;
+	SoilMap[y][x].ChannelInfiltration = 0.0;
+	Total->RoadInt += SoilMap[y][x].RoadInt;
+	SoilMap[y][x].RoadInt = 0.0;
+  }
+  }
   }
   /* divide road area by pixel area so it can be used to calculate depths
      over the road surface in FinalMassBalancs */

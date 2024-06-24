@@ -181,7 +181,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   /* into account the slope and aspect and topographic shading */
   /* of the local pixel.  If we wanted to use this value directly */
   /* then the correction to the observed beam w.r.t. a horizontal plane */
-  /* would be   
+  /* would be */
   /*        actual = horizontal*shadefactor/255/sin(solar_altitude) */
   /* the sin(solar_altitude) is necessary to convert horizontal into the maximum */
   /* possible flux */
@@ -198,7 +198,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   /*    0<=newshadefactor<=11.47      and then scale it between 0 and 255 */
   /* the final calculation becomes,  */
   /*       actual = horizontal*(float)shadefactor/255.0*11.47 or simply
-  acutal = horizontal*(float)shadefactor/22.23191               */
+           actual = horizontal*(float)shadefactor/22.23191               */
   /* thus radiation increases from 0 to 11.47 times the observed value in */
   /* increments of 4.5 percent */
   /* a finer resolution than this would require a higher min angle or more memory */

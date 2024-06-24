@@ -60,9 +60,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   float TimeStep;		/* Timestep in hours */
   DATE End;			/* End of run */
   DATE Start;			/* Start of run */
-  char FileName[BUFSIZE + 1];	      /* Variable name */
-  int MapId;
-  int ParamType;
 
   STRINIENTRY StrEnv[] = {
     {"OPTIONS", "FORMAT", "", ""},
@@ -785,7 +782,7 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   strcpy(Options->PrecipMultiplierMapPath, "");
   if (IsEmptyStr(StrEnv[multiplier].VarStr)) {
     PRECIP_MULTIPLIER = 0;
-    printf("No input of precipitation multiplier map - no correction is made\n", 51);
+    printf("No input of precipitation multiplier map - no correction is made\n");
   }
   else {
     if (!CopyFloat(&PRECIP_MULTIPLIER, StrEnv[multiplier].VarStr, 1)) {
@@ -793,5 +790,7 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
       PRECIP_MULTIPLIER = NA;
       strcpy(Options->PrecipMultiplierMapPath, StrEnv[multiplier].VarStr);
     }
+    else
+      printf("Precipitation inputs are rescaled by a factor of %f\n",PRECIP_MULTIPLIER);
   }
 }

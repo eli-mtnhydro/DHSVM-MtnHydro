@@ -244,18 +244,11 @@ float AreaIntegral(float Extn, float Lmax, float SolarAltitude, float R,
   float x;      /* distance between any point along the optical axis to gap center */
   float u;      /* area defined by the function between two boundary limits*/
   float deltax; /* increment */
-  float Rad;
-
+  
   deltax = (xmax - xmin) / MAXIT;
  
   u = 0.;
   for (x = xmin; x <= xmax; x += deltax) {
-    /* debug */
-    Rad = (Rsb*exp(-Extn*(Lmax-sqrt(R*R-x*x)/cos(SolarAltitude))) + Rdg);
-    /* if (xmin == 0 && x==0)
-      fprintf(stderr, "%f \n", Rad); */
-    /* debug ends*/
-    
     u +=
       exp(-Extn*(Lmax - sqrt(R*R - x*x) / cos(SolarAltitude))) * sqrt(R*R - x*x) * deltax;
   }
@@ -275,7 +268,6 @@ float CalcGapView(float R, float H, float F) {
   float r;
   float delta_alpha;
   float alpha;
-  float junk;
   int iter = 20;
 
   delta_r = R / iter;
@@ -286,7 +278,6 @@ float CalcGapView(float R, float H, float F) {
     SVF = 0;
     for (alpha = 0; alpha <= 2 * PI; alpha += delta_alpha) {
       I = sqrt(R*R - r*r*sin(alpha)*sin(alpha)) - r*cos(alpha);
-      junk = atan2(I, H);
       SVF += 1 / (PI*PI) * atan2(I, H) * delta_alpha / F;
     }
     GapView += SVF * delta_r;

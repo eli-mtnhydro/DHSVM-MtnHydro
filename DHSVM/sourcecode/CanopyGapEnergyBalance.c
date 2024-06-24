@@ -62,7 +62,6 @@ void CanopyGapSnowMelt(OPTIONSTRUCT *Options, int y, int x, int Dt,
   float SnowNetShort;		/* Net amount of short wave radiation at the snow surface (W/m2) */
   float SnowRa;				/* Aerodynamic resistance for snow */
   float SnowWind;		    /* Wind 2 m above snow */
-  float Tsurf;              /* Surface temperature */
   float OldTSurf;           /* Effective surface temperature at the end of the last timestep (C)*/
   float Tmean;              /* Average snow surface temperature*/
   float tmp;                /* temporary variable */
@@ -138,7 +137,6 @@ void CanopyGapSnowMelt(OPTIONSTRUCT *Options, int y, int x, int Dt,
 
     /* Because we now have a new estimate of the snow surface temperature we
     can recalculate the longwave balance */
-    Tsurf = Gap[Opening]->TSurf;
     CanopyGapLongRadiation(&((*Gap)[Opening]), VType->Height[0],
       LocalVeg->Gapping, LocalMet->Lin, LocalVeg->Tcanopy, LocalVeg->Fract[0]);
     (*Gap)[Opening].LongIn[0] = 0.;

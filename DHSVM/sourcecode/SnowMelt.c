@@ -89,8 +89,6 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
   float DeltaPackCC;		/* Change in cold content of the pack */
   float DeltaPackSwq;		/* Change in snow water equivalent of the pack (m) */
   float Ice;			    /* Ice content of snow pack (m) */
-  float InitialSwq;		    /* Initial snow water equivalent (m) */
-  float MassBalanceError;	/* Mass balance error (m) */
   float MaxLiquidWater;		/* Maximum liquid water content of pack (m) */
   float OldTSurf;		    /* Old snow surface temperature (C) */
   float Outflow;		    /* Amount water flowing out of the snow pack
@@ -106,7 +104,6 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
   float SurfaceCC;		    /* Cold content of snow pack (J) */
   float SurfaceSwq;		    /* Surface layer snow water equivalent (m) */
 
-  InitialSwq = *Swq;
   OldTSurf = *TSurf;
 
   /* Initialize snowpack variables */
@@ -349,10 +346,6 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
     *TSurf = 0.0;
     *TPack = 0.0;
   }
-
-  /* Mass balance test */
-  MassBalanceError = (InitialSwq - *Swq) + (RainFall + SnowFall) - Outflow +
-    *VaporMassFlux;
 
   return (Outflow);
 }

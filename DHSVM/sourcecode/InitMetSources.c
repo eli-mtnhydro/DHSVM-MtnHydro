@@ -124,7 +124,7 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
   int i;
   int j;
   int k;
-  char tempfilename[BUFSIZE + 1];
+  char tempfilename[BUFSIZE * 2 + 7];
   char KeyName[station_file + 1][BUFSIZE + 1];
   char *KeyStr[] = {
     "STATION NAME",
@@ -231,13 +231,11 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map,
   TOPOPIX **TopoMap, GRID *Grid, METLOCATION **Stat, int *NStats)
 {
   char *Routine = "InitGridMet";
-  char KeyName[BUFSIZE + 1];
-  char VarStr[BUFSIZE + 1];
   int i, k, m;
   float lat, lon, North, East;
-  char tempfilename[BUFSIZE + 1];
+  char tempfilename[BUFSIZE * 2 + 7];
   FILE *PrismStatFile;
-  char junk[BUFSIZE + 1], infileformat[BUFSIZE + 1];
+  char junk[BUFSIZE + 7], infileformat[BUFSIZE + 1];
   DIR *dir;
   struct dirent *ent;
 

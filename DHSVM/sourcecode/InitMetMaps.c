@@ -444,7 +444,7 @@ void InitPptMultiplierMap(OPTIONSTRUCT * Options, MAPSIZE *Map, float ***PptMult
 {
   const char *Routine = "InitPptMultiplierMap";
   char VarName[BUFSIZE + 1];
-  int i, j;			/* counter */
+  int i;			/* counter */
   int x;			/* counter */
   int y;			/* counter */
   int NumberType;		/* number type */
