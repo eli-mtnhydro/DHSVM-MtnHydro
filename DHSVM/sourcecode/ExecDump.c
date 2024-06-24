@@ -71,10 +71,9 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
             SoilMap, Soil, Network, HydrographInfo, Hydrograph,
             ChannelData);
           if (Options->HasNetwork) {
+            StoreChannelState(Dump->Path, Current, ChannelData->streams);
             if (Options->DumpExtraStream)
               StoreChannelStateExtra(Dump->Path, Current, ChannelData->streams);
-            else
-              StoreChannelState(Dump->Path, Current, ChannelData->streams);
           }
         }
       }
