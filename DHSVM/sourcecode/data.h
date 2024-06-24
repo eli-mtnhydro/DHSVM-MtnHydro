@@ -26,7 +26,7 @@ typedef struct {
 } COORD;
 
 typedef struct {
-  char FileName[BUFSIZE + 1];
+  char FileName[BUFSIZE * 2 + 1];
   FILE *FilePtr;
 } FILES;
 

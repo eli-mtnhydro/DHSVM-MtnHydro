@@ -50,7 +50,7 @@ int CompareRecordID(const void *key, const void *record);
 *****************************************************************************/
 void ReadChannelState(char *Path, DATE *Now, Channel *Head)
 {
-  char InFileName[BUFSIZ + 1] = "";
+  char InFileName[BUFSIZ + 15] = "";
   char Str[BUFSIZ + 1] = "";
   Channel *Current = NULL;
   FILE *InFile = NULL;
@@ -109,7 +109,7 @@ void ReadChannelState(char *Path, DATE *Now, Channel *Head)
 *****************************************************************************/
 void StoreChannelState(char *Path, DATE * Now, Channel * Head)
 {
-  char OutFileName[BUFSIZ + 1] = "";
+  char OutFileName[BUFSIZ + 15] = "";
   char Str[BUFSIZ + 1] = "";
   Channel *Current = NULL;
   FILE *OutFile = NULL;
@@ -142,7 +142,7 @@ void StoreChannelState(char *Path, DATE * Now, Channel * Head)
 *****************************************************************************/
 void StoreChannelStateExtra(char *Path, DATE * Now, Channel * Head)
 {
-  char OutFileName[BUFSIZ + 1] = "";
+  char OutFileName[BUFSIZ + 21] = "";
   char Str[BUFSIZ + 1] = "";
   Channel *Current = NULL;
   FILE *OutFile = NULL;

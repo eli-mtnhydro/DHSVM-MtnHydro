@@ -1242,8 +1242,7 @@ void channel_grid_inc_other(ChannelMapPtr ** map, int col, int row, PIXRAD * Loc
 							PIXMET * LocalMet, float skyview)
 {
   ChannelMapPtr cell = map[col][row];
-  float len = channel_grid_cell_length(map, col, row);
-
+  
   while (cell != NULL ) {
 	/* ISW is the total incoming shortwave radiation (VIC outputs) */
 	cell->channel->ISW += LocalRad->ObsShortIn;

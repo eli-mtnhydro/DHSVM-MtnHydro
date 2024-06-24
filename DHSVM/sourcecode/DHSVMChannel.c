@@ -110,7 +110,7 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
     printf("\tReading Road data\n");
 
     if ((channel->road_class =
-	 channel_read_classes(StrEnv[road_class].VarStr, road_class) == NULL)) {
+	 channel_read_classes(StrEnv[road_class].VarStr, road_class)) == NULL) {
       ReportError(StrEnv[road_class].VarStr, 5);
     }
     if ((channel->roads =
@@ -413,15 +413,12 @@ uchar ChannelFraction(TOPOPIX * topo, ChannelMapRec * rds)
 {
   float effective_width = 0;
   float total_width;
-  float sine, cosine;
   ChannelMapRec *r;
   float fract = 0.0;
 
   if (rds == NULL) {
     return 0;
   }
-  cosine = cos(topo->Aspect);
-  sine = sin(topo->Aspect);
   total_width = topo->FlowGrad / topo->Slope;
   effective_width = 0.0;
 
