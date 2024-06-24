@@ -11,9 +11,6 @@
  * FUNCTIONS:    MassEnergyBalance()
  * COMMENTS:
  * $Id: MassEnergyBalance.c,v3.1.2 2013/08/18 ning Exp $
- * Last Modified by Zhuoran Duan on 07/06/2018 to change gap map from flag
- * value to actual diameter map
- * Also modified by Eli Boardman on 1/18/2022 to add FCap map functionality
  */
 #ifdef SNOW_ONLY
   //#define NO_ET
@@ -410,7 +407,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
     
     LocalEvap->EvapSoil =
-      PondEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+      PondEvaporation(Dt, (DX*DY), LocalNetwork->Area,
+                      LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
                       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
                       LocalVeg->MoistureFlux, &(LocalSoil->IExcess));
   }
@@ -434,18 +432,20 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     /* New: SoilEvaporation is added to the pre-existing value of EvapSoil,
        which is either equal to SurfaceEvaporation or 0. */
     LocalEvap->EvapSoil +=
-      SoilEvaporation(Dt, LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd,
-      NetRadiation, LowerRa, (LocalVeg->MoistureFlux + LocalEvap->EvapSoil),
-      LocalSoil->Porosity[0], LocalSoil->FCap[0], LocalSoil->KsVert[0], SType->Press[0], SType->PoreDist[0],
-      VType->RootDepth[0], &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
+      SoilEvaporation(Dt,
+                      LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                      (LocalVeg->MoistureFlux + LocalEvap->EvapSoil),
+                      LocalSoil->Porosity[0], LocalSoil->FCap[0], LocalSoil->KsVert[0],
+                      SType->Press[0], SType->PoreDist[0], VType->RootDepth[0],
+                      &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
   }
   
   LocalVeg->MoistureFlux += LocalEvap->EvapSoil;
   LocalEvap->ETot += LocalEvap->EvapSoil;
   
   /* Calculate open water evaporation from the stream channel */
-  /* Note that it is assumed that the channel itself is always snow-free */
+  /* Note that it is assumed that flowing channels are always snow-free */
   if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
     if (VType->OverStory == TRUE && VType->UnderStory == TRUE)
       NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
@@ -457,9 +457,22 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
     
     LocalEvap->EvapChannel =
-      ChannelEvaporation(Dt, (DX*DY), LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-      LocalVeg->MoistureFlux, x, y, ChannelData);
+      ChannelEvaporation(Dt, (DX*DY),
+                         LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                         LocalVeg->MoistureFlux, x, y, ChannelData);
+    
+    /* Also consider soil evaporation from dry channels if not snow-covered */
+    if (LocalSnow->HasSnow != TRUE)
+      LocalEvap->EvapSoil +=
+        ChannelSoilEvaporation(Dt, (DX*DY),
+                               LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                               LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                               (LocalVeg->MoistureFlux + LocalEvap->EvapChannel),
+                               LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
+                               SType->Press, SType->PoreDist, VType->RootDepth,
+                               LocalSoil->Moist, LocalNetwork->Adjust,
+                               x, y, ChannelData, LocalNetwork->CutBankZone);
   }
   else
     LocalEvap->EvapChannel = 0.0;

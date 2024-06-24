@@ -26,6 +26,8 @@
 #include "data.h"
 #include "DHSVMChannel.h"
 #include "constants.h"
+#include "functions.h"
+#include "massenergy.h"
 
 /* -------------------------------------------------------------
    local function prototype
@@ -773,6 +775,7 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row)
   while (cell != NULL) {
     
     if (cell->channel->remaining_infil > 0.0){
+      
       if (cell->infiltration > cell->channel->remaining_infil)
         cell->infiltration = cell->channel->remaining_infil;
       
@@ -804,8 +807,7 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
   float water_depth;
   
   while (cell != NULL) {
-    
-    if (cell->channel->storage > 0.0){
+    if (cell->channel->storage > 0.0) {
       
       evaporation = EPot * cell->cut_width * cell->length;
       
@@ -834,10 +836,72 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
       
       /* Keep track of remaining total grid cell EPot */
       MaxEvapCap -= evaporation;
+      if (MaxEvapCap < 0.0)
+        MaxEvapCap = 0.0;
     }
     cell = cell->next;
   }
   return cell_evaporation;
+}
+
+/* -------------------------------------------------------------
+ channel_grid_dry_evaporation
+ If any channel(s) within the cell have ZERO water storage,
+ this function totals the soil evaporation from each segment.
+ ------------------------------------------------------------- */
+float channel_grid_dry_evaporation(ChannelMapPtr ** map, int col, int row,
+                                   float EPot, float MaxEvapCap, float DXDY,
+                                   float Dt, float *Porosity, float *FCap, float *Ks,
+                                   float *Press, float *m, float *RootDepth,
+                                   float *MoistContent, float *Adjust, int CutBankZone)
+{
+  ChannelMapPtr cell = map[col][row];
+  /* Note: unlike the similar channel_grid_evaporation function,
+     SoilEvap and TotalSoilEvap are in depth units (m), not volumes */ 
+  float SoilEvap; /* From one channel segment */
+  float TotalSoilEvap = 0.0; /*  From all channel segments in cell */
+  float DesorptionVolume;
+  float tmp;
+  float SoilMoisture;
+  
+  while (cell != NULL) {
+    
+    if (fequal(cell->channel->storage, 0.0) && 
+        MoistContent[CutBankZone] > FCap[CutBankZone]) {
+      
+      DesorptionVolume = Desorption(Dt, MoistContent[CutBankZone], Porosity[CutBankZone],
+                                    Ks[CutBankZone], Press[CutBankZone], m[CutBankZone]);
+      
+      SoilEvap = MIN(EPot, DesorptionVolume);
+      
+      if (SoilEvap > MaxEvapCap)
+        SoilEvap = MaxEvapCap;
+      
+      /* Re-scale from channel to grid cell depth */
+      SoilEvap *= (cell->cut_width * cell->length) / DXDY;
+      
+      SoilMoisture = MoistContent[CutBankZone] * RootDepth[CutBankZone] * Adjust[CutBankZone];
+      tmp = FCap[CutBankZone] * RootDepth[CutBankZone] * Adjust[CutBankZone];
+      
+      if (SoilEvap > SoilMoisture - tmp) {
+        SoilEvap = SoilMoisture - tmp;
+        MoistContent[CutBankZone] = FCap[CutBankZone];
+      }
+      else {
+        SoilMoisture -= SoilEvap;
+        MoistContent[CutBankZone] = SoilMoisture / (RootDepth[CutBankZone] * Adjust[CutBankZone]);
+      }
+      
+      TotalSoilEvap += SoilEvap;
+      
+      /* Keep track of remaining total grid cell EPot */
+      MaxEvapCap -= SoilEvap;
+      if (MaxEvapCap < 0.0)
+        MaxEvapCap = 0.0;
+    }
+    cell = cell->next;
+  }
+  return TotalSoilEvap;
 }
 
 /* -------------------------------------------------------------

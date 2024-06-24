@@ -68,7 +68,8 @@ void ShortwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
               float F, float Rs, float Rsb, float Rsd, float Tau,
               float Taud, float *Albedo, PIXRAD * LocalRad);
 
-float PondEvaporation(int Dt, float Temp, float Slope, float Gamma,
+float PondEvaporation(int Dt, float DXDY, float ChannelArea,
+                      float Temp, float Slope, float Gamma,
                       float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
                       float Evapotranspiration, float *IExcess);
 
@@ -76,7 +77,16 @@ float ChannelEvaporation(int Dt, float DXDY, float Temp, float Slope, float Gamm
                          float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
                          float Evapotranspiration, int x, int y, CHANNEL *ChannelData);
 
-float SoilEvaporation(int Dt, float Temp, float Slope, float Gamma, float Lv,
+float ChannelSoilEvaporation(int Dt, float DXDY,
+                             float Temp, float Slope, float Gamma, float Lv,
+                             float AirDens, float Vpd, float NetRad, float RaSoil,
+                             float Evapotranspiration, float *Porosity, float *FCap, float *Ks,
+                             float *Press, float *m, float *RootDepth,
+                             float *MoistContent, float *Adjust,
+                             int x, int y, CHANNEL *ChannelData, int CutBankZone);
+
+float SoilEvaporation(int Dt,
+                      float Temp, float Slope, float Gamma, float Lv,
                       float AirDens, float Vpd, float NetRad, float RaSoil,
                       float Evapotranspiration, float Porosity, float FCap, float Ks,
                       float Press, float m, float RootDepth,
