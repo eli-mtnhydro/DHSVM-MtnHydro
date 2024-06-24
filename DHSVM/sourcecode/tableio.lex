@@ -71,9 +71,9 @@ HASH    #
 %%
 
 
-<string_start>\\\"            { strncat(string_buffer, "\"", 1024); }
-<string_start>\\              { strncat(string_buffer, "\\", 1024); }
-<string_start>[^\\\"\n]+      { strncat(string_buffer, yytext, 1024); }
+<string_start>\\\"            { strncat(string_buffer, "\"", 1023); }
+<string_start>\\              { strncat(string_buffer, "\\", 1023); }
+<string_start>[^\\\"\n]+      { strncat(string_buffer, yytext, 1023); }
 <string_start>\"              { 
   field->type = TABLE_STRING;
   strncpy(field->string, string_buffer, TABLE_MAX_FIELD_LEN);
