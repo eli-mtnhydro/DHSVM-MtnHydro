@@ -61,7 +61,7 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
   int x;				 /* counter */
   int y;				 /* counter */
   int NSet;				 /* Number of dataset to be read */
-  int NSoil;			 /* Number of soil layers for current pixel */
+  int NSoil = 0;			 /* Number of soil layers for current pixel */
   int NVeg;				 /* Number of veg layers for current pixel */
   float remove;
   void *Array;
@@ -429,8 +429,10 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
   if (Options->Extent == BASIN && Options->HasNetwork == FALSE) {
     sprintf(FileName, "%sHydrograph.State.%s", Path, Str);
     OpenFile(&HydroStateFile, FileName, "r", FALSE);
-    for (i = 0; i < HydrographInfo->TotalWaveLength; i++)
-      fscanf(HydroStateFile, "%f\n", &(Hydrograph[i]));
+    for (i = 0; i < HydrographInfo->TotalWaveLength; i++) {
+      if (fscanf(HydroStateFile, "%f\n", &(Hydrograph[i])) == EOF)
+        ReportError(FileName, 2);
+    }
     fclose(HydroStateFile);
   }
   // Initialize the flood detention storage in each pixel for impervious fraction > 0 situation. 

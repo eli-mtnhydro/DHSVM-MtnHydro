@@ -66,7 +66,7 @@ void CalcCanopyShading(TIMESTRUCT *Time, Channel *Channel, SOLARGEOMETRY *SolarG
 				                elevation of stream surface */
 	float Net_Shade_Fctr = 0.;  /* the effective shade density fro beam radiation */
 	float SKOP = 0.;            /* sky openess ranging from 0 to 1 */
-	int ShadeCase;
+	int ShadeCase = 0;
 	
 	/* compute solar altitude in radians */
 	SolarAltitude = asin(SolarGeo->SineSolarAltitude);
@@ -176,7 +176,7 @@ float CalcShadeDensity(int ShadeCase, float HDEM, float WStream,
 					  float TREEHEIGTH, float BUFFERWIDTH, float Dx1, float Dx2, 
 					  float Ext_Ceoff) 
 {
-	double Pavg;   // the average path length of a sunbeam through the buffer
+	double Pavg = 0.0;   // the average path length of a sunbeam through the buffer
 	double SHDDEN;  // the effective shade density
 	float Shaded;
 	float Net_Shade_Fctr;

@@ -91,7 +91,8 @@ void InitUnitHydrograph(LISTPTR Input, MAPSIZE * Map, TOPOPIX ** TopoMap,
 
   /* Read the unit hydrograph file */
   OpenFile(&HydrographFile, StrEnv[hydrograph_file].VarStr, "r", FALSE);
-  fscanf(HydrographFile, "%d", &MaxTravelTime);
+  if (fscanf(HydrographFile, "%d", &MaxTravelTime) == EOF)
+    ReportError("Hydrograph File", 2);
   HydrographInfo->MaxTravelTime = MaxTravelTime;
 
   if (!(HydrographInfo->WaveLength =
@@ -103,7 +104,8 @@ void InitUnitHydrograph(LISTPTR Input, MAPSIZE * Map, TOPOPIX ** TopoMap,
 
   for (i = 0; i < MaxTravelTime; i++) {
 
-    fscanf(HydrographFile, "%d %d", &TravelTimeStep, &WaveLength);
+    if (fscanf(HydrographFile, "%d %d", &TravelTimeStep, &WaveLength) == EOF)
+      ReportError("Hydrograph File", 2);
     if (i != TravelTimeStep - 1)
       ReportError(StrEnv[hydrograph_file].VarStr, 46);
     HydrographInfo->WaveLength[i] = WaveLength;
@@ -113,9 +115,10 @@ void InitUnitHydrograph(LISTPTR Input, MAPSIZE * Map, TOPOPIX ** TopoMap,
       ReportError((char *) Routine, 1);
 
     for (j = 0; j < WaveLength; j++) {
-      fscanf(HydrographFile, "%d %f",
-	     &((*UnitHydrograph)[i][j].TimeStep),
-	     &((*UnitHydrograph)[i][j].Fraction));
+      if (fscanf(HydrographFile, "%d %f",
+                 &((*UnitHydrograph)[i][j].TimeStep),
+                 &((*UnitHydrograph)[i][j].Fraction)) == EOF)
+        ReportError("Hydrograph File", 2);
     }
   }
 

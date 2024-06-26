@@ -52,7 +52,7 @@ void InitFloatTable(unsigned long Size, float Offset, float Delta,
   if (Table->Data == NULL)
     ReportError("InitFloatTable", 1);
 
-  for (i = 0, x = Table->Offset + .5 * Table->Delta; i < Table->Size;
+  for (i = 0, x = Table->Offset + .5 * Table->Delta; i < (int) Table->Size;
        i++, x += Table->Delta)
     Table->Data[i] = Function(x);
 }
@@ -77,7 +77,7 @@ float FloatLookup(float x, FLOATTABLE * Table)
   int i;
 
   i = (int) (((x - Table->Offset) / Table->Delta));
-  if (i < 0 || i >= Table->Size) {
+  if (i < 0 || i >= (int) Table->Size) {
     sprintf(errorstr, "FloatLookup: attempting lookup of value %f \n", x);
     ReportError(errorstr, 47);
   }

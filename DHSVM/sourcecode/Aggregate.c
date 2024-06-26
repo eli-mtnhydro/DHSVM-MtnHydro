@@ -221,10 +221,10 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->NetRad /= NPixels;
   Total->Rad.BeamIn /= NPixels;
   Total->Rad.DiffuseIn /= NPixels;
-  for (i = 0; i <= 2; i++) {
+  for (i = 0; i < 2; i++) {
     Total->Rad.NetShort[i] /= NPixels;
-	Total->Rad.LongIn[i] /= NPixels;
-	Total->Rad.LongOut[i] /= NPixels;
+	  Total->Rad.LongIn[i] /= NPixels;
+	  Total->Rad.LongOut[i] /= NPixels;
   }
 
   /* average snow data */

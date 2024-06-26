@@ -49,12 +49,13 @@ void draw(DATE *Day, int first, int DayStep, MAPSIZE *Map, int NGraphics,
   int PX, PY;
   int MapNumber;
   float min, max, scale;
-  float temp, surf_swe, pack_swe;
+  float temp = 0.0;
+  float surf_swe, pack_swe;
   int index, skip_it;
-  char *text;
+  char *text = NULL;
   char text2[BUFSIZ + 1];
   char text3[BUFSIZ + 1];
-  int length;
+  int length = 0;
   float max_temp;
   float re;
   int buf = 50;

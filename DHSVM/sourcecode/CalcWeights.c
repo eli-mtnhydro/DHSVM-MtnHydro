@@ -68,7 +68,7 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
   int *stationid;		/* index array for sorted list of station distances */
   int *stat;
   int tempid;
-  int closest;
+  int closest = 0;
   int crstat;
   COORD Loc;			/* Location of current point */
 

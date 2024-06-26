@@ -71,7 +71,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   float ScaleWind = 1;		/* Wind to be scaled by model factors if 
                             WindSource == MODEL */
   float Temp;			/* Temporary variable */
-  float WeightSum;		/* sum of the weights */
+  float WeightSum = 0.0;		/* sum of the weights */
   int i,j;			/* counter */
   int RadarX;			/* X coordinate of radar map coordinate */
   int RadarY;			/* Y coordinate of radar map coordinate */

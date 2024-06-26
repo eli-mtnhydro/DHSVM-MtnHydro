@@ -118,7 +118,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   float water_out_stream;
   float water_in_stream;
   float Transmissivity;
-  float TotalAvailableWater; /* Including water that flows laterally and to channels/roads */
+  float TotalAvailableWater = 0.0; /* Including water that flows laterally and to channels/roads */
   float AvailableWater;
   int k, q;
   float **SubFlowGrad;	        /* Magnitude of subsurface flow gradient slope * width */

@@ -88,20 +88,20 @@ float RootBrent(int y, int x, float LowerBound, float UpperBound,
   char ErrorString[MAXSTRING + 1];
   va_list ap;			/* Used in traversing variable argument list
 				 */
-  float a;
-  float b;
-  float c;
-  float d;
-  float e;
-  float fa;
-  float fb;
-  float fc;
-  float m;
-  float p;
-  float q;
-  float r;
-  float s;
-  float tol;
+  float a = 0.0;
+  float b = 0.0;
+  float c = 0.0;
+  float d = 0.0;
+  float e = 0.0;
+  float fa = 0.0;
+  float fb = 0.0;
+  float fc = 0.0;
+  float m = 0.0;
+  float p = 0.0;
+  float q = 0.0;
+  float r = 0.0;
+  float s = 0.0;
+  float tol = 0.0;
   int i;
   int j;
   int eval = 0;

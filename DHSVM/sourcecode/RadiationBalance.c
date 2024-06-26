@@ -91,7 +91,7 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
   float F;			    /* Fraction of pixel covered by top canopy layer [0-1] */
   float h;              /* Canopy height (m) */
   float Albedo[2];		/* Albedo of each layer */
-  float Tau;			/* Transmittance for overstory vegetation layer */
+  float Tau = 0.0;			/* Transmittance for overstory vegetation layer */
   float Taub, Taud;		/* Transmittance for overstory vegetation layer for
                            direct and diffuse radiation, respectively */
   float Tsurf;			/* Surface temperature (C) */
@@ -104,7 +104,8 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
   }
 
   /* Determine Albedo */
-  if (OverStory == TRUE) {                                                           
+  Albedo[1] = NOT_APPLICABLE;
+  if (OverStory == TRUE) {
     Albedo[0] = VType->Albedo[0];                                                                              
     /* With snow, understory canopy albedo is set equal to snow albedo */
     if (LocalSnow->HasSnow == TRUE)

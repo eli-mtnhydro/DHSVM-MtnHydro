@@ -337,7 +337,7 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
   for (order = max_order; order >= 1; order--) {
     segment = network;
     while (segment != NULL) {
-      if (segment->order == order) {
+      if ((int) segment->order == order) {
         
         Kold = segment->K;
         
@@ -656,7 +656,7 @@ int channel_route_network(Channel * net, int deltat)
     order_count = 0;
     current = net;
     while (current != NULL) {
-      if (current->order == order) {
+      if ((int) current->order == order) {
         
         err += channel_route_segment(current, deltat);
         order_count++;

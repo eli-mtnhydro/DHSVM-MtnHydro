@@ -204,7 +204,7 @@ handle_field(TableScanField *field, int nfields, TableField *fld_defn)
   int i;
   int err = 0;
   
-  if (field->type == fld_defn[0].type) {
+  if (field->type == (int) fld_defn[0].type) {
     switch (field->type) {
 
     case TABLE_INTEGER:

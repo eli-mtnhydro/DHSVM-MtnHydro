@@ -661,6 +661,7 @@ typedef struct {
   unsigned long Saturated;
   float CulvertReturnFlow;
   float CulvertToChannel;
+  float CumulativeErr;
 } AGGREGATED;
 
 #endif

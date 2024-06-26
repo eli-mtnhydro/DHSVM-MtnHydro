@@ -72,8 +72,10 @@ void ReadChannelState(char *Path, DATE *Now, Channel *Head)
   Record = (RECORDSTRUCT *) calloc(NLines, sizeof(RECORDSTRUCT));
   if (Record == NULL)
     ReportError("ReadChannelState", 1);
-  for (i = 0; i < NLines; i++)
-    fscanf(InFile, "%hu %f", &(Record[i].id), &(Record[i].storage));
+  for (i = 0; i < NLines; i++) {
+    if (fscanf(InFile, "%hu %f", &(Record[i].id), &(Record[i].storage)) == EOF)
+      ReportError(InFileName, 2);
+  }
   qsort(Record, NLines, sizeof(RECORDSTRUCT), CompareRecord);
 
   /* Assign the storages to the correct IDs */

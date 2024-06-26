@@ -223,7 +223,7 @@ struct {
       "W/m2", "Ground heat storage", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
   511, "Soil.Temp",
       "Soil Temperature", "%.4g",
-      "C", "Soil Temperature", NC_FLOAT, TRUE, FALSE, TRUE}, {
+      "C", "Soil Temperature", NC_FLOAT, TRUE, FALSE, TRUE, 0}, {
   512, "Soil.Runoff",
       "Surface Ponding", "%.4g",
       "m", "Surface Ponding", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
@@ -395,7 +395,7 @@ void GetVarFileName(int ID, int Layer, unsigned char Resolution, char *FileName)
       }
       else
 	ReportError((char *) Routine, 21);
-      strncpy(FileName, Str, BUFSIZE);
+      strncpy(FileName, Str, BUFSIZE + 7);
       return;
     }
     i++;

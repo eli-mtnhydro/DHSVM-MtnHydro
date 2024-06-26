@@ -74,6 +74,11 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
     Total->Snow.CanopyVaporMassFlux + Total->CulvertReturnFlow;
 
   MassError = (NewWaterStorage - Mass->OldWaterStorage) + Output - Input;
+  
+  if (IsEqualTime(Current, Start))
+    Total->CumulativeErr = 0.0;
+  else
+    Total->CumulativeErr += MassError;
 
   /* update */
   Mass->OldWaterStorage = NewWaterStorage;

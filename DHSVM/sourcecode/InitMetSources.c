@@ -214,7 +214,8 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
       /* Options->PrismDataExt); */
       OpenFile(&PrismStatFile, tempfilename, "rt", FALSE);
       for (k = 0; k < 12; k++) {
-        fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]);
+        if (fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]) == EOF)
+          ReportError(tempfilename, 2);
       }
       fclose(PrismStatFile);
     }
@@ -382,7 +383,8 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map,
       /* Options->PrismDataExt); */
       OpenFile(&PrismStatFile, tempfilename, "rt", FALSE);
       for (k = 0; k < 12; k++) {
-        fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]);
+        if (fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]) == EOF)
+          ReportError(tempfilename, 2);
       }
       fclose(PrismStatFile);
     }
@@ -457,7 +459,7 @@ void InitMM5(LISTPTR Input, int NSoilLayers, TIMESTRUCT *Time,
 
   if (strncmp(StrEnv[MM5_lapse].VarStr, "none", 4)) {
 
-    strncpy(InFiles->MM5Lapse, StrEnv[MM5_lapse].VarStr, BUFSIZE);
+    strncpy(InFiles->MM5Lapse, StrEnv[MM5_lapse].VarStr, BUFSIZE + 1);
 
     CopyLCase(VarStr, StrEnv[MM5_lapse_freq].VarStr, BUFSIZE + 1);
 

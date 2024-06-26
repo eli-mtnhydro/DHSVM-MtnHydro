@@ -66,7 +66,7 @@ void SnowStats(DATE *Now, MAPSIZE *Map, OPTIONSTRUCT *Options,
             2. First date past the peak SWE date
             3. And Preceding 7/15 day has snow  //for now this was not implimented
           */
-         if ((Snow[y][x].Swq < MIN_SWE) && (DNum > Snow[y][x].MaxSweDate) && (Snow[y][x].MeltOutDate == 0)){
+         if ((Snow[y][x].Swq < MIN_SWE) && (DNum > (int) Snow[y][x].MaxSweDate) && (Snow[y][x].MeltOutDate == 0)){
             Snow[y][x].MeltOutDate = DNum;    
             if (DEBUG) printf("SWE Melt out date is %d \n", Snow[y][x].MeltOutDate);
             }

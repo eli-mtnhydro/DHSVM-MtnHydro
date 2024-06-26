@@ -452,11 +452,9 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
   /* Calculate soil evaporation from the upper soil layer if no snow is
    present and there is no understory */
   if ((*Gap)[Forest].HasSnow != TRUE && VType->UnderStory != TRUE) {
-    if (VType->OverStory == TRUE) {
-      NetRadiation =
-        (*Gap)[Forest].NetShort[1] + (*Gap)[Forest].LongIn[1] - (*Gap)[Forest].LongOut[1];
-      (*Gap)[Forest].NetRadiation[1] = NetRadiation;
-    }
+    NetRadiation =
+      (*Gap)[Forest].NetShort[1] + (*Gap)[Forest].LongIn[1] - (*Gap)[Forest].LongOut[1];
+    (*Gap)[Forest].NetRadiation[1] = NetRadiation;
     (*Gap)[Forest].EvapSoil +=
       SoilEvaporation(Dt,
                       LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,

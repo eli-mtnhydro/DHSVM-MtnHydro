@@ -91,7 +91,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   int   NVegLActual;		/* Number of vegetation layers above snow */
   int i, j;
   float R;                  /* Radius of canopy gap */
-  double weight;             /* ratio of canopy gap to the grid cell area*/
+  double weight = 0.0;             /* ratio of canopy gap to the grid cell area*/
 
   /* Used in snow surface energy balance */
   float OldSnowTSurf;       /* Effective surface temperature at the end of the last timestep (C) */

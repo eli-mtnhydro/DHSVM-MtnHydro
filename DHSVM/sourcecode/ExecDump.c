@@ -1223,9 +1223,9 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
     fprintf(OutFile->FilePtr, " TableDepth SatFlow DetentionStorage ");
 
     /* print radiation associated variables */
-    for (i = 0; i <= NCanopyStory; i++)
+    for (i = 0; i < NCanopyStory; i++)
       fprintf(OutFile->FilePtr, " NetShort.Story%d ", (i + 1));
-    for (i = 0; i <= NCanopyStory; i++)
+    for (i = 0; i < NCanopyStory; i++)
       fprintf(OutFile->FilePtr, " LongIn.Story%d ", (i + 1));
     fprintf(OutFile->FilePtr, " PixelNetShort ");
 

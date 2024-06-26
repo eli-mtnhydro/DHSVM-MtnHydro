@@ -63,12 +63,12 @@ unsigned long GetInitString(const char *Section, const char *Key,
   LISTPTR SectionHead = NULL;
 
   if ((SectionHead = LocateSection(Section, Input)) == NULL) {
-    strncpy(ReturnBuffer, Default, BufferSize);
+    strncpy(ReturnBuffer, Default, BufferSize + 1);
     return (unsigned long) strlen(ReturnBuffer);
   }
 
   if (!LocateKey(Key, ReturnBuffer, SectionHead)) {
-    strncpy(ReturnBuffer, Default, BufferSize);
+    strncpy(ReturnBuffer, Default, BufferSize + 1);
     return (unsigned long) strlen(ReturnBuffer);
   }
 
@@ -137,7 +137,7 @@ unsigned char LocateKey(const char *Key, char *Entry, LISTPTR Input)
   /* Find a key in the current section */
 
   if (Input) {
-    strncpy(Buffer, Input->Str, BUFSIZE);
+    strncpy(Buffer, Input->Str, BUFSIZE + 1);
     while (!IsSection(Buffer)) {
 
       /* Check whether the current line contains a key-entry pair */
@@ -163,7 +163,7 @@ unsigned char LocateKey(const char *Key, char *Entry, LISTPTR Input)
       /* Get the next line */
       Input = Input->Next;
       if (Input)
-	strncpy(Buffer, Input->Str, BUFSIZE);
+	strncpy(Buffer, Input->Str, BUFSIZE + 1);
       else
 	break;
     }
@@ -179,7 +179,7 @@ LISTPTR LocateSection(const char *Section, LISTPTR Input)
   char *EndPtr = NULL;
 
   while (Input) {
-    strncpy(Buffer, Input->Str, BUFSIZE);
+    strncpy(Buffer, Input->Str, BUFSIZE + 1);
     if (IsSection(Buffer)) {
       if (Buffer[0] == OPENSECTION) {
 	StartPtr = &Buffer[1];
@@ -402,8 +402,8 @@ int
 CopyLCase(char *Value, char *Str, const int maxlen)
 {
   int i;
-  strncpy(Value, Str, maxlen);
-  for (i = 0; i < strlen(Value) && i < maxlen; ++i) {
+  strncpy(Value, Str, maxlen + 1);
+  for (i = 0; i < (int) strlen(Value) && i < maxlen; ++i) {
     Value[i] = tolower(Value[i]);
   }
   return TRUE;
@@ -435,7 +435,8 @@ void ReadInitFile(char *TemplateFileName, LISTPTR * Input)
   rewind(InFile);
 
   for (i = 0; i < NLines; i++) {
-    fgets(Buffer, BUFSIZE, InFile);
+    if (fgets(Buffer, BUFSIZE, InFile) == NULL)
+      ReportError(TemplateFileName, 2);
     Strip(Buffer);
     if (IsSection(Buffer) || IsKeyEntryPair(Buffer)) {
       if (Head == NULL) {
@@ -447,7 +448,7 @@ void ReadInitFile(char *TemplateFileName, LISTPTR * Input)
 		  Current->Next = CreateNode();
 		  Current = Current->Next;
 	  }
-	  strncpy(Current->Str, Buffer, BUFSIZE);
+	  strncpy(Current->Str, Buffer, BUFSIZE + 1);
 	}
   }
 
