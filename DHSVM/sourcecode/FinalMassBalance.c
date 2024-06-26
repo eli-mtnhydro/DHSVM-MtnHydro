@@ -84,7 +84,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
   fprintf(stderr, "\n          Final Road Surface .....        %.3f\n", Total->Road.IExcess*1000);
   fprintf(stderr, "\n  Mass added to glacier ..........        %.3f\n", Total->Snow.Glacier*1000);
   fprintf(stderr, "  ******************************************************");
-  fprintf(stderr, "\n  Mass Error (mm).................        %.3f\n", MassError*1000);
+  fprintf(stderr, "\n  Mass Error (mm).................        %.3f", MassError*1000);
   fprintf(stderr, "\n  Cumulative Mass Error (mm)......        %.3f\n", Total->CumulativeErr*1000);
   
     /* Print the runoff final balance results to the output file named final.mass.balance */
@@ -114,7 +114,8 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
   fprintf(Out->FilePtr, "\n          Final Road Surface .....        %.3f\n", Total->Road.IExcess*1000);
   fprintf(Out->FilePtr, "\n  Mass added to glacier ..........        %.3f\n", Total->Snow.Glacier*1000);
   fprintf(Out->FilePtr, "  ******************************************************");
-  fprintf(Out->FilePtr, "\n  Mass Error (mm).................        %.3f\n", MassError*1000);
+  fprintf(Out->FilePtr, "\n  Mass Error (mm).................        %.3f", MassError*1000);
+  fprintf(Out->FilePtr, "\n  Cumulative Mass Error (mm)......        %.3f\n", Total->CumulativeErr*1000);
   
      /* error check: negative soil moisture and surface ponding */
   if (Total->SoilWater + Total->Soil.SatFlow < 0) {
