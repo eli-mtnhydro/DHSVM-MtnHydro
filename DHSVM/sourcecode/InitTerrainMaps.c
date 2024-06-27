@@ -453,13 +453,15 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     }
   }
   
-  /* Copy surface layer KsVert to MaxInfiltrationRate map */
+  /* Copy surface layer KsLat to MaxInfiltrationRate map */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN((TopoMap)[y][x].Mask)) {
         sidx = (*SoilMap)[y][x].Soil - 1;
-        if (Options->UseKsatAnisotropy)
-          (*SoilMap)[y][x].MaxInfiltrationRate = (*SoilMap)[y][x].KsVert[0];
+        if (Options->UseKsatAnisotropy) {
+          (*SoilMap)[y][x].MaxInfiltrationRate = (*SoilMap)[y][x].KsLat;
+          (*SoilMap)[y][x].MaxInfiltrationRate /= SType[(*SoilMap)[y][x].Soil - 1].KsAnisotropy;
+        }
         else
           (*SoilMap)[y][x].MaxInfiltrationRate = SType[sidx].MaxInfiltrationRate;
       }
