@@ -204,6 +204,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
        effective_width = (sin[1] < 0 ? -sin[1] * dy : 0.0);
        break;
      default:
+       effective_width = 0.0;
        ReportError("flow_fractions",65);
      }
      dir[n] = (int) ((effective_width / total_width) * 255.0 + 0.5);
