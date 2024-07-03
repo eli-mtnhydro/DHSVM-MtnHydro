@@ -321,6 +321,9 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
           SoilDeficit += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - SoilMap[y][x].TableDepth);
         }
         SoilDeficit /= (SoilMap[y][x].TableDepth - ChannelWaterLevel); /* Convert from depth to percentage capacity */
+        /* Note that we don't need to consider the Adjust value, since all layers considered here
+           are intersected by the channel cut, so multiplying by depth
+           and subsequently dividing by total depth cancels out the cut storage effect */
         
         water_in_stream = channel_grid_lateral_outflow(ChannelData->stream_map, x, y,
                                                        SoilMap[y][x].TableDepth,

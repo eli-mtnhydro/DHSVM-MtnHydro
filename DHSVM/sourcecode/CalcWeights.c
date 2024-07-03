@@ -254,10 +254,12 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
   for (i = 0; i < NStats; i++)
     stationid[i] = 0;
 
+  /*
   printf("\nChecking interpolation weights\n");
   printf("Sum should be 255 for all pixels \n");
   printf("Some error is expected due to roundoff \n");
   printf("Errors greater than +/- 2 Percent are: \n");
+  */
 
   for (y = 0; y < NY; y++) {
     for (x = 0; x < NX; x++) {
@@ -273,20 +275,21 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
           }
         }
 
-        if (totalweight < 250 || totalweight > 260)
+        /*if (totalweight < 250 || totalweight > 260)
           printf("error in interpolation weight at pixel y %d x %d : %d \n", y,
-            x, totalweight);
+            x, totalweight); */
         stat[tempid] += 1;
       }
 
     }
   }
+  
+  /* debug */
+  /*
   for (i = 0; i <= NStats; i++)
     if (stat[i] > 0)
       printf("%d pixels are linked to %d met stations \n", stat[i],
         i);
-  /* debug */
-  /*
   for (i = 0; i < NStats; i++)
     if (stationid[i] > 0)
       printf("%s station used in interpolation \n", Station[i].Name);

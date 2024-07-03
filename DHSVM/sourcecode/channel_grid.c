@@ -302,7 +302,7 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
 	case 4:
 	  cell->cut_height = map_fields[i].value.real;
 	  if (cell->cut_height > SoilMap[row][col].Depth) {
-	    printf("warning overriding cut depths with 0.95 soil depth \n");
+	    /*printf("warning overriding cut depths with 0.95 soil depth \n");*/
 	    cell->cut_height = SoilMap[row][col].Depth*0.95;
 	  }
 	  if (cell->cut_height < 0.0
@@ -590,9 +590,9 @@ float channel_grid_cell_water_depth(ChannelMapPtr ** map, int col, int row)
 
 /* -------------------------------------------------------------
    channel_grid_lateral_outflow
-   New method for calculating channel inflow from subsurface
+   New method for calculating channel outflow to subsurface
    taking into account the different cut depths so that only
-   channels with cut depth > water table get water
+   channels with cut depth < water table lose water
    ------------------------------------------------------------- */
 float channel_grid_lateral_outflow(ChannelMapPtr ** map, int col, int row,
                                    float TableDepth,
