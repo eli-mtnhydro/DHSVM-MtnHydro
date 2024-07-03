@@ -14,7 +14,6 @@
  * $Id: SnowMelt.c,v 1.4 2003/07/01 21:26:25 olivier Exp $
  */
 
-#include <assert.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -174,9 +173,9 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
       SurfaceSwq += RefrozenWater;
       Ice += RefrozenWater;
       *SurfWater -= RefrozenWater;
-      assert(*SurfWater >= 0.0);
+      if (*SurfWater < 0.0)
+        *SurfWater = 0.0;
       SnowMelt = 0.0;
-
     }
     else {
       /* Calculate snow melt */

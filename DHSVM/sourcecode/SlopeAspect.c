@@ -35,7 +35,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <assert.h>
 #include "constants.h"
 #include "settings.h"
 #include "data.h"
@@ -206,7 +205,6 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
        break;
      default:
        ReportError("flow_fractions",65);
-     assert(0);		
      }
      dir[n] = (int) ((effective_width / total_width) * 255.0 + 0.5);
      *total_dir += dir[n];
@@ -314,7 +312,6 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
     break;
     default:
     ReportError("flow_fractions",65);
-    assert(0);			/* other cases don't work either */
   }
   return;
 }

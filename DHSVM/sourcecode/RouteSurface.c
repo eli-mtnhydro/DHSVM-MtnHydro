@@ -16,7 +16,6 @@ overestimated runoff in those cells (Ning, 2013).
 
 * $Id: RouteSurface.c, v3.1.2  2013/3/21   Ning Exp $
 */
-#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -177,8 +176,8 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
             outflow = SoilMap[y][x].startRunoff;
             
             slope = TopoMap[y][x].Slope;
-            if (slope == 0.0) slope=0.0001;
-            assert(slope > 0.0);
+            if (slope <= 0.0)
+              slope=0.0001;
             
             alpha = pow(SType[SoilMap[y][x].Soil - 1].Manning * pow((double) Map->DX, 2./3.) / sqrt(slope), beta);
             

@@ -14,7 +14,6 @@
  * $Id: MaxRoadInfiltration.c,v 1.4 2003/07/01 21:26:21 olivier Exp $     
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>

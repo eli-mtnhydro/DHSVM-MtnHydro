@@ -17,7 +17,6 @@
  * $Id: InitMetMaps.c,v 1.6 2006/10/03 22:50:22 nathalie Exp $
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -124,8 +123,7 @@ void InitEvapMap(MAPSIZE *Map, EVAPPIX ***EvapMap, SOILPIX **SoilMap,
       if (INBASIN(TopoMap[y][x].Mask)) {
         NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
         NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
-        assert(VegMap[y][x].Veg > 0 && SoilMap[y][x].Soil > 0);
-
+        
         if (!((*EvapMap)[y][x].EPot =
           (float *)calloc(NVeg + 1, sizeof(float))))
           ReportError((char *)Routine, 1);

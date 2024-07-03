@@ -14,7 +14,6 @@
  * $Id: CalcKinViscosity.c,v 1.3 2004/08/18 01:01:26 colleen Exp $     
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>

@@ -14,7 +14,6 @@
  * $Id: Aggregate.c,v 1.17 2018/02/18 ning Exp $
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -143,7 +142,9 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 
 	for (i = 0; i < NSoilL; i++) {
 		Total->Soil.Moist[i] += SoilMap[y][x].Moist[i];
-		assert(SoilMap[y][x].Moist[i] >= 0.0);
+		if (SoilMap[y][x].Moist[i] <= 0.0)
+		  SoilMap[y][x].Moist[i] = 0.0;
+		
 		Total->Soil.Perc[i] += SoilMap[y][x].Perc[i];
 		Total->Soil.Temp[i] += SoilMap[y][x].Temp[i];
 		Total->SoilWater += SoilMap[y][x].Moist[i] * VType[VegMap[y][x].Veg - 1].RootDepth[i] * Network[y][x].Adjust[i]; 

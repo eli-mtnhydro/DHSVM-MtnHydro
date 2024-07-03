@@ -17,7 +17,6 @@
  * $Id: CutBankGeometry.c,v 1.4 2003/07/01 21:26:12 olivier Exp $     
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
@@ -111,7 +110,8 @@ void CutBankGeometry(int i, float RootDepth, float TopZone, float BankHeight,
       }
       else {
 	/* above cut depth - less than full area  */
-	assert(DX*DY >= Area);
+	if (DX*DY < Area)
+	  Area = DX*DY;
 	*PercArea = 1 - Area / (DX * DY);
 	*Adjust = *PercArea;
       }

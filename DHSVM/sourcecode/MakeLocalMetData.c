@@ -13,7 +13,6 @@
 * $Id: MakeLocalMetData.c,v3.2 2018/03/30 ning Exp $     
 */
 
-#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
