@@ -938,7 +938,7 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
 float channel_grid_dry_evaporation(ChannelMapPtr ** map, int col, int row,
                                    float EPot, float MaxEvapCap, float DXDY,
                                    float Dt, float *Porosity, float *FCap, float *Ks,
-                                   float *Press, float *m, float *RootDepth,
+                                   float *Press, float *m, float LayerThickness,
                                    float *MoistContent, float *Adjust, int CutBankZone)
 {
   ChannelMapPtr cell = map[col][row];
@@ -966,8 +966,8 @@ float channel_grid_dry_evaporation(ChannelMapPtr ** map, int col, int row,
       /* Re-scale from channel to grid cell depth */
       SoilEvap *= (cell->cut_width * cell->length) / DXDY;
       
-      SoilMoisture = MoistContent[CutBankZone] * RootDepth[CutBankZone] * Adjust[CutBankZone];
-      tmp = FCap[CutBankZone] * RootDepth[CutBankZone] * Adjust[CutBankZone];
+      SoilMoisture = MoistContent[CutBankZone] * LayerThickness * Adjust[CutBankZone];
+      tmp = FCap[CutBankZone] * LayerThickness * Adjust[CutBankZone];
       
       if (SoilEvap > SoilMoisture - tmp) {
         SoilEvap = SoilMoisture - tmp;
@@ -975,7 +975,7 @@ float channel_grid_dry_evaporation(ChannelMapPtr ** map, int col, int row,
       }
       else {
         SoilMoisture -= SoilEvap;
-        MoistContent[CutBankZone] = SoilMoisture / (RootDepth[CutBankZone] * Adjust[CutBankZone]);
+        MoistContent[CutBankZone] = SoilMoisture / (LayerThickness * Adjust[CutBankZone]);
       }
       
       TotalSoilEvap += SoilEvap;

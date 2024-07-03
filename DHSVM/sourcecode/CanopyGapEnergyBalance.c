@@ -283,7 +283,10 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
                                LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
                                ((*Gap)[Opening].MoistureFlux + (*Gap)[Opening].EvapChannel),
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
-                               SType->Press, SType->PoreDist, VType->RootDepth,
+                               SType->Press, SType->PoreDist,
+                               ((SType->NLayers == LocalNetwork->CutBankZone) ?
+                                  LocalSoil->Depth - VType->TotalDepth :
+                                  VType->RootDepth[LocalNetwork->CutBankZone]),
                                (*Gap)[Opening].Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
   }
@@ -491,7 +494,10 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
                                LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
                                ((*Gap)[Forest].MoistureFlux + (*Gap)[Forest].EvapChannel),
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
-                               SType->Press, SType->PoreDist, VType->RootDepth,
+                               SType->Press, SType->PoreDist,
+                               ((SType->NLayers == LocalNetwork->CutBankZone) ?
+                                  LocalSoil->Depth - VType->TotalDepth :
+                                  VType->RootDepth[LocalNetwork->CutBankZone]),
                                (*Gap)[Forest].Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
   }

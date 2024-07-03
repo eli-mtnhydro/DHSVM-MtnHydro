@@ -105,7 +105,7 @@ float ChannelSoilEvaporation(int Dt, float DXDY,
                       float Temp, float Slope, float Gamma, float Lv,
                       float AirDens, float Vpd, float NetRad, float RaSoil,
                       float Evapotranspiration, float *Porosity, float *FCap, float *Ks,
-                      float *Press, float *m, float *RootDepth,
+                      float *Press, float *m, float LayerThickness,
                       float *MoistContent, float *Adjust,
                       int x, int y, CHANNEL *ChannelData, int CutBankZone)
 {
@@ -126,7 +126,7 @@ float ChannelSoilEvaporation(int Dt, float DXDY,
     SoilEvap = channel_grid_dry_evaporation(ChannelData->stream_map, x, y,
                                             EPot, EPotCell, DXDY,
                                             Dt, Porosity, FCap, Ks,
-                                            Press, m, RootDepth,
+                                            Press, m, LayerThickness,
                                             MoistContent, Adjust, CutBankZone);
   else
     SoilEvap = 0.0;

@@ -108,7 +108,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth),
     &(LocalSoil->IExcess), LocalSoil->Moist, InfiltOption);
-
+  
   /* Calculate the number of vegetation layers above the snow.
   Note that veg cells with gap must have both over- and under-story as stipulated
   in InitTerrainMap.c, in which gapping is set to FALSE if no overstory regardless
@@ -465,7 +465,10 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
                                LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
                                (LocalVeg->MoistureFlux + LocalEvap->EvapChannel),
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
-                               SType->Press, SType->PoreDist, VType->RootDepth,
+                               SType->Press, SType->PoreDist,
+                               ((SType->NLayers == LocalNetwork->CutBankZone) ?
+                                  LocalSoil->Depth - VType->TotalDepth :
+                                  VType->RootDepth[LocalNetwork->CutBankZone]),
                                LocalSoil->Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
   }
@@ -582,11 +585,6 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     RoadbedInfiltration = MaxRoadbedInfiltration;
   LocalSoil->IExcess = SurfaceWater - Infiltration +
     RoadWater - RoadbedInfiltration;
-
-  if (LocalSoil->IExcess < -0.000001) {
-    printf("MEB: SoilIExcess(%f), reset to 0\n", LocalSoil->IExcess);
-    LocalSoil->IExcess = 0.;
-  }
 
   /*Add water that hits the channel network to the channel network */
   if (ChannelWater > 0.) {

@@ -100,7 +100,7 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
 float channel_grid_dry_evaporation(ChannelMapPtr ** map, int col, int row,
                                    float EPot, float MaxEvapCap, float DXDY,
                                    float Dt, float *Porosity, float *FCap, float *Ks,
-                                   float *Press, float *m, float *RootDepth,
+                                   float *Press, float *m, float LayerThickness,
                                    float *MoistContent, float *Adjust, int CutBankZone);
 
 void channel_grid_free_map(ChannelMapPtr **map);

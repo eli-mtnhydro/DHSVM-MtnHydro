@@ -81,7 +81,7 @@ float ChannelSoilEvaporation(int Dt, float DXDY,
                              float Temp, float Slope, float Gamma, float Lv,
                              float AirDens, float Vpd, float NetRad, float RaSoil,
                              float Evapotranspiration, float *Porosity, float *FCap, float *Ks,
-                             float *Press, float *m, float *RootDepth,
+                             float *Press, float *m, float LayerThickness,
                              float *MoistContent, float *Adjust,
                              int x, int y, CHANNEL *ChannelData, int CutBankZone);
 

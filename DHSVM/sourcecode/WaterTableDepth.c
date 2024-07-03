@@ -14,7 +14,6 @@
 * $Id: WaterTableDepth.c,v 3.2 2018/2/2 Ning Exp $     
 */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "settings.h"
@@ -132,7 +131,6 @@ float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
       TableDepth = TotalDepth;
     }
     else {
-      assert(DeepExcessFCap >= 0.0);
       TableDepth = TotalDepth - (DeepExcessFCap / DeepStorage)*DeepLayerDepth;
 
       if (Moist[NRootLayers] >= DeepPorosity) {
@@ -153,12 +151,8 @@ float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
       }
     }
   }
-  //printf("Table Depth is %.6f\n",TableDepth);
   if (TableDepth > TotalDepth)
-    printf("TableDepth = %.4f, TotalDepth = %.4f\n", TableDepth, TotalDepth);
-  if (TableDepth != TableDepth)
-    printf("TableDepth = %.2f", TableDepth);
-
-  assert(TableDepth <= TotalDepth);
+    TableDepth = TotalDepth;
+  
   return TableDepth;
 }
