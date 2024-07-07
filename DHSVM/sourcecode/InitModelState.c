@@ -414,6 +414,8 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
             remove -= SoilMap[y][x].TableDepth * Map->DX * Map->DY;
             SoilMap[y][x].TableDepth = 0.0;
         }
+        SoilMap[y][x].WaterLevel = TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
+        SoilMap[y][x].WaterLevelLast = SoilMap[y][x].WaterLevel;
       }
       else {
         SoilMap[y][x].TableDepth = 0;

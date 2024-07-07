@@ -34,19 +34,17 @@ void CutBankGeometry(int i, float RootDepth, float TopZone, float BankHeight,
 		     float Area, float DX, float DY, float *PercArea, 
 		     float *Adjust, int *CutBankZone);
 
-void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayers,
-		     float TotalDepth, float Area, float *RootDepth,
-		     float *PoreDist, float *Porosity, float *FCap,
-		     float *Perc, float *PercArea, float *Adjust,
-		     int CutBankZone, float BankHeight, float *TableDepth,
-		     float *Runoff, float *Moist, int InfiltOption);
+void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
+                       int NSoilLayers, float TotalDepth, float *RootDepth,
+                       float *Porosity, float *FCap, float *Adjust,
+                       float *TableDepth, float *Runoff, float *Moist);
 
 void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration, 
 		     float RoadbedInfiltration, float SatFlow, int NSoilLayers, 
 		     float TotalDepth, float Area, float *RootDepth, float *Ks, 
 		     float *PoreDist, float *Porosity, float *FCap, float *Perc, 
 		     float *PercArea, float *Adjust, int CutBankZone, float BankHeight,
-			 float *TableDepth, float *Runoff, float *Moist, int InfiltOption);
+			   float *TableDepth, float *Runoff, float *Moist, int InfiltOption);
 
 float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
 		      float *Porosity, float *FCap, float *Adjust,

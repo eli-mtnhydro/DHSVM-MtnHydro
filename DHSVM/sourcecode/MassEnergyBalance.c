@@ -101,13 +101,11 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
   /* Edited by Zhuoran Duan zhuoran.duan@pnnl.gov 06/21/2006*/
   /*Add a function to modify soil moisture by add/extract SatFlow from previous time step*/
-  DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow, SType->NLayers,
-    LocalSoil->Depth, LocalNetwork->Area, VType->RootDepth,
-    SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap,
-    LocalSoil->Perc, LocalNetwork->PercArea,
-    LocalNetwork->Adjust, LocalNetwork->CutBankZone,
-    LocalNetwork->BankHeight, &(LocalSoil->TableDepth),
-    &(LocalSoil->IExcess), LocalSoil->Moist, InfiltOption);
+  DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow,
+    SType->NLayers, LocalSoil->Depth, VType->RootDepth,
+    LocalSoil->Porosity, LocalSoil->FCap,
+    LocalNetwork->Adjust, &(LocalSoil->TableDepth),
+    &(LocalSoil->IExcess), LocalSoil->Moist);
   
   /* Calculate the number of vegetation layers above the snow.
   Note that veg cells with gap must have both over- and under-story as stipulated

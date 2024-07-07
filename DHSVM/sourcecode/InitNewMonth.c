@@ -411,22 +411,6 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
   }
   /*end if MM5*/
 
-    /* if the flow gradient is based on the water table, recalculate the water
-       table gradients.  Flow directions are now calculated in RouteSubSurface*/
-  if (Options->FlowGradient == WATERTABLE) {
-    /* Calculate the WaterLevel, i.e. the height of the water table above
-       some datum */
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          SoilMap[y][x].WaterLevel =
-            TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
-        }
-      }
-    }
-    /*     HeadSlopeAspect(Map, TopoMap, SoilMap, Options->MultiFlowDir); */
-  }
-
   if ((Options->MM5 == TRUE && Options->QPF == TRUE) || Options->MM5 == FALSE)
     GetMetData(Options, Time, NSoilLayers, NStats, SolarGeo->SunMax, Stat,
       Radar, RadarMap, RadarFileName);

@@ -22,12 +22,10 @@
 #include "soilmoisture.h"
 
 /*****************************************************************************/
-void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayers,
-  float TotalDepth, float Area, float *RootDepth,
-  float *PoreDist, float *Porosity, float *FCap,
-  float *Perc, float *PercArea, float *Adjust,
-  int CutBankZone, float BankHeight, float *TableDepth,
-  float *Runoff, float *Moist, int InfiltOption)
+void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
+  int NSoilLayers, float TotalDepth, float *RootDepth,
+  float *Porosity, float *FCap, float *Adjust,
+  float *TableDepth, float *Runoff, float *Moist)
 
 {
   float DeepLayerDepth;		/* depth of the layer below the deepest root layer */
@@ -135,7 +133,4 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow, int NSoilLayer
 
   if (SatFlow > 0.0)
     *Runoff += SatFlow;
-  
-  if (SatFlow < 0.0)
-    SatFlow = 0.0;
 }

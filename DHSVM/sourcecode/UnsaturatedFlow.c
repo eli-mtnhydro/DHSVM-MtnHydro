@@ -223,10 +223,8 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   i.e. the porosity.  A negative water table depth means that the water is
   ponding on the surface.  This amount of water becomes surface Runoff */
 
-  *TableDepth = WaterTableDepth(NSoilLayers, TotalDepth, RootDepth, Porosity,
-    FCap, Adjust, Moist);
+  *TableDepth = WaterTableDepth(NSoilLayers, TotalDepth, RootDepth, Porosity, FCap, Adjust, Moist);
   
-
   if (*TableDepth < 0.0) {
     *Runoff += -(*TableDepth);
     if (InfiltOption == DYNAMIC) {

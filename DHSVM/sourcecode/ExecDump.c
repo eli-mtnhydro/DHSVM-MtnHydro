@@ -1294,11 +1294,11 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
   fprintf(OutFile->FilePtr, " %g %g %g ", Soil->TableDepth,
     Soil->SatFlow, Soil->DetentionStorage);
 
-  for (i = 0; i <= NCanopyStory; i++) {
+  for (i = 0; i < NCanopyStory; i++) {
     fprintf(OutFile->FilePtr, " %g ", Rad->NetShort[i]);
   }
 
-  for (i = 0; i <= NCanopyStory; i++) {
+  for (i = 0; i < NCanopyStory; i++) {
     fprintf(OutFile->FilePtr, " %g ", Rad->LongIn[i]);
   }
 

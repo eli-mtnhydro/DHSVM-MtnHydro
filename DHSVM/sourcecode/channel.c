@@ -343,7 +343,7 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
         
         if (segment->storage > 0.0) {
           
-          WaterDepth = segment->storage / (segment->class2->width * segment->length);
+          WaterDepth = ((segment->storage + segment->last_storage) / 2.0) / (segment->class2->width * segment->length);
           
           /* Assume uniform water depth in outlet segment, and back-propagate uphill */
           if (segment->outlet != NULL)

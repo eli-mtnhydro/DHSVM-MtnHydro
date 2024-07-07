@@ -211,6 +211,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   float CulvertFlow;
   float temp;
   float max_bank_height = 0.0;
+  float AdjTableDepth;
   float Depth;
   float EffThickness;
   float MaxInfiltrationCap;
@@ -285,8 +286,9 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
       if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
         
         /* Only allow stream re-infiltration if water table is 1 mm below deepest channel */
+        AdjTableDepth = TopoMap[y][x].Dem - SoilMap[y][x].WaterLevel;
         max_bank_height = channel_grid_cell_maxbankht(ChannelData->stream_map, x, y);
-        if (SoilMap[y][x].TableDepth > (max_bank_height + 0.001)) {
+        if (AdjTableDepth > (max_bank_height + 0.001)) {
           
           /* Find maximum amount of water that can be added to subsurface */
           /* So that water table just reaches bottom of lowest channel cut */
@@ -305,16 +307,15 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
             }
           }
           /* Also add deep layer water capacity if water table is below root zone layers */
-          if (SoilMap[y][x].TableDepth > Depth) {
+          if (AdjTableDepth > Depth) {
             i = SType[SoilMap[y][x].Soil - 1].NLayers;
             MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
           }
-          MaxInfiltrationCap *= Map->DX * Map->DY;
         } else
           MaxInfiltrationCap = 0.0;
         
         channel_grid_calc_infiltration(ChannelData->stream_map, x, y, Time->Dt,
-                                       SoilMap[y][x].TableDepth, MaxInfiltrationCap);
+                                       AdjTableDepth, MaxInfiltrationCap);
     }
     }
     

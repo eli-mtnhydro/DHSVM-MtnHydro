@@ -398,7 +398,8 @@ typedef struct {
   float *Temp;			/* Temperature in each layer (C) */
   float TableDepth;		/* Depth of water table below ground surface (m) */
   float WaterLevel;		/* Absolute height of the watertable above datum (m), 
-						i.e. corrected for terrain elevation */
+						          i.e. corrected for terrain elevation */
+  float WaterLevelLast;
   float SatFlow;		/* amount of saturated flow generated */
   float IExcess;		/* amount of surface runoff (m) generated from HOF and Return flow */
   float Runoff;         /* Surface water flux (m) from the grid cell. */

@@ -30,7 +30,7 @@ extern int yneighbor[NNEIGHBORS];
    ------------------------------------------------------------- */
 void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir);
 void HeadSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, SOILPIX ** SoilMap,
-  float **FlowGrad, unsigned char ***Dir, unsigned int **TotalDir, int MultiFlowDir);
+  float **FlowGrad, unsigned char ***Dir, unsigned int **TotalDir, int MultiFlowDir, int x, int y);
 void SnowSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, SNOWPIX ** Snow,
   float **FlowGrad, unsigned char ***Dir, unsigned int **TotalDir, int MultiFlowDir);
 int valid_cell(MAPSIZE * Map, int x, int y);

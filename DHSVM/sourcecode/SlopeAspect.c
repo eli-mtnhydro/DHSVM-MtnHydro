@@ -219,7 +219,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
     
     float total_drop;
   
-    if (MultiFlowDir){
+    if (MultiFlowDir) {
       /* For MFD8 flow directions, water discharges to ALL of its downhill neighbors: 
          As with D8, this requires the DEM to be pre-filled for D8 routing scheme
          as any flat areas will confuse the model. */
@@ -233,8 +233,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
         if (nelev[n] == (float) OUTSIDEBASIN){
           dir[n] = 0;
           drop[n] = 0.0;
-        }
-        else {
+        } else {
           /* Find all downhill cells */
           if (n == 0 || n == 2 || n == 4 || n == 6)
             drop[n] = (celev - nelev[n]) / sqrt(dx * dx + dy * dy);
@@ -464,38 +463,25 @@ void qs(ITEM *item, int left, int right)
    Comment: rewritten to fill the sinks (Ning, 2013)
    ------------------------------------------------------------- */
 void HeadSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, SOILPIX ** SoilMap,
-		     float **FlowGrad, unsigned char ***Dir, unsigned int **TotalDir, int MultiFlowDir)
+		     float **FlowGrad, unsigned char ***Dir, unsigned int **TotalDir, int MultiFlowDir, int x, int y)
 {
-  int x;
-  int y;
   int n;
   float neighbor_elev[NNEIGHBORS];
-
-  /* let's assume for now that WaterLevel is the SOILPIX map is
-     computed elsewhere */
-  for (x = 0; x < Map->NX; x++) {
-    for (y = 0; y < Map->NY; y++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-		  float slope, aspect;
-		  for (n = 0; n < NNEIGHBORS; n++) {
-			  int xn = x + xneighbor[n];
-			  int yn = y + yneighbor[n];			  
-			  if (valid_cell(Map, xn, yn)) {
-				  neighbor_elev[n] =
-					  ((TopoMap[yn][xn].Mask) ? SoilMap[yn][xn].WaterLevel : (float) OUTSIDEBASIN);
-			  }
-			  else {
-				  neighbor_elev[n] = (float) OUTSIDEBASIN;
-			  }
-		  }
-		  if (NDIRS==4)
-		    slope_aspect(Map->DX, Map->DY, SoilMap[y][x].WaterLevel, neighbor_elev,
-                   &slope, &aspect);
-		  flow_fractions(Map->DX, Map->DY, slope, aspect, SoilMap[y][x].WaterLevel, neighbor_elev,
-		       &(FlowGrad[y][x]), Dir[y][x], &(TotalDir[y][x]), MultiFlowDir); 
-      }
-    }
+  float slope, aspect;
+  
+  for (n = 0; n < NNEIGHBORS; n++) {
+    int xn = x + xneighbor[n];
+    int yn = y + yneighbor[n];			  
+    if (valid_cell(Map, xn, yn))
+      neighbor_elev[n] = ((TopoMap[yn][xn].Mask) ? SoilMap[yn][xn].WaterLevel : (float) OUTSIDEBASIN);
+    else
+      neighbor_elev[n] = (float) OUTSIDEBASIN;
   }
+  if (NDIRS==4)
+    slope_aspect(Map->DX, Map->DY, SoilMap[y][x].WaterLevel, neighbor_elev, &slope, &aspect);
+  
+  flow_fractions(Map->DX, Map->DY, slope, aspect, SoilMap[y][x].WaterLevel, neighbor_elev,
+                 &(FlowGrad[y][x]), Dir[y][x], &(TotalDir[y][x]), MultiFlowDir);
   return;
 }
 

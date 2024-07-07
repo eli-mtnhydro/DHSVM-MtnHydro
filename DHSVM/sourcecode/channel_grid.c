@@ -579,7 +579,8 @@ float channel_grid_cell_water_depth(ChannelMapPtr ** map, int col, int row)
 
   if (len > 0.0) {
     while (cell != NULL) {
-      water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
+      water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
+                    (cell->channel->class2->width * cell->channel->length);
       water_depth_avg += water_depth * cell->length;
       cell = cell->next;
     }
@@ -610,7 +611,8 @@ float channel_grid_lateral_outflow(ChannelMapPtr ** map, int col, int row,
   
   while (cell != NULL) {
     
-    water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
+    water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
+                  (cell->channel->class2->width * cell->channel->length);
     
     if ((cell->cut_height - water_depth) < TableDepth) {
       
@@ -677,7 +679,8 @@ float channel_grid_calc_satflow(ChannelMapPtr ** map, int col, int row,
   
   while (cell != NULL) {
     
-    water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
+    water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
+                  (cell->channel->class2->width * cell->channel->length);
     
     if ((cell->cut_height - water_depth) > TableDepth) {
       
@@ -717,6 +720,7 @@ void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
   ChannelMapPtr cell = map[col][row];
   
   while (cell != NULL) {
+    
     cell->channel->lateral_inflow += cell->satflow;
     cell->satflow = 0.0;
     
@@ -812,7 +816,7 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
 {
   ChannelMapPtr cell = map[col][row];
   float infiltration; /* From one channel segment */
-  float gradient;
+  float water_depth, gradient, max_infiltration;
   
   while (cell != NULL) {
     
@@ -823,8 +827,9 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       /* Hydraulic gradient = channel head / dist from channel bottom to water table  */
       /* Channel head = water surface elev in channel - water table elev */
       
-      gradient = (TableDepth - cell->cut_height) +
-                 (cell->channel->storage / (cell->channel->length * cell->channel->class2->width));
+      water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
+                    (cell->channel->class2->width * cell->channel->length);
+      gradient = (TableDepth - cell->cut_height) + water_depth;
       gradient /= (TableDepth - cell->cut_height);
       
       /* Avoid exploding gradients when water table is very close to channel bottom */
@@ -833,8 +838,13 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       
       infiltration = cell->infiltration_rate * gradient * cell->length * cell->cut_width * deltat;
       
-      if (infiltration > MaxInfiltrationCap)
-        infiltration = MaxInfiltrationCap;
+      /* Only allow enough infiltration to raise water table to channel bottom
+         for the area directly below channel so that infiltration rates
+         are not dependent on the choice of grid resolution */
+      max_infiltration = MaxInfiltrationCap * cell->length * cell->cut_width;
+      
+      if (infiltration > max_infiltration)
+        infiltration = max_infiltration;
       if (infiltration < 0.0)
         infiltration = 0.0;
       
@@ -900,7 +910,8 @@ float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
       /* Maximum evaporation is proportional to the channel length
          unless water depth < 1 mm, in which case all water
          is allowed to evaporate from a single grid cell */
-      water_depth = cell->channel->storage / (cell->channel->class2->width * cell->channel->length);
+      water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
+                    (cell->channel->class2->width * cell->channel->length);
       if (water_depth < 0.001)
         max_evaporation = cell->channel->storage;
       else
