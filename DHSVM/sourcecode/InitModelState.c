@@ -25,6 +25,7 @@
 #include "sizeofnt.h"
 #include "soilmoisture.h"
 #include "varid.h"
+#include "channel_grid.h"
 
  /*****************************************************************************
    Function name: InitModelState()
@@ -50,7 +51,7 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
   SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
   VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path, 
   TOPOPIX **TopoMap, ROADSTRUCT **Network, UNITHYDRINFO *HydrographInfo,
-  float *Hydrograph)
+  float *Hydrograph, CHANNEL *ChannelData)
 {
   const char *Routine = "InitModelState";
   char Str[NAMESIZE + 1];
@@ -420,13 +421,17 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
       else {
         SoilMap[y][x].TableDepth = 0;
       }
+      
+      /* Initialize water table depth below stream channels */
+      if (Options->HasNetwork == TRUE)
+        channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
     }
   }
   if (remove > 0.0) {
     printf("WARNING:excess water in soil profile is %f m^3 \n", remove);
     printf("Expect possible large flood wave during first timesteps \n\n");
   }
-
+  
   /* If the unit hydrograph is used for flow routing, initialize the unit hydrograph array */
   if (Options->Extent == BASIN && Options->HasNetwork == FALSE) {
     sprintf(FileName, "%sHydrograph.State.%s", Path, Str);

@@ -229,7 +229,7 @@ int main(int argc, char **argv)
 
   InitModelState(&(Time.Start), Time.NDaySteps, &Map, &Options, PrecipMap, SnowMap, SoilMap,
 		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
-		 TopoMap, Network, &HydrographInfo, Hydrograph);
+		 TopoMap, Network, &HydrographInfo, Hydrograph, &ChannelData);
 
   InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, ShadowMap,
 	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap);

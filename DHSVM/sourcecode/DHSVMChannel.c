@@ -212,6 +212,8 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   float temp;
   float max_bank_height = 0.0;
   float AdjTableDepth;
+  float Transmissivity;
+  float ChannelTableDepth;
   float Depth;
   float EffThickness;
   float MaxInfiltrationCap;
@@ -285,16 +287,27 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
       x = Map->OrderedCells[k].x;
       if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
         
-        /* Only allow stream re-infiltration if water table is 1 mm below deepest channel */
+        /* Only allow stream re-infiltration if local water table is 1 mm below deepest channel */
+        /* Update water table depth directly below channel based on lateral diffusion on previous timestep */
         AdjTableDepth = TopoMap[y][x].Dem - SoilMap[y][x].WaterLevel;
         max_bank_height = channel_grid_cell_maxbankht(ChannelData->stream_map, x, y);
-        if (AdjTableDepth > (max_bank_height + 0.001)) {
+        Transmissivity = CalcTransmissivity(AdjTableDepth, max_bank_height,
+                                            SoilMap[y][x].KsLat,
+                                            SoilMap[y][x].KsLatExp,
+                                            SType[SoilMap[y][x].Soil - 1].DepthThresh);
+        ChannelTableDepth = channel_grid_table_depth(ChannelData->stream_map, x, y, Time->Dt,
+                                                     AdjTableDepth, Transmissivity,
+                                                     (SoilMap[y][x].Porosity[Network[y][x].CutBankZone] -
+                                                      SoilMap[y][x].FCap[Network[y][x].CutBankZone]),
+                                                     Map->DX);
+        
+        if (ChannelTableDepth > (max_bank_height + 0.001)) {
           
           /* Find maximum amount of water that can be added to subsurface */
-          /* So that water table just reaches bottom of lowest channel cut */
+          /* So that water table immediately below channel just reaches bottom of lowest channel cut */
           MaxInfiltrationCap = 0.0;
           Depth = 0.0;
-          for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < SoilMap[y][x].Depth; i++) {
+          for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < ChannelTableDepth; i++) {
             if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
               Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
             else
@@ -303,19 +316,24 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
             if (Depth > max_bank_height) {
               EffThickness = ((Depth - max_bank_height) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
                                 (Depth - max_bank_height) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
-              MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
+              if (Depth < ChannelTableDepth)
+                MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
+              else {
+                EffThickness -= (Depth - ChannelTableDepth);
+                MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].FCap[i]) * EffThickness;
+              }
             }
           }
           /* Also add deep layer water capacity if water table is below root zone layers */
-          if (AdjTableDepth > Depth) {
+          if (ChannelTableDepth > Depth) {
             i = SType[SoilMap[y][x].Soil - 1].NLayers;
-            MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * (SoilMap[y][x].Depth - Depth);
+            MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].FCap[i]) * (ChannelTableDepth - Depth);
           }
         } else
           MaxInfiltrationCap = 0.0;
         
         channel_grid_calc_infiltration(ChannelData->stream_map, x, y, Time->Dt,
-                                       AdjTableDepth, MaxInfiltrationCap);
+                                       AdjTableDepth, MaxInfiltrationCap, Map->DX);
     }
     }
     

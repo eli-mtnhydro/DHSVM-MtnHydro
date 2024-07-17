@@ -806,17 +806,81 @@ double channel_grid_outflow(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
+ channel_grid_init_table
+ ------------------------------------------------------------- */
+void channel_grid_init_table(ChannelMapPtr ** map, int col, int row,
+                             float GridTableDepth)
+{
+  ChannelMapPtr cell = map[col][row];
+  
+  while (cell != NULL) {
+    cell->table_depth = GridTableDepth;
+    cell = cell->next;
+  }
+}
+
+/* -------------------------------------------------------------
+ channel_grid_table_depth
+ Update local water table below channel based on infiltration rate
+ and return shallowest local table depth
+ ------------------------------------------------------------- */
+float channel_grid_table_depth(ChannelMapPtr ** map, int col, int row, int deltat,
+                               float GridTableDepth, float Transmissivity,
+                               float SoilDeficit, float DX)
+{
+  ChannelMapPtr cell = map[col][row];
+  float table_depth_min = GridTableDepth;
+  float eff_dist, drop, grad, flow;
+  
+  while (cell != NULL) {
+    if (GridTableDepth > cell->cut_height) {
+      
+      /* Compute gradient from halfway between edge of cell and edge of channel */
+      /* But enforce upper limit of 1 m for steepest gradient calculation */
+      /* Assumes DX == DY */
+      eff_dist = (DX - cell->cut_width) / 4;
+      if (eff_dist < 1.0)
+        eff_dist = 1.0;
+      
+      /* Water flows away from both sides of infiltration zone */
+      drop = (GridTableDepth - cell->table_depth) / eff_dist;
+      if (drop < 0.0)
+        drop = 0.0;
+      grad = drop * (cell->length * 2);
+      flow = Transmissivity * grad * deltat;
+      
+      flow /= cell->length * cell->cut_width; /* m^3 to m water depth */
+      cell->table_depth += flow / SoilDeficit; /* water depth to table depth */
+    }
+    else
+      cell->table_depth = cell->cut_height;
+    
+    /* Must remain between bottom of channel cut and grid cell water table */
+    if (cell->table_depth > GridTableDepth)
+      cell->table_depth = GridTableDepth;
+    if (cell->table_depth < cell->cut_height)
+      cell->table_depth = cell->cut_height;
+    
+    if (cell->table_depth < table_depth_min)
+      table_depth_min = cell->table_depth;
+    cell = cell->next;
+  }
+  return (table_depth_min);
+}
+
+/* -------------------------------------------------------------
  channel_grid_calc_infiltration
  If the channel(s) within the cell are above the water table,
  this function calculates the POTENTIAL infiltration from the channel(s)
  so that it can be subtracted during stream network routing.
  ------------------------------------------------------------- */
 void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int deltat,
-                                    float TableDepth, float MaxInfiltrationCap)
+                                    float TableDepth, float MaxInfiltrationCap, float DX)
 {
   ChannelMapPtr cell = map[col][row];
   float infiltration; /* From one channel segment */
   float water_depth, gradient, max_infiltration;
+  float eff_dist_x, eff_dist_z, eff_dist;
   
   while (cell != NULL) {
     
@@ -824,17 +888,27 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
       
       /* Infiltration rate is assumed equal to vertical hydraulic conductivity */
       /* Infiltration volume = conductivity * gradient * area * time */
-      /* Hydraulic gradient = channel head / dist from channel bottom to water table  */
       /* Channel head = water surface elev in channel - water table elev */
-      
       water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
                     (cell->channel->class2->width * cell->channel->length);
-      gradient = (TableDepth - cell->cut_height) + water_depth;
-      gradient /= (TableDepth - cell->cut_height);
+      if (water_depth > cell->cut_height)
+        water_depth = cell->cut_height;
       
-      /* Avoid exploding gradients when water table is very close to channel bottom */
-      if (gradient > 100.0)
-        gradient = 100.0;
+      /* Compute gradient from halfway between edge of cell and edge of channel */
+      /* But enforce upper limit of 1 m for steepest gradient calculation */
+      /* Assumes DX == DY */
+      eff_dist_x = (DX - cell->cut_width) / 4;
+      eff_dist_z = TableDepth - (cell->cut_height - water_depth);
+      eff_dist = sqrt(eff_dist_x*eff_dist_x + eff_dist_z*eff_dist_z);
+      if (eff_dist < 1.0)
+        eff_dist = 1.0;
+      
+      /* Unlike analogous gradients used in other functions,
+         the infiltration gradient is along a diagonal direction
+         to account for variations in the relative importance
+         of vertical or lateral flow paths from the channel bottom
+         to the rest of the grid cell */
+      gradient = eff_dist_z / eff_dist;
       
       infiltration = cell->infiltration_rate * gradient * cell->length * cell->cut_width * deltat;
       
@@ -849,6 +923,9 @@ void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int 
         infiltration = 0.0;
       
       cell->infiltration = infiltration;
+      
+      /* Water table gets shallower below channel in proportion to how much of the capacity was filled */
+      cell->table_depth -= (infiltration / max_infiltration) * (cell->table_depth - cell->cut_height);
       
     } else
       cell->infiltration = 0.0;

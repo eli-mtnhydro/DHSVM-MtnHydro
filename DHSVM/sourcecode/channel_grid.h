@@ -34,6 +34,7 @@ struct _channel_map_rec_ {
   float cut_width;		/* "effective" cut width (m) */
   char sink;			/* is this cell a channel sink? */
   float azimuth;        /* channel azimuth */
+  float table_depth; /* local water table depth in portion of grid cell below channel */
   float infiltration_rate; /* infiltration rate out of the bottom of the channel (m/s) */
   float infiltration; /* amount of water (m^3) that could infiltrate if available */
   float avail_water; /* amount of water (m^3) in segment that is derived from uphill */
@@ -91,8 +92,14 @@ double channel_grid_flowlength(ChannelMapPtr **map, int col, int row,
 double channel_grid_flowslope(ChannelMapPtr **map, int col, int row);
 ChannelClass* channel_grid_class(ChannelMapPtr **map, int col, int row);
 
+void channel_grid_init_table(ChannelMapPtr ** map, int col, int row,
+                             float GridTableDepth);
+float channel_grid_table_depth(ChannelMapPtr ** map, int col, int row, int deltat,
+                               float GridTableDepth, float Transmissivity,
+                               float SoilDeficit, float DX);
+
 void channel_grid_calc_infiltration(ChannelMapPtr ** map, int col, int row, int deltat,
-                                    float TableDepth, float MaxInfiltrationCap);
+                                    float TableDepth, float MaxInfiltrationCap, float DX);
 float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row);
 
 float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,

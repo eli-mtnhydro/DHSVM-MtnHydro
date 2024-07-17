@@ -172,7 +172,7 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
 		    VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path,
 		    TOPOPIX **TopoMap,
 		    ROADSTRUCT **Network, UNITHYDRINFO *HydrographInfo,
-		    float *Hydrograph);
+		    float *Hydrograph, CHANNEL *ChannelData);
 
 void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap, 
 		 SOILPIX **SoilMap, VEGPIX **VegMap, VEGTABLE *VType, 
