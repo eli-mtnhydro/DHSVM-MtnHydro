@@ -70,8 +70,7 @@ float LapsePrecip(float Precip, float FromElev, float ToElev,
 {
   float LapsedPrecip;		/* Precipitation at ToElev (m/timestep) */
 
-  LapsedPrecip = Precip * (1.0 + PrecipLapse * (ToElev - FromElev))
-	  * (1 + precipMultiplier * (ToElev - MINELEV));
+  LapsedPrecip = Precip * (1.0 + PrecipLapse * (ToElev - FromElev)) * precipMultiplier;
 
   if (LapsedPrecip < 0.0)
     LapsedPrecip = 0.0;
