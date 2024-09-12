@@ -273,6 +273,27 @@ struct {
   806, "Snow.MinAlbedoMelt",
       "Min Albedo during melt", "%.4f", "", 
       "Min Albedo during melt", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {   
+  900, "Wind.FetchDist",
+      "Upwind fetch distance", "%.4f", "m", 
+      "Upwind fetch distance", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
+  901, "Wind.LayerElevUpper",
+      "Layer upper boundary elevation", "%.4f", "m", 
+      "Layer upper boundary elevation", NC_FLOAT, TRUE, FALSE, FALSE, 0}, {
+  902, "Wind.LayerElevLower",
+      "Layer lower boundary elevation", "%.4f", "m", 
+      "Layer lower boundary elevation", NC_FLOAT, TRUE, FALSE, FALSE, 0}, {
+  903, "Wind.WindSpeedXY",
+      "Horizontal wind speed", "%.4f", "m/s", 
+      "Horizontal wind speed", NC_FLOAT, TRUE, FALSE, FALSE, 0}, {
+  904, "Wind.WindSpeedZ",
+      "Vertical wind speed", "%.4f", "m/s", 
+      "Vertical wind speed", NC_FLOAT, TRUE, FALSE, FALSE, 0}, {
+  905, "Wind.Qsalt",
+      "Snow saltation flux", "%.4f", "kg", 
+      "Snow saltation flux", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
+  906, "Wind.Qsusp",
+      "Snow suspension flux", "%.4f", "kg", 
+      "Snow suspension flux", NC_FLOAT, TRUE, FALSE, FALSE, 0}, {
   ENDOFLIST, "", "", "", "", "",
       ENDOFLIST, ENDOFLIST, ENDOFLIST, ENDOFLIST, ENDOFLIST}
 };

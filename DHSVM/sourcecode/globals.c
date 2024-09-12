@@ -51,3 +51,5 @@ int TotNumGap;          /* total number of grid cells with a gap structure */
 
 float SNOWSLIDE1;       /*Avalanche parameter*/
 float SNOWSLIDE2;       /*Avalanche parameter */
+
+int NWINDLAYERS;        /* Wind vertical layers */

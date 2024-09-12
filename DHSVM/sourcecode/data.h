@@ -252,6 +252,7 @@ typedef struct {
   int CanopyShading;
   int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
   int CanopyGapping;    /* if canopy gapping is on */
+  int WindDrift;        /* if wind redistribution option is true */
   int SnowSlide;        /* if snow sliding option is true */
   int PrecipSepr;       /* if TRUE use separate input of rain and snow */
   int SnowStats;        /* if TRUE dumps snow statistics for each water year */
@@ -388,6 +389,17 @@ typedef struct {
   unint MaxSweDate;       /*Peak SWE date/timestep of the water year*/
   unint MeltOutDate;    /* Last day of SWE of the water year */
 } SNOWPIX;
+
+typedef struct {
+  float FetchDist;       /* Upwind fetch distance to wind-blocking obstacle (m) */
+  float *LayerElevUpper; /* Elevation (NOT height) of layer boundaries */
+  float *LayerElevLower; /* Elevation (NOT height) of layer boundaries */
+  float *WindSpeedXY;    /* Multiplier for each layer relative to 2 m wind */
+  float *WindSpeedZ;     /* Multiplier for each layer relative to 2 m wind */
+  float Qsalt;           /* Local saltation flux (kg) */
+  float *Qsusp;          /* Local suspension flux in each layer (kg) */
+  float **WindDirFrac;   /* Fraction of each layer's flux in each direction */
+} WINDPIX;
 
 typedef struct {
   int   Soil;			/* Soil type */

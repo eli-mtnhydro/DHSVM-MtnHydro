@@ -19,7 +19,7 @@ InitTables.o InitTerrainMaps.o InitUnitHydrograph.o  InitXGraphics.o \
 InterceptionStorage.o IsStationLocation.o LapseT.o LookupTable.o  \
 MainDHSVM.o MakeLocalMetData.o MassBalance.o MassEnergyBalance.o     \
 MassRelease.o MaxRoadInfiltration.o NoEvap.o RadiationBalance.o      \
-ReadMetRecord.o ReadRadarMap.o ReportError.o ResetAggregate.o	     \
+ReadMetRecord.o ReadRadarMap.o RedistributeSnow.o ReportError.o ResetAggregate.o	     \
 RootBrent.o Round.o RouteSubSurface.o RouteSurface.o   \
 SatVaporPressure.o SensibleHeatFlux.o SeparateRadiation.o SizeOfNT.o \
 SlopeAspect.o SnowInterception.o SnowMelt.o SnowPackEnergyBalance.o \
@@ -47,7 +47,7 @@ REL=
  
 DEFS =  -DHAVE_X11 
 #possible DEFS -DHAVE_NETCDF -DHAVE_X11 -DSHOW_MET_ONLY -DSNOW_ONLY
-CFLAGS = -flto=auto -Ofast -I/usr/X11R6/include -Wall -I/usr/local/include/  $(DEFS) 
+CFLAGS = -g -I/usr/X11R6/include -Wall -I/usr/local/include/  $(DEFS) 
 
 CC = cc
 FLEX = /usr/bin/flex
@@ -57,7 +57,7 @@ LIBS = -lm -L/usr/X11R6/lib -lX11 -L/sw/lib -L/usr/local/lib
 #LIBS = -lm -L/usr/X11R6/lib -lX11 -L/sw/lib -L/usr/local/lib -lnetcdf
 
 DHSVM: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.1 $(LIBS)
+	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2 $(LIBS)
 
 clean::
 	rm -f DHSVM
@@ -231,6 +231,8 @@ ReadMetRecord.o: ReadMetRecord.c settings.h data.h Calendar.h channel.h \
 ReadRadarMap.o: ReadRadarMap.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h sizeofnt.h
+RedistributeSnow.o: RedistributeSnow.c settings.h data.h functions.h \
+ constants.h slopeaspect.h
 ReportError.o: ReportError.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h
 ResetAggregate.o: ResetAggregate.c settings.h data.h Calendar.h channel.h \

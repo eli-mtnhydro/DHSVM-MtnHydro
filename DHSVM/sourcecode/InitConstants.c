@@ -97,6 +97,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 	  {"OPTIONS", "RIPARIAN SHADING", "", ""}, 
     {"OPTIONS", "VARIABLE LIGHT TRANSMITTANCE", "", "" },
     {"OPTIONS", "CANOPY GAPPING", "", "" },
+    {"OPTIONS", "WIND DRIFTING", "", "" },
     {"OPTIONS", "SNOW SLIDING", "", "" },
     {"OPTIONS", "PRECIPITATION SEPARATION", "", "FALSE" },
     {"OPTIONS", "SNOW STATISTICS", "", "FALSE" },
@@ -368,7 +369,15 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->CanopyGapping = FALSE;
   else
     ReportError(StrEnv[gapping].KeyName, 51);
-
+  
+  /* Determine if snow drifting will be modeled */
+  if (strncmp(StrEnv[snowdrift].VarStr, "TRUE", 4) == 0)
+    Options->WindDrift = TRUE;
+  else if (strncmp(StrEnv[snowdrift].VarStr, "FALSE", 5) == 0)
+    Options->WindDrift = FALSE;
+  else
+    ReportError(StrEnv[snowslide].KeyName, 51);
+  
   /* Determine if snow sliding will be modeled */
   if (strncmp(StrEnv[snowslide].VarStr, "TRUE", 4) == 0)
     Options->SnowSlide = TRUE;

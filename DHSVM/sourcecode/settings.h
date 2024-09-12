@@ -121,7 +121,7 @@ enum KEYS {
   shading, snotel, outside, rhoverride, precipitation_source, wind_source, 
   temp_lapse, precip_lapse, cressman_radius, cressman_stations, prism_data_path, 
   prism_data_ext, shading_data_path, shading_data_ext, skyview_data_path, 
-  stream_temp, canopy_shading, improv_radiation, gapping, snowslide, sepr, 
+  stream_temp, canopy_shading, improv_radiation, gapping, snowdrift, snowslide, sepr, 
   snowstats, dynaveg, streamdata,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
@@ -173,7 +173,7 @@ enum KEYS {
   number_of_root_zones, root_zone_depth, overstory_fraction, understory_fraction, 
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
   /* terrain information */
-  demfile = 0, maskfile,
+  demfile = 0, maskfile, windlayers_num, fetchfile, winduxfile, winduyfile, winduzfile,
   soiltype_file = 0, soildepth_file, kslat_file, expdec_file, porosity_file, fc_file,
   vegtype_file = 0, vegfc_file, veglai_file, vegheight_file, 
   dynaveg_path, dynaveg_num, 
