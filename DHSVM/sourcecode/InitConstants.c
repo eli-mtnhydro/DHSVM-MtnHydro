@@ -97,6 +97,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 	  {"OPTIONS", "RIPARIAN SHADING", "", ""}, 
     {"OPTIONS", "VARIABLE LIGHT TRANSMITTANCE", "", "" },
     {"OPTIONS", "CANOPY GAPPING", "", "" },
+    {"OPTIONS", "WIND DRIFTING", "", "" },
     {"OPTIONS", "SNOW SLIDING", "", "" },
     {"OPTIONS", "PRECIPITATION SEPARATION", "", "FALSE" },
     {"OPTIONS", "SNOW STATISTICS", "", "FALSE" },
@@ -131,6 +132,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SNOWSLIDE PARAMETER2", "", "" },
     {"CONSTANTS", "GAP WIND ADJ FACTOR", "", "" },
     {"CONSTANTS", "TEMPERATURE OFFSET", "", "" },
+    {"CONSTANTS", "WIND MULTIPLIER", "", "" },
     {NULL, NULL, "", NULL}
   };
 
@@ -368,7 +370,15 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->CanopyGapping = FALSE;
   else
     ReportError(StrEnv[gapping].KeyName, 51);
-
+  
+  /* Determine if snow drifting will be modeled */
+  if (strncmp(StrEnv[snowdrift].VarStr, "TRUE", 4) == 0)
+    Options->WindDrift = TRUE;
+  else if (strncmp(StrEnv[snowdrift].VarStr, "FALSE", 5) == 0)
+    Options->WindDrift = FALSE;
+  else
+    ReportError(StrEnv[snowslide].KeyName, 51);
+  
   /* Determine if snow sliding will be modeled */
   if (strncmp(StrEnv[snowslide].VarStr, "TRUE", 4) == 0)
     Options->SnowSlide = TRUE;
@@ -613,8 +623,10 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   if (!CopyFloat(&TEMPERATURE_OFFSET, StrEnv[temperature_offset].VarStr, 1))
     ReportError(StrEnv[temperature_offset].KeyName, 51);
-
-
+  
+  if (!CopyFloat(&WIND_MULTIPLIER, StrEnv[wind_multiplier].VarStr, 1))
+    ReportError(StrEnv[wind_multiplier].KeyName, 51);
+  
   /* maximum depth of the surface layer in snow water equivalent (m) */
   if (!CopyFloat(&MAX_SURFACE_SWE,
     StrEnv[max_swe].VarStr, 1))

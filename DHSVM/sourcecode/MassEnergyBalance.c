@@ -60,7 +60,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   VEGTABLE *VType, VEGPIX *LocalVeg, SOILTABLE *SType,
   SOILPIX *LocalSoil, SNOWPIX *LocalSnow, PIXRAD *LocalRad,
   EVAPPIX *LocalEvap, PIXRAD *TotalRad, CHANNEL *ChannelData,
-  float **skyview)
+  float **skyview, WINDPIX **WindMap)
 {
   float SurfaceWater;		/* Pixel average depth of water before infiltration is calculated (m) */
   float RoadWater;          /* Average depth of water on the road surface
@@ -177,11 +177,32 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     CalcCanopyGapAerodynamic(&(LocalVeg->Type), VType->NVegLayers, VType->Height);
   }
 
-  /* calculate the amount of interception storage, and the amount of
-     throughfall. Of course this only needs to be done if there is
-     vegetation present. */
 #ifndef NO_SNOW
-
+  
+  /* Add atmospheric snowfall to top of wind layers
+     and replace it with wind deposition */
+  if (Options->WindDrift) {
+    
+    // if (x==35 && y==168 && LocalPrecip->SnowFall > 0.0)
+    //   printf("\nBefore: SnowFall = %.3e\n",LocalPrecip->SnowFall);
+    
+    if (LocalPrecip->SnowFall > 0.0) {
+      WindMap[y][x].IsSnowing = TRUE;
+      WindMap[y][x].Qsusp[WindMap[y][x].SnowfallLayer] += LocalPrecip->SnowFall * (WATER_DENSITY*DX*DX);
+    } else {
+      WindMap[y][x].IsSnowing = FALSE;
+    }
+    LocalPrecip->SnowFall = WindMap[y][x].WindDeposition;
+    WindMap[y][x].WindDeposition = 0.0;
+    
+    // if (x==35 && y==168 && LocalPrecip->SnowFall > 0.0)
+    //   printf("After: SnowFall = %.3e, SWE = %.3f\n",LocalPrecip->SnowFall,LocalSnow->Swq);
+    
+  }
+  
+  /* calculate the amount of interception storage, and the amount of
+   throughfall. Of course this only needs to be done if there is
+   vegetation present. */
   if (VType->OverStory == TRUE &&
     (LocalPrecip->IntSnow[0] || LocalPrecip->SnowFall > 0.0)) {
     SnowInterception(Options, y, x, Dt, LocalVeg->Fract[0], LocalVeg->Vf,
@@ -228,7 +249,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
     SnowWind = VType->USnow * LocalMet->Wind;
     SnowRa = VType->RaSnow / LocalMet->Wind;
-
+    
     OldSnowTSurf = LocalSnow->TSurf;
     LocalSnow->Outflow =
       SnowMelt(y, x, Dt, 2. + Z0_SNOW, 0.f, Z0_SNOW, SnowRa, LocalMet->AirDens,

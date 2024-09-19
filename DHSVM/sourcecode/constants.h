@@ -34,6 +34,10 @@
 #define KhH2O       0.58		/* Thermal conductivity of water (W/(mk)) */
 #define LEAF_DRIP_DIA  0.0055   /* Leaf drip diameter (m) */
 #define LF            (333.7e3) /* latent heat of fusion (J/kg) */
+#define LSUB          (2.838e6) /* latent heat of sublimation (J/kg) */
+#define MOLWEIGHTH20  18.01     /* molar weight of water (g/mol) */
+#define GASR          8313      /* universal gas constant (J/mol*K) */
+#define AIRKINVISC    (1.88e-5) /* kinematic viscosity of air (m^2/s) */
 #define MINPDEG        4.		/* minutes per degree longitude */
 #define MMTOM          0.001	/* convert from mm to meter */
 #define MTHRESH        0.85     /* The 'critical' value of M for triggering the mass wasting algorithm. */
@@ -52,10 +56,13 @@
 #define STEFAN    (5.6696e-8)	/* Stefan-Boltzmann constant (W/(M^2*C^4) */
 #define VISFRACT    0.5		    /* part of shortwave that is in the visible range of the spectrum */
 #define VON_KARMAN  0.4		    /* Von Karman's constant */
-#define WATER_DENSITY 1000.		/* Density of water in kg/m3 */
+#define WATER_DENSITY 1000.0	/* Density of water in kg/m^3 */
+#define ICE_DENSITY 916.8     /* Density of ice in kg/m^3 */
 #define Z0_MULTIPLIER 0.13		/* Multiplier for vegetation height to get roughness length (m) */
 #define MinDiff   (1.e-8)
 #define MINSTORAGEK (1e-10)   /* Minimum allowed value of the linear storage parameter for numerical stability */
+#define CONST_SNOW_DENSITY 0.45 /* Constant snow density assumed for height calculations, etc. */
+#define MINSNOWBLOW 0.0 /* Minimum SWE depth that cannot be redistributed by wind */
 
 /**************** extern constants - see globals.c ****************/
 
@@ -81,6 +88,7 @@ extern float PRECIPLAPSE;				/* Precipitation lapse rate in m/timestep / m */
 extern float MINELEV;
 extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
 extern float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
+extern float WIND_MULTIPLIER; /* Multiplied by input wind speed */
 extern int NWINDMAPS;					/* Number of wind maps in case the wind source is MODEL */
 extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */
@@ -100,4 +108,9 @@ extern int TotNumGap;                  /* total number of grid cells with a gap 
 
 extern float SNOWSLIDE1;               /* First Parameter in Snowslide equation */
 extern float SNOWSLIDE2;               /* Second Parameter in Snowslide equation */
+
+extern int NWINDLAYERS;  /* Number of vertical wind layers to consider */
+extern float CloudBaseElev; /* Elevation above sea level (m) for snowfall instantiation */
+extern float SNOWFALLVEL; /* Settling velocity for airborne snow (m/s) */
+extern float NwindIters;
 #endif

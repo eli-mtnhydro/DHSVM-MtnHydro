@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include "settings.h"
 #include "data.h"
 #include "DHSVMerror.h"
@@ -29,13 +30,14 @@
 #include "sizeofnt.h"
 #include "slopeaspect.h"
 #include "varid.h"
+#include "assert.h"
 
  /*****************************************************************************
    InitTerrainMaps()
  *****************************************************************************/
 void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   LAYER *Soil, LAYER *Veg, TOPOPIX ***TopoMap, SOILTABLE *SType, SOILPIX ***SoilMap, 
-  VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg)
+  VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg, WINDPIX ***WindMap)
 
 {
   printf("\nInitializing terrain maps\n");
@@ -45,6 +47,8 @@ void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   InitSoilMap(Input, Options, Map, Soil, *TopoMap, SoilMap, SType, VegMap, VType);
   if (Options->CanopyGapping)
     InitCanopyGapMap(Options, Input, Map, Soil, Veg, VType, VegMap, SType, SoilMap);
+  if (Options->WindDrift)
+    InitWindMap(Options, Input, Map, *TopoMap, WindMap);
 }
 
 /*****************************************************************************
@@ -1181,7 +1185,298 @@ void InitCanopyGapMap(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map,
   free(Gap);
 }
 
+/*****************************************************************************
+  InitWindMap()
+*****************************************************************************/
+void InitWindMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map,
+                 TOPOPIX ** TopoMap, WINDPIX *** WindMap)
+{
+  const char *Routine = "InitWindMap";
+  char VarName[BUFSIZE + 1];
+  char VarStr[BUFSIZE + 1];
+  int i, x, y;        /* counters */
+  int flag;
+  int NumberType;		  /* number type */
+  float *FetchDist;		/* Fetch distance */
+  float *Ux = NULL;		/* West-to-east wind speed */
+  float *Uy = NULL;		/* North-to-south wind speed */
+  float *Uz = NULL;		/* Down-to-up wind speed */
+  float *Ke = NULL;		/* Turbulent kinetic energy */
+  int NSet;           /* Counter for wind layer */
+  float *WindHeight = NULL;
+  float TotalXYabs;
+  float CloudMinBase, LocalCloudBase, CloudExpDec;
+  
+  /* Get the map filename from the [TERRAIN] section */
+  STRINIENTRY StrEnv[] = {
+    {"TERRAIN", "DEM FILE", "", ""},
+    {"TERRAIN", "BASIN MASK FILE", "", ""},
+    {"TERRAIN", "SNOW CLOUD BASE", "",""},
+    {"TERRAIN", "MINIMUM CLOUD BASE", "",""},
+    {"TERRAIN", "CLOUD SPEED EXP DEC", "",""},
+    {"TERRAIN", "SNOW SETTLING SPEED", "",""},
+    {"TERRAIN", "NUMBER OF WIND LAYERS", "",""},
+    {"TERRAIN", "FETCH DISTANCE FILE", "", ""},
+    {"TERRAIN", "WIND UX MAP FILE", "", ""},
+    {"TERRAIN", "WIND UY MAP FILE", "", ""},
+    {"TERRAIN", "WIND UZ MAP FILE", "", ""},
+    {"TERRAIN", "WIND KE MAP FILE", "", ""},
+    {NULL, NULL, "", NULL}
+  };
+  
+  /* Read the key-entry pairs from the input file */
+  for (i = 0; StrEnv[i].SectionName; i++) {
+    GetInitString(StrEnv[i].SectionName, StrEnv[i].KeyName, StrEnv[i].Default,
+      StrEnv[i].VarStr, (unsigned long)BUFSIZE, Input);
+    if (IsEmptyStr(StrEnv[i].VarStr))
+      ReportError(StrEnv[i].KeyName, 51);
+  }
+  
+  /* Read number of wind layers from config */
+  if (IsEmptyStr(StrEnv[windlayers_num].VarStr))  
+    ReportError(StrEnv[windlayers_num].KeyName, 51);
+  else if (!CopyInt(&NWINDLAYERS, StrEnv[windlayers_num].VarStr, 1))
+    ReportError(StrEnv[windlayers_num].KeyName, 51);
+  printf("\nReading %d wind layers\n",NWINDLAYERS);
+  
+  /* Read other data */
+  if (IsEmptyStr(StrEnv[snowcloudbase].VarStr))
+    ReportError(StrEnv[snowcloudbase].KeyName, 51);
+  else if (!CopyFloat(&CloudBaseElev, StrEnv[snowcloudbase].VarStr, 1))
+    ReportError(StrEnv[snowcloudbase].KeyName, 51);
+  printf("Snowfall will be instantiated at %.0f m elevation,\n",CloudBaseElev);
+  
+  if (IsEmptyStr(StrEnv[mincloudheight].VarStr))
+    ReportError(StrEnv[mincloudheight].KeyName, 51);
+  else if (!CopyFloat(&CloudMinBase, StrEnv[mincloudheight].VarStr, 1))
+    ReportError(StrEnv[mincloudheight].KeyName, 51);
+  printf("but no less than %.0f m above ground level\n\n",CloudMinBase);
+  
+  if (IsEmptyStr(StrEnv[snowexpdec].VarStr))
+    ReportError(StrEnv[snowexpdec].KeyName, 51);
+  else if (!CopyFloat(&CloudExpDec, StrEnv[snowexpdec].VarStr, 1))
+    ReportError(StrEnv[snowexpdec].KeyName, 51);
+  
+  if (IsEmptyStr(StrEnv[snowfallvel].VarStr))
+    ReportError(StrEnv[snowfallvel].KeyName, 51);
+  else if (!CopyFloat(&SNOWFALLVEL, StrEnv[snowfallvel].VarStr, 1))
+    ReportError(StrEnv[snowfallvel].KeyName, 51);
+  
+  /* Allocate memory for horizontal map */
+  if (!(*WindMap = (WINDPIX **)calloc(Map->NY, sizeof(WINDPIX *))))
+    ReportError((char *)Routine, 1);
+  for (y = 0; y < Map->NY; y++) {
+    if (!((*WindMap)[y] = (WINDPIX *)calloc(Map->NX, sizeof(WINDPIX))))
+      ReportError((char *)Routine, 1);
+  }
+  /* Allocate memory for vertical layers */
+  for (y = 0, i = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (!((*WindMap)[y][x].LayerElevUpper = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].LayerElevLower = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].WindSpeedXY = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].WindSpeedZ = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].TurbulenceK = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].SnowingScale = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].Qsusp = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].QsuspLastIt = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].SublimationFrac = (float *)calloc(NWINDLAYERS, sizeof(float))))
+        ReportError((char *)Routine, 1);
+      if (!((*WindMap)[y][x].WindDirFrac = (float **)calloc(NWINDLAYERS, sizeof(float *))))
+        ReportError((char *)Routine, 1);
+      for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+        if (!((*WindMap)[y][x].WindDirFrac[NSet] = (float *)calloc(4, sizeof(float))))
+          ReportError((char *)Routine, 1);
+      }
+    }
+  }
+  
+  /* Read the fetch distance */
+  GetVarName(900, 0, VarName);
+  GetVarNumberType(900, &NumberType);
+  if (!(FetchDist = (float *)calloc(Map->NX * Map->NY,
+                     SizeOfNumberType(NumberType))))
+    ReportError((char *)Routine, 1);
+  flag = Read2DMatrix(StrEnv[fetchfile].VarStr, FetchDist, NumberType, Map, 0, VarName, 0);
 
+  if ((Options->FileFormat == NETCDF && flag == 0)
+        || (Options->FileFormat == BIN)) {
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        (*WindMap)[y][x].FetchDist = FetchDist[i];
+      }
+    }
+  }
+  else if (Options->FileFormat == NETCDF && flag == 1) {
+    for (y = Map->NY - 1, i = 0; y >= 0; y--) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        (*WindMap)[y][x].FetchDist = FetchDist[i];
+      }
+    }
+  }
+  else ReportError((char *)Routine, 57);
+  free(FetchDist);
+  
+  /* Read the Ux, Uy, Uz wind speeds and Ke layer-by-layer */
+  GetVarName(903, 0, VarName);
+  GetVarNumberType(903, &NumberType);
+  if (!(Ux = (float *)calloc(Map->NX * Map->NY,
+              SizeOfNumberType(NumberType))))
+    ReportError((char *)Routine, 1);
+  if (!(Uy = (float *)calloc(Map->NX * Map->NY,
+              SizeOfNumberType(NumberType))))
+    ReportError((char *)Routine, 1);
+  if (!(Uz = (float *)calloc(Map->NX * Map->NY,
+              SizeOfNumberType(NumberType))))
+    ReportError((char *)Routine, 1);
+  if (!(Ke = (float *)calloc(Map->NX * Map->NY,
+              SizeOfNumberType(NumberType))))
+    ReportError((char *)Routine, 1);
+  
+  for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+    /* Read current layer */
+    flag = Read2DMatrix(StrEnv[winduxfile].VarStr, Ux, NumberType, Map, NSet, VarName, 0);
+    flag = Read2DMatrix(StrEnv[winduyfile].VarStr, Uy, NumberType, Map, NSet, VarName, 0);
+    flag = Read2DMatrix(StrEnv[winduzfile].VarStr, Uz, NumberType, Map, NSet, VarName, 0);
+    flag = Read2DMatrix(StrEnv[windkefile].VarStr, Ke, NumberType, Map, NSet, VarName, 0);
+    
+    if ((Options->FileFormat == NETCDF && flag == 0)
+          || (Options->FileFormat == BIN)) {
+      for (y = 0, i = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          
+          (*WindMap)[y][x].TurbulenceK[NSet] = Ke[i];
+          
+          // Ux[i] = 1.0;
+          // Uy[i] = 0.0;
+          // Uz[i] = 0.0;
+          
+          (*WindMap)[y][x].WindSpeedXY[NSet] = pow(Ux[i]*Ux[i] + Uy[i]*Uy[i], 0.5);
+          (*WindMap)[y][x].WindSpeedZ[NSet] = Uz[i];
+          
+          /* Calculate fractional directions */
+          TotalXYabs = ABSVAL(Ux[i]) + ABSVAL(Uy[i]);
+          (*WindMap)[y][x].WindDirFrac[NSet][0] = (Uy[i] < 0.0 ? -1.0 * Uy[i] / TotalXYabs : 0.0);
+          (*WindMap)[y][x].WindDirFrac[NSet][1] = (Ux[i] > 0.0 ? Ux[i] / TotalXYabs : 0.0);
+          (*WindMap)[y][x].WindDirFrac[NSet][2] = (Uy[i] > 0.0 ? Uy[i] / TotalXYabs : 0.0);
+          (*WindMap)[y][x].WindDirFrac[NSet][3] = (Ux[i] < 0.0 ? -1.0 * Ux[i] / TotalXYabs : 0.0);
+        }
+      }
+    }
+    else if (Options->FileFormat == NETCDF && flag == 1) {
+      for (y = Map->NY - 1, i = 0; y >= 0; y--) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          (*WindMap)[y][x].WindSpeedXY[NSet] = pow(Ux[i]*Ux[i] + Uy[i]*Uy[i], 0.5);
+          (*WindMap)[y][x].WindSpeedZ[NSet] = Uz[i];
+          
+          /* Calculate fractional directions */
+          TotalXYabs = ABSVAL(Ux[i]) + ABSVAL(Uy[i]);
+          (*WindMap)[y][x].WindDirFrac[NSet][0] = (Uy[i] < 0.0 ? -1.0 * Uy[i] / TotalXYabs : 0.0);
+          (*WindMap)[y][x].WindDirFrac[NSet][1] = (Ux[i] > 0.0 ? Ux[i] / TotalXYabs : 0.0);
+          (*WindMap)[y][x].WindDirFrac[NSet][2] = (Uy[i] > 0.0 ? Uy[i] / TotalXYabs : 0.0);
+          (*WindMap)[y][x].WindDirFrac[NSet][3] = (Ux[i] < 0.0 ? -1.0 * Ux[i] / TotalXYabs : 0.0);
+        }
+      }
+    }
+    else ReportError((char *)Routine, 57);
+  }
+  free(Ux);
+  free(Uy);
+  free(Uz);
+  free(Ke);
+  
+  /* Construct layer elevations from max height above ground and DEM */
+  if (!(WindHeight = (float *)calloc(NWINDLAYERS, sizeof(float))))
+    ReportError((char *)Routine, 1);
+  /* Read max layer height above surface */
+  for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+    sprintf(VarName, "WIND LAYER HEIGHT %d", NSet + 1);
+    GetInitString("TERRAIN", VarName, "", VarStr,
+      (unsigned long)BUFSIZE, Input);
+    if (!CopyFloat(&(WindHeight[NSet]), VarStr, 1))
+      ReportError((char *)VarName, 51);
+  }
+  /* Add to DEM elevation for each layer and grid cell */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+        (*WindMap)[y][x].LayerElevUpper[NSet] = WindHeight[NSet] + TopoMap[y][x].Dem;
+        if (NSet == 0)
+          (*WindMap)[y][x].LayerElevLower[NSet] = TopoMap[y][x].Dem;
+        else
+          (*WindMap)[y][x].LayerElevLower[NSet] = (*WindMap)[y][x].LayerElevUpper[NSet - 1];
+      }
+    }
+  }
+  free(WindHeight);
+  
+  /* Identify which layer will be used to initialize snowfall */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      LocalCloudBase = MAX(CloudBaseElev, TopoMap[y][x].Dem + CloudMinBase);
+      
+      /* Also consider horizontal distance to nearest terrain (i.e., cliffs) */
+      
+      for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+        if ((*WindMap)[y][x].LayerElevUpper[NSet] >= LocalCloudBase ||
+            NSet == NWINDLAYERS - 1) {
+          (*WindMap)[y][x].SnowfallLayer = (int) NSet;
+          // printf("Elev: %.0f Layer: %d\n",TopoMap[y][x].Dem,(*WindMap)[y][x].SnowfallLayer);
+          break;
+        }
+      }
+    }
+  }
+  
+  /* Calculate scale factors to adjust wind speed profiles during snowfall */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      LocalCloudBase = MAX(CloudBaseElev, TopoMap[y][x].Dem + CloudMinBase);
+      for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+        if (CloudExpDec > 0.0) {
+          if ((*WindMap)[y][x].LayerElevUpper[NSet] >= LocalCloudBase) {
+            (*WindMap)[y][x].SnowingScale[NSet] = 0.0;
+            
+          } else if ((*WindMap)[y][x].LayerElevUpper[NSet] >= (LocalCloudBase - CloudMinBase)) {
+            (*WindMap)[y][x].SnowingScale[NSet] = (exp(-1.0 * ((*WindMap)[y][x].LayerElevUpper[NSet] - (LocalCloudBase - CloudMinBase)) *
+              CloudExpDec / CloudMinBase) - exp(-1.0 * CloudExpDec)) /
+                (1.0 - exp(-1.0 * CloudExpDec));
+            
+          } else {
+            (*WindMap)[y][x].SnowingScale[NSet] = 1.0;
+          }
+        } else {
+          (*WindMap)[y][x].SnowingScale[NSet] = 1.0;
+        }
+        if (x==30 && y==175)
+          printf("Elev: %.0f Layer: %d CloudBase: %.0f WindScale: %.2f\n",
+                 TopoMap[y][x].Dem,NSet,LocalCloudBase,(*WindMap)[y][x].SnowingScale[NSet]);
+      }
+    }
+  }
+  
+  /* Initialize fluxes to zero */
+  NwindIters = 1;
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      for (NSet = 0; NSet < NWINDLAYERS; NSet++) {
+        (*WindMap)[y][x].Qsusp[NSet] = 0.0;
+        (*WindMap)[y][x].QsuspLastIt[NSet] = 0.0;
+      }
+      (*WindMap)[y][x].Qsalt = 0.0;
+      (*WindMap)[y][x].WindDeposition = 0.0;
+      (*WindMap)[y][x].nIters = NwindIters;
+    }
+  }
+}
 
 
 

@@ -149,7 +149,9 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     
     if (Options->WindSource == MODEL)
       LocalMet.Wind = ScaleWind * WindModel[WindDirection - 1][y][x];
-
+    
+    LocalMet.Wind *= WIND_MULTIPLIER;
+    
     if (Options->PrecipType == RADAR) {
       RadarY = (int) ((y + Radar->OffsetY) * Map->DY / Radar->DY);
       RadarX = (int) ((x - Radar->OffsetX) * Map->DX / Radar->DX);
