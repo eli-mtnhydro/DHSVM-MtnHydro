@@ -36,7 +36,7 @@
  *****************************************************************************/
 void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, MAPSIZE *Radar,
   OPTIONSTRUCT *Options, char *WindPath, char *PrecipLapseFile,
-  float ***PrecipLapseMap, float ***PrismMap,
+  float ***PrecipLapseMap, float ***PrismMap, float ***SnowPatternMap,
   unsigned char ****ShadowMap, float ***SkyViewMap,
   EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
   RADARPIX ***RadarMap, PIXRAD ***RadMap,
@@ -69,6 +69,8 @@ void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, MAPSIZE *Radar,
       InitPrecipLapseMap(PrecipLapseFile, Map, PrecipLapseMap);
     if (Options->Prism == TRUE)
       InitPrismMap(Map->NY, Map->NX, PrismMap);
+    if (Options->SnowPattern == TRUE)
+      InitSnowPatternMap(SnowPatternMap, Map, Options);
     if (Options->Shading == TRUE)
       InitShadeMap(Options, NDaySteps, Map, ShadowMap, SkyViewMap);
 
@@ -377,6 +379,51 @@ void InitPrismMap(int NY, int NX, float ***PrismMap)
     }
   }
 
+}
+
+/******************************************************************************/
+/*			       InitSnowPatternMap                             */
+/******************************************************************************/
+
+void InitSnowPatternMap(float ***SnowPatternMap, MAPSIZE *Map, OPTIONSTRUCT *Options)
+{
+  const char *Routine = "InitSnowPatternMap";
+  int x, y, i;
+  char FileName[BUFSIZE + 1];
+  char VarName[BUFSIZE + 1];
+  int NumberType;
+  float *Array = NULL;
+  int flag;
+  
+  if (!((*SnowPatternMap) = (float **)calloc(Map->NY, sizeof(float *))))
+    ReportError((char *)Routine, 1);
+  
+  for (y = 0; y < Map->NY; y++) {
+    if (!((*SnowPatternMap)[y] = (float *)calloc(Map->NX, sizeof(float))))
+      ReportError((char *)Routine, 1);
+  }
+  
+  printf("\nReading in snow pattern map\n");
+  sprintf(FileName, "%s", Options->SnowPatternDataPath);
+  GetVarName(207, 0, VarName);
+  GetVarNumberType(207, &NumberType);
+  if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
+    ReportError((char *)Routine, 1);
+  flag = Read2DMatrix(FileName, Array, NumberType, Map, 0, VarName, 0);
+  
+  if ((Options->FileFormat == NETCDF && flag == 0) || (Options->FileFormat == BIN)) {
+    for (y = 0, i = 0; y < Map->NY; y++)
+      for (x = 0; x < Map->NX; x++, i++)
+        (*SnowPatternMap)[y][x] = Array[i];
+  }
+  else if (Options->FileFormat == NETCDF && flag == 1) {
+    for (y = Map->NY - 1, i = 0; y >= 0; y--)
+      for (x = 0; x < Map->NX; x++, i++)
+        (*SnowPatternMap)[y][x] = Array[i];
+  }
+  else ReportError((char *)Routine, 57);
+  
+  free(Array);
 }
 
 /******************************************************************************/

@@ -49,6 +49,7 @@ int main(int argc, char **argv)
   float ***MM5Input = NULL;
   float **PrecipLapseMap = NULL;
   float **PrismMap = NULL;
+  float **SnowPatternMap = NULL;
   unsigned char ***ShadowMap = NULL;
   float **SkyViewMap = NULL;
   float ***WindModel = NULL;
@@ -206,7 +207,7 @@ int main(int argc, char **argv)
   }
 
   InitMetMaps(Input, Time.NDaySteps, &Map, &Radar, &Options, InFiles.WindMapPath,
-	      InFiles.PrecipLapseFile, &PrecipLapseMap, &PrismMap,
+	      InFiles.PrecipLapseFile, &PrecipLapseMap, &PrismMap, &SnowPatternMap,
 	      &ShadowMap, &SkyViewMap, &EvapMap, &PrecipMap, &PptMultiplierMap,
 	      &RadarMap, &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap,
 	      &MM5Input, &WindModel);
@@ -311,7 +312,7 @@ int main(int argc, char **argv)
 	        MakeLocalMetData(y, x, &Map, Time.DayStep, Time.NDaySteps, &Options, NStats,
 			       Stat, MetWeights[y][x], TopoMap[y][x].Dem,
 			       &(RadiationMap[y][x]), &(PrecipMap[y][x]), &Radar,
-			       RadarMap, PrismMap, &(SnowMap[y][x]),
+			       RadarMap, PrismMap, SnowPatternMap, &(SnowMap[y][x]),
 			       &(VegMap[y][x].Type), &(VegMap[y][x]), 
              MM5Input, WindModel, PrecipLapseMap,
 			       &MetMap, PptMultiplierMap[y][x], NGraphics, Time.Current.Month,
@@ -322,7 +323,7 @@ int main(int argc, char **argv)
 	        MakeLocalMetData(y, x, &Map, Time.DayStep, Time.NDaySteps, &Options, NStats,
 			       Stat, MetWeights[y][x], TopoMap[y][x].Dem,
 			       &(RadiationMap[y][x]), &(PrecipMap[y][x]), &Radar,
-			       RadarMap, PrismMap, &(SnowMap[y][x]),
+			       RadarMap, PrismMap, SnowPatternMap, &(SnowMap[y][x]),
 			       &(VegMap[y][x].Type), &(VegMap[y][x]), 
              MM5Input, WindModel, PrecipLapseMap,
 			       &MetMap, PptMultiplierMap[y][x],NGraphics, Time.Current.Month, 0.0,

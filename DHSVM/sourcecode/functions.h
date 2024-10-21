@@ -147,7 +147,7 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map, TOPOPIX **T
 
 void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, MAPSIZE *Radar,
 		 OPTIONSTRUCT *Options, char *WindPath, char *PrecipLapsePath,
-		 float ***PrecipLapseMap, float ***PrismMap,
+		 float ***PrecipLapseMap, float ***PrismMap, float ***SnowPatternMap,
 		 unsigned char ****ShadowMap, float ***SkyViewMap,
 		 EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
 		 RADARPIX ***RadarMap, PIXRAD ***RadMap, SOILPIX **SoilMap, 
@@ -210,6 +210,8 @@ void InitPrecipLapseMap(char *PrecipLapseFile, MAPSIZE *Map,
 			float ***PrecipLapseMap);
 
 void InitPrismMap(int NY, int NX, float ***PrismMap);
+
+void InitSnowPatternMap(float ***SnowPatternMap, MAPSIZE *Map, OPTIONSTRUCT *Options);
 
 void InitShadeMap(OPTIONSTRUCT *Options, int NDaySteps, MAPSIZE *Map,
 		  unsigned char ****ShadowMap, float ***SkyViewMap);
@@ -285,7 +287,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
 			OPTIONSTRUCT *Options, int NStats, METLOCATION *Stat, 
       uchar *MetWeights, float LocalElev, PIXRAD *RadMap,
 			PRECIPPIX *PrecipMap, MAPSIZE *Radar, RADARPIX **RadarMap,
-			float **PrismMap, SNOWPIX *LocalSnow, 
+			float **PrismMap, float **SnowPatternMap, SNOWPIX *LocalSnow, 
       CanopyGapStruct **Gap, VEGPIX *VegMap,
 			float ***MM5Input, float ***WindModel, float **PrecipLapseMap,
 			MET_MAP_PIX ***MetMap, float precipMultiplier, int NGraphics, int Month, float skyview,

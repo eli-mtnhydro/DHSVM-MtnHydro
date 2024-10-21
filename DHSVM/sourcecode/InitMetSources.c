@@ -138,6 +138,7 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
   float East;
   float North;
   FILE *PrismStatFile;
+  FILE *SnowPatternStatFile;
 
   /* Get the number of different stations */
   GetInitString(SectionName, "NUMBER OF STATIONS", "", VarStr[0],
@@ -211,13 +212,22 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
 
     for (i = 0; i < *NStats; i++) {
       sprintf(tempfilename, "%s.prism", (*Stat)[i].MetFile.FileName);
-      /* Options->PrismDataExt); */
       OpenFile(&PrismStatFile, tempfilename, "rt", FALSE);
       for (k = 0; k < 12; k++) {
         if (fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]) == EOF)
           ReportError(tempfilename, 2);
       }
       fclose(PrismStatFile);
+    }
+  }
+  
+  if (Options->SnowPattern == TRUE) {
+    for (i = 0; i < *NStats; i++) {
+      sprintf(tempfilename, "%s.snowpattern", (*Stat)[i].MetFile.FileName);
+      OpenFile(&SnowPatternStatFile, tempfilename, "rt", FALSE);
+      if (fscanf(SnowPatternStatFile, "%f ", &(*Stat)[i].SnowPattern) == EOF)
+        ReportError(tempfilename, 2);
+      fclose(SnowPatternStatFile);
     }
   }
 }
@@ -236,6 +246,7 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map,
   float lat, lon, North, East;
   char tempfilename[BUFSIZE * 2 + 7];
   FILE *PrismStatFile;
+  FILE *SnowPatternStatFile;
   char junk[BUFSIZE + 7], infileformat[BUFSIZE + 1];
   DIR *dir;
   struct dirent *ent;
@@ -380,13 +391,22 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map,
   if (Options->Outside == TRUE && Options->Prism == TRUE) {
     for (i = 0; i < *NStats; i++) {
       sprintf(tempfilename, "%s.prism", (*Stat)[i].MetFile.FileName);
-      /* Options->PrismDataExt); */
       OpenFile(&PrismStatFile, tempfilename, "rt", FALSE);
       for (k = 0; k < 12; k++) {
         if (fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]) == EOF)
           ReportError(tempfilename, 2);
       }
       fclose(PrismStatFile);
+    }
+  }
+  
+  if (Options->SnowPattern == TRUE) {
+    for (i = 0; i < *NStats; i++) {
+      sprintf(tempfilename, "%s.snowpattern", (*Stat)[i].MetFile.FileName);
+      OpenFile(&SnowPatternStatFile, tempfilename, "rt", FALSE);
+      if (fscanf(SnowPatternStatFile, "%f ", &(*Stat)[i].SnowPattern) == EOF)
+        ReportError(tempfilename, 2);
+      fclose(SnowPatternStatFile);
     }
   }
 }

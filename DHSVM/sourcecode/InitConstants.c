@@ -76,6 +76,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "MM5", "", ""},
     {"OPTIONS", "QPF", "", ""},
     {"OPTIONS", "PRISM", "", ""},
+    {"OPTIONS", "SNOW PATTERN", "", ""},
     {"OPTIONS", "GRIDDED MET DATA", "", "" },
     {"OPTIONS", "CANOPY RADIATION ATTENUATION MODE", "", ""},
     {"OPTIONS", "SHADING", "", ""},
@@ -90,6 +91,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "CRESSMAN STATIONS", "", ""},
     {"OPTIONS", "PRISM DATA PATH", "", ""},
     {"OPTIONS", "PRISM DATA EXTENSION", "", ""},
+    {"OPTIONS", "SNOW PATTERN DATA PATH", "", ""},
     {"OPTIONS", "SHADING DATA PATH", "", ""},
     {"OPTIONS", "SHADING DATA EXTENSION", "", ""},
     {"OPTIONS", "SKYVIEW DATA PATH", "", ""},
@@ -296,7 +298,19 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->Prism = FALSE;
   else
     ReportError(StrEnv[prism].KeyName, 51);
-
+  
+  /* Determine if snow pattern map will be used to redistribute snow */
+  if (strncmp(StrEnv[snowpattern].VarStr, "TRUE", 4) == 0)
+    Options->SnowPattern = TRUE;
+  else if (strncmp(StrEnv[snowpattern].VarStr, "FALSE", 5) == 0)
+    Options->SnowPattern = FALSE;
+  else
+    ReportError(StrEnv[snowpattern].KeyName, 51);
+  if (Options->Prism == FALSE && Options->SnowPattern == TRUE) {
+    Options->SnowPattern = FALSE;
+    printf("\nError: SnowPattern must be FALSE if PRISM is FALSE; Setting SnowPattern = FALSE\n");
+  }
+  
   /* Determine whether gridded met forcing should be used */
   if (strncmp(StrEnv[grid].VarStr, "TRUE", 4) == 0)
     Options->GRIDMET = TRUE;
@@ -421,7 +435,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   else
     ReportError(StrEnv[outside].KeyName, 51);
 
-  /* The file path to PRIMS files */
+  /* The file path to PRISM files */
   if (Options->Prism == TRUE) {
     if (IsEmptyStr(StrEnv[prism_data_path].VarStr))
       ReportError(StrEnv[prism_data_path].KeyName, 51);
@@ -431,6 +445,13 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     strcpy(Options->PrismDataExt, StrEnv[prism_data_ext].VarStr);
   }
 
+  /* The file path to snow pattern map */
+  if (Options->SnowPattern == TRUE) {
+    if (IsEmptyStr(StrEnv[snowpattern_data_path].VarStr))
+      ReportError(StrEnv[snowpattern_data_path].KeyName, 51);
+    strcpy(Options->SnowPatternDataPath, StrEnv[snowpattern_data_path].VarStr);
+  }
+  
   if (Options->Shading == TRUE) {
     if (IsEmptyStr(StrEnv[shading_data_path].VarStr))
       ReportError(StrEnv[shading_data_path].KeyName, 51);

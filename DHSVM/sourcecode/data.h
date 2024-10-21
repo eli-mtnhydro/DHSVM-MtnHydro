@@ -193,6 +193,7 @@ typedef struct {
   COORD Loc;					        /* Station locations */
   float Elev;					        /* Station elevations */
   float PrismPrecip[12];		  /* MonthlyPrism Precip for each station if outside=TRUE */
+  float SnowPattern;		      /* Snow pattern average for each station */
   uchar IsWindModelLocation;	/* Only used in case the wind model option is
                                  specified.  In that case this field is TRUE
                                  for one (and only one) station, and FALSE for all others */
@@ -219,6 +220,7 @@ typedef struct {
                            on Nijssen and Lettenmaier) */
   int PrecipType;				/* Precipitation source indicator, either RADAR or STATION */
   int Prism;					  /* If TRUE, user supplied PRISM maps will be  used to interpolate precipitation */
+  int SnowPattern;		  /* If TRUE, user supplied snow map will be used to redistribute precipitation */
   int PrecipLapse;		  /* Whether the precipitation lapse rate is CONSTANT or VARIABLE */
   int TempLapse;				/* Whether the temperature lapse rate is CONSTANT or VARIABLE */
   int CressRadius;
@@ -259,6 +261,7 @@ typedef struct {
   int DumpExtraStream;  /* Whether to save extra stream data when dumping model state */
   char PrismDataPath[BUFSIZE + 1];
   char PrismDataExt[BUFSIZE + 1];
+  char SnowPatternDataPath[BUFSIZE + 1];
   char ShadingDataPath[BUFSIZE + 1];
   char ShadingDataExt[BUFSIZE + 1];
   char SkyViewDataPath[BUFSIZE + 1];

@@ -129,6 +129,9 @@ struct {
   206, "SumPrecip",
       "SumPrecipitation", "%.4g",
       "m", "Accumulated Precipitation", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
+  207, "Snow.Pattern",
+      "SnowPattern", "%.4g",
+      "", "Relative Snow Pattern", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
   301, "Rad.ISW",
       "Incoming ShortWave Radiation", "%.4g",
       "W/m2", "Incoming ShortWave Radiation",

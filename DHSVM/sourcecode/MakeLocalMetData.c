@@ -58,7 +58,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
                         METLOCATION *Stat, uchar *MetWeights,
                         float LocalElev, PIXRAD *RadMap,
                         PRECIPPIX *PrecipMap, MAPSIZE *Radar,
-                        RADARPIX **RadarMap, float **PrismMap,
+                        RADARPIX **RadarMap, float **PrismMap, float **SnowPatternMap,
                         SNOWPIX *LocalSnow, CanopyGapStruct **Gap, VEGPIX *VegMap,
                         float ***MM5Input, float ***WindModel,
                         float **PrecipLapseMap, MET_MAP_PIX ***MetMap,
@@ -77,6 +77,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   float TempLapseRate;
   int WindDirection = 0;	/* Direction of model wind */
   PIXMET LocalMet;		/* local met data */
+  float ContribPrecip, ContribSnow, ContribRain;
 
   LocalMet.Tair = 0.0;
   LocalMet.Rh = 0.0;
@@ -253,23 +254,43 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     }
     else if (Options->PrecipType == STATION && Options->Prism == TRUE) {
       PrecipMap->Precip = 0.0;
+      PrecipMap->SnowFall = 0.0;
+      PrecipMap->RainFall = 0.0;
       for (i = 0; i < NStats; i++) {
         CurrentWeight = ((float) MetWeights[i]) / WeightSum;
         /* this is the real prism interpolation */
         /* note that X = position from left  boundary, ie # of columns */
         /* note that Y = position from upper boundary, ie # of rows   */
         if (Options->Outside == FALSE)
-          PrecipMap->Precip += CurrentWeight * Stat[i].Data.Precip /
-          PrismMap[Stat[i].Loc.N][Stat[i].Loc.E] * PrismMap[y][x];
+          ContribPrecip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
         else
-          PrecipMap->Precip += CurrentWeight * Stat[i].Data.Precip /
-          Stat[i].PrismPrecip[Month - 1] * PrismMap[y][x];
-        if (PrismMap[y][x] < 0){
-          printf("negative PrismMap value in MakeLocalMetData.c\n");
-          exit(0);
+          ContribPrecip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
+        
+        PrecipMap->Precip += ContribPrecip;
+        
+        /* ALSO redistribute snowfall according to snow pattern if applicable */
+        if (Options->SnowPattern == TRUE) {
+          /* First need to partition rain vs. snow */
+          if (ContribPrecip > 0.0 && LocalMet.Tair < LocalSnow->Ts) {
+            if (LocalMet.Tair > LocalSnow->Tr)
+              ContribSnow = ContribPrecip * (LocalSnow->Ts - LocalMet.Tair) / (LocalSnow->Ts - LocalSnow->Tr);
+            else
+              ContribSnow = ContribPrecip;
+          } else {
+            ContribSnow = 0.0;
+          }
+          ContribRain = ContribPrecip - ContribSnow;
+          
+          /* Analogous to re-application of PRISM interpolation */
+          ContribSnow *= (SnowPatternMap[y][x] / Stat[i].SnowPattern);
+          
+          PrecipMap->SnowFall += ContribSnow;
+          PrecipMap->RainFall += ContribRain;
         }
       }
       PrecipMap->Precip *= precipMultiplier;
+      PrecipMap->SnowFall *= precipMultiplier;
+      PrecipMap->RainFall *= precipMultiplier;
     }
   }
 
@@ -283,10 +304,10 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     if (PrecipMap->Precip > 0.0)
       LocalMet.Rh = 100.0;
   }
-
+  
   /* Separate precipitation into rainfall and snowfall if rain and snow are not input
   separately such as in WRF output */
-  if (! Options->PrecipSepr) {
+  if (Options->PrecipSepr == FALSE && Options->SnowPattern == FALSE) {
     if (PrecipMap->Precip > 0.0 && LocalMet.Tair < LocalSnow->Ts) {
       if (LocalMet.Tair > LocalSnow->Tr)
         PrecipMap->SnowFall = PrecipMap->Precip *
@@ -298,7 +319,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
       PrecipMap->SnowFall = 0.0;
     PrecipMap->RainFall = PrecipMap->Precip - PrecipMap->SnowFall;
   }
-
+  
   if (VegMap->Gapping > 0.0 ) {
     for (j = 0; j < CELL_PARTITION; j++) {
       (*Gap)[j].SnowFall = PrecipMap->SnowFall;
