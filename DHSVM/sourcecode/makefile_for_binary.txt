@@ -47,7 +47,7 @@ REL=
  
 DEFS =  -DHAVE_X11 
 #possible DEFS -DHAVE_NETCDF -DHAVE_X11 -DSHOW_MET_ONLY -DSNOW_ONLY
-CFLAGS = -g -I/usr/X11R6/include -Wall -I/usr/local/include/  $(DEFS) 
+CFLAGS = -ofast -flto -I/usr/X11R6/include -Wall -I/usr/local/include/  $(DEFS) 
 
 CC = cc
 FLEX = /usr/bin/flex

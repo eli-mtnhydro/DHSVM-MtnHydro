@@ -102,6 +102,8 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
                               (m water equivalent) */
   float SurfaceCC;		    /* Cold content of snow pack (J) */
   float SurfaceSwq;		    /* Surface layer snow water equivalent (m) */
+  float SnowScour;        /* Negative of SnowFall if SnowFall < 0 */
+  float UnScouredSwq;     /* Amount of SWE remaining after removing scour */
 
   OldTSurf = *TSurf;
 
@@ -124,22 +126,57 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
     SnowFallCC = CH_ICE * SnowFall * Tair;
 
   /* Distribute fresh snowfall */
-  if (SnowFall > (MAX_SURFACE_SWE - SurfaceSwq)) {
-    DeltaPackSwq = SurfaceSwq + SnowFall - MAX_SURFACE_SWE;
-    if (DeltaPackSwq > SurfaceSwq)
-      DeltaPackCC = SurfaceCC + (SnowFall - MAX_SURFACE_SWE) / SnowFall *
-      SnowFallCC;
-    else
-      DeltaPackCC = DeltaPackSwq / SurfaceSwq * SurfaceCC;
-    SurfaceSwq = MAX_SURFACE_SWE;
-    SurfaceCC += SnowFallCC - DeltaPackCC;
-    PackSwq += DeltaPackSwq;
-    PackCC += DeltaPackCC;
+  if (SnowFall > 0.0) {
+    /* Traditional case that snowfall or wind deposition is positive */
+    if (SnowFall > (MAX_SURFACE_SWE - SurfaceSwq)) {
+      DeltaPackSwq = SurfaceSwq + SnowFall - MAX_SURFACE_SWE;
+      if (DeltaPackSwq > SurfaceSwq)
+        DeltaPackCC = SurfaceCC + (SnowFall - MAX_SURFACE_SWE) / SnowFall * SnowFallCC;
+      else
+        DeltaPackCC = DeltaPackSwq / SurfaceSwq * SurfaceCC;
+      SurfaceSwq = MAX_SURFACE_SWE;
+      SurfaceCC += SnowFallCC - DeltaPackCC;
+      PackSwq += DeltaPackSwq;
+      PackCC += DeltaPackCC;
+    }
+    else {
+      SurfaceSwq += SnowFall;
+      SurfaceCC += SnowFallCC;
+    }
+  } else if (SnowFall < 0.0) {
+    /* Alternative case that wind "deposition" is negative (scour) */
+    SnowScour = SnowFall * -1.0;
+    if (SnowScour > SurfaceSwq) {
+      UnScouredSwq = Ice - SnowScour;
+      if (UnScouredSwq > MAX_SURFACE_SWE) {
+        /* Original deep layer splits between new surface and deep layers */
+        SurfaceCC = PackCC * (MAX_SURFACE_SWE / PackSwq);
+        PackCC = PackCC * ((UnScouredSwq - MAX_SURFACE_SWE) / PackSwq);
+        SurfaceSwq = MAX_SURFACE_SWE;
+        PackSwq = UnScouredSwq - MAX_SURFACE_SWE;
+      }
+      else {
+        /* Remaining deep layer becomes new surface layer */
+        SurfaceCC = PackCC * (UnScouredSwq / PackSwq);
+        PackCC = 0.0;
+        SurfaceSwq = UnScouredSwq;
+        PackSwq = 0.0;
+      }
+    } else {
+      /* Subtract scoured snow entirely from surface layer */
+      SnowFallCC = SurfaceCC * (SnowScour / SurfaceSwq);
+      SurfaceSwq -= SnowScour;
+      SurfaceCC -= SnowFallCC;
+    }
   }
-  else {
-    SurfaceSwq += SnowFall;
-    SurfaceCC += SnowFallCC;
-  }
+  
+  if (SurfaceSwq < 0.0)
+    SurfaceSwq = 0.0;
+  if (PackSwq < 0.0)
+    PackSwq = 0.0;
+  if (Ice < 0.0)
+    Ice = 0.0; 
+  
   if (SurfaceSwq > 0.0)
     *TSurf = SurfaceCC / (CH_ICE * SurfaceSwq);
   else
@@ -293,7 +330,7 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
     /* cold content has been either exactly satisfied or exceeded. If
        PackCC = refreeze then pack is ripe and all pack water is
        refrozen, else if energy released in refreezing exceeds PackCC
-       then exactly the right amount of water is refrozen to satify PackCC.
+       then exactly the right amount of water is refrozen to satisfy PackCC.
        The refrozen water is added to PackSwq and Ice */
 
     *TPack = 0.0;

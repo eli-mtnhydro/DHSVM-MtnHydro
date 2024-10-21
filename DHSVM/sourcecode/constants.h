@@ -62,7 +62,6 @@
 #define MinDiff   (1.e-8)
 #define MINSTORAGEK (1e-10)   /* Minimum allowed value of the linear storage parameter for numerical stability */
 #define CONST_SNOW_DENSITY 0.45 /* Constant snow density assumed for height calculations, etc. */
-#define SNOWFALLVEL 0.5 /* Settling velocity for airborne snow (m/s) */
 #define MINSNOWBLOW 0.0 /* Minimum SWE depth that cannot be redistributed by wind */
 
 /**************** extern constants - see globals.c ****************/
@@ -89,6 +88,7 @@ extern float PRECIPLAPSE;				/* Precipitation lapse rate in m/timestep / m */
 extern float MINELEV;
 extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
 extern float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
+extern float WIND_MULTIPLIER; /* Multiplied by input wind speed */
 extern int NWINDMAPS;					/* Number of wind maps in case the wind source is MODEL */
 extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */
@@ -110,4 +110,7 @@ extern float SNOWSLIDE1;               /* First Parameter in Snowslide equation 
 extern float SNOWSLIDE2;               /* Second Parameter in Snowslide equation */
 
 extern int NWINDLAYERS;  /* Number of vertical wind layers to consider */
+extern float CloudBaseElev; /* Elevation above sea level (m) for snowfall instantiation */
+extern float SNOWFALLVEL; /* Settling velocity for airborne snow (m/s) */
+extern float NwindIters;
 #endif

@@ -34,6 +34,7 @@ float PRECIPLAPSE;		        /* Precipitation lapse rate in m/timestep / m */
 float MINELEV;          /* Smallest elevation of all grid cells (m) */
 float TEMPLAPSE;		/* Temperature lapse rate in C/m */
 float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
+float WIND_MULTIPLIER; /* Multiplied by input wind speed */
 float Z0_GROUND;		/* Roughness length for bare soil (m) */
 float Z0_SNOW;			/* Roughness length for snow (m) */
 float Zref;			    /* Reference height (m) */
@@ -44,7 +45,7 @@ float ALB_ACC_LAMBDA;   /* snow freeze albedo cruve control parameters */
 float ALB_MELT_LAMBDA;  /* snow thaw albedo cruve control parameters */
 float ALB_ACC_MIN;
 float ALB_MELT_MIN;
-float PRECIP_MULTIPLIER;        /* precipitatio multiplier */
+float PRECIP_MULTIPLIER;        /* precipitation multiplier */
 float MAX_SURFACE_SWE; 	/* maximum depth of the surface layer in water equivalent (m) */
 float GAPWIND_FACTOR;
 int TotNumGap;          /* total number of grid cells with a gap structure */
@@ -53,3 +54,6 @@ float SNOWSLIDE1;       /*Avalanche parameter*/
 float SNOWSLIDE2;       /*Avalanche parameter */
 
 int NWINDLAYERS;        /* Wind vertical layers */
+float CloudBaseElev;    /* Elevation above sea level (m) for snowfall instantiation */
+float SNOWFALLVEL; /* Settling velocity for airborne snow (m/s) */
+float NwindIters;

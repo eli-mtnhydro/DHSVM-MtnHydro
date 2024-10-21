@@ -135,7 +135,7 @@ enum KEYS {
   snow_lai_multiplier, min_intercepted_snow, outside_basin,
   temp_lapse_rate, precip_lapse_rate, 
   max_swe, snowslide_parameter1,
-  snowslide_parameter2, gapwind_adj, temperature_offset,
+  snowslide_parameter2, gapwind_adj, temperature_offset, wind_multiplier,
   /* Constants that can vary spatially */
   rain_threshold = 0,
   snow_threshold,
@@ -173,7 +173,9 @@ enum KEYS {
   number_of_root_zones, root_zone_depth, overstory_fraction, understory_fraction, 
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
   /* terrain information */
-  demfile = 0, maskfile, windlayers_num, fetchfile, winduxfile, winduyfile, winduzfile,
+  demfile = 0, maskfile,
+  snowcloudbase, mincloudheight, snowexpdec, snowfallvel, windlayers_num,
+  fetchfile, winduxfile, winduyfile, winduzfile, windkefile,
   soiltype_file = 0, soildepth_file, kslat_file, expdec_file, porosity_file, fc_file,
   vegtype_file = 0, vegfc_file, veglai_file, vegheight_file, 
   dynaveg_path, dynaveg_num, 

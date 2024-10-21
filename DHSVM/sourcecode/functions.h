@@ -302,7 +302,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x, float SineSolarAltit
             ROADSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip, VEGTABLE *VType,
             VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil,
             SNOWPIX *LocalSnow, PIXRAD *LocalRad, EVAPPIX *LocalEvap, PIXRAD *TotalRad,
-            CHANNEL *ChannelData, float **skyview);
+            CHANNEL *ChannelData, float **skyview, WINDPIX **WindMap);
 
 float MaxRoadInfiltration(ChannelMapPtr **map, int col, int row);
 
@@ -450,14 +450,18 @@ void CalcGapSurroudingIntercept(OPTIONSTRUCT *Options, int HeatFluxOption,
 
 float CalcGapView(float R, float H, float Vf);
 
-void RedistributeSnow(OPTIONSTRUCT *Options, int y, int x,
-                      float DX, float DY, int Dt,
-                      PIXMET *LocalMet, VEGTABLE *VType, VEGPIX *LocalVeg,
-                      SNOWPIX *LocalSnow, WINDPIX **WindMap, TOPOPIX **TopoMap, MAPSIZE *Map);
+void RedistributeSnow(int y, int x, float DX, float DY, int Dt, int WindIter,
+                      SNOWPIX *LocalSnow, WINDPIX **WindMap,
+                      TOPOPIX **TopoMap, MAPSIZE *Map);
+void BlowingSnowConditions(int y, int x, float DX, float DY, int Dt,
+                           VEGTABLE *VType, VEGPIX *LocalVeg, SNOWPIX *LocalSnow,
+                           WINDPIX **WindMap, TOPOPIX **TopoMap);
 float SaltationConcentration(float AirDens, float FetchDist,
                              float LAI, float HeightDiff,
-                             float uStar, float uStarT) ;
+                             float uStar, float uStarT);
 float SuspensionConcentration(float cSalt, float uStar, float hSusp);
+void WindSublimation(int y, int x, float DX, float DY, int Dt,
+                     PIXMET *LocalMet,WINDPIX **WindMap, TOPOPIX **TopoMap);
 float CalcSublimation(float zHeight, float xySpeed,
                       float RH, float TairK, float SatVapPress);
 

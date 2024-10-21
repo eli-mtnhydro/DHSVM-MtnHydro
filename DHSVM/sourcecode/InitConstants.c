@@ -132,6 +132,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SNOWSLIDE PARAMETER2", "", "" },
     {"CONSTANTS", "GAP WIND ADJ FACTOR", "", "" },
     {"CONSTANTS", "TEMPERATURE OFFSET", "", "" },
+    {"CONSTANTS", "WIND MULTIPLIER", "", "" },
     {NULL, NULL, "", NULL}
   };
 
@@ -622,8 +623,10 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   if (!CopyFloat(&TEMPERATURE_OFFSET, StrEnv[temperature_offset].VarStr, 1))
     ReportError(StrEnv[temperature_offset].KeyName, 51);
-
-
+  
+  if (!CopyFloat(&WIND_MULTIPLIER, StrEnv[wind_multiplier].VarStr, 1))
+    ReportError(StrEnv[wind_multiplier].KeyName, 51);
+  
   /* maximum depth of the surface layer in snow water equivalent (m) */
   if (!CopyFloat(&MAX_SURFACE_SWE,
     StrEnv[max_swe].VarStr, 1))

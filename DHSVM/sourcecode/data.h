@@ -392,13 +392,26 @@ typedef struct {
 
 typedef struct {
   float FetchDist;       /* Upwind fetch distance to wind-blocking obstacle (m) */
-  float *LayerElevUpper; /* Elevation (NOT height) of layer boundaries */
-  float *LayerElevLower; /* Elevation (NOT height) of layer boundaries */
-  float *WindSpeedXY;    /* Multiplier for each layer relative to 2 m wind */
-  float *WindSpeedZ;     /* Multiplier for each layer relative to 2 m wind */
+  float *LayerElevUpper; /* Elevation (NOT height) of wind layer boundaries */
+  float *LayerElevLower; /* Elevation (NOT height) of wind layer boundaries */
+  float *WindSpeedXY;    /* Multiplier for each layer relative to reference wind */
+  float *WindSpeedZ;     /* Multiplier for each layer relative to reference wind */
+  float *TurbulenceK;    /* Turbulent kinetic energy for each layer (m^2/s^2) */
+  float *SnowingScale;   /* Scale factor applied to Uxy and Uz if IsSnowing == TRUE */
   float Qsalt;           /* Local saltation flux (kg) */
   float *Qsusp;          /* Local suspension flux in each layer (kg) */
+  float *QsuspLastIt;    /* Local suspension flux in each layer (kg) */
+  float QsaltLocal;
+  float QsuspLocal;
+  float *SublimationFrac;
+  float WindDeposition;  /* SWE deposited (+) or scoured (-) by wind (replaces snowfall) */
   float **WindDirFrac;   /* Fraction of each layer's flux in each direction */
+  int SnowfallLayer;     /* Wind layer in which snowfall is instantiated */
+  uchar IsSnowing;       /* Flag for whether snowfall is happening */
+  float Wind;
+  float Tair;
+  float AirDens;
+  int nIters;
 } WINDPIX;
 
 typedef struct {

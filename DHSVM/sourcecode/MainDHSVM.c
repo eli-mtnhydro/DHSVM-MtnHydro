@@ -64,6 +64,7 @@ int main(int argc, char **argv)
   int j;
   int x;						/* row counter */
   int y;						/* column counter */
+  int WindIter;
   int shade_offset;				/* a fast way of handling array position given the number of mm5 input options */
   int NStats;					/* Number of meteorological stations */
   uchar ***MetWeights = NULL;	/* 3D array with weights for interpolating meteorological variables between the stations */
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
     {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
                                                                                 /* PIXRAD */
     {0.0, 0.0, 0, NULL, NULL, 0.0, 0, 0.0, 0.0, 0.0, 0.0, NULL, NULL},				  /* ROADSTRUCT*/
-	  {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
     {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
@@ -355,22 +356,40 @@ int main(int argc, char **argv)
             Veg.MaxLayers, &LocalMet, &(Network[y][x]), &(PrecipMap[y][x]),
             &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]), &(SType[SoilMap[y][x].Soil - 1]),
             &(SoilMap[y][x]), &(SnowMap[y][x]), &(RadiationMap[y][x]), &(EvapMap[y][x]),
-            &(Total.Rad), &ChannelData, SkyViewMap);
+            &(Total.Rad), &ChannelData, SkyViewMap, WindMap);
       
-      if (Options.WindDrift)
-        RedistributeSnow(&Options, y, x, Map.DX, Map.DY, Time.Dt,
-                         &LocalMet, &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]),
-                         &(SnowMap[y][x]), WindMap, TopoMap, &Map);
-      
-      if (isnan(SnowMap[y][x].Swq))
-        printf("\n\nNan SWE %d %d\n",x,y);
-      assert(!isnan(SnowMap[y][x].Swq));
+      if (Options.WindDrift) {
+        WindSublimation(y, x, Map.DX, Map.DY, Time.Dt,
+                        &LocalMet, WindMap, TopoMap);
+        BlowingSnowConditions(y, x, Map.DX, Map.DY, Time.Dt,
+                              &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]),
+                              &(SnowMap[y][x]), WindMap, TopoMap);
+        WindMap[y][x].Wind = LocalMet.Wind;
+        WindMap[y][x].Tair = LocalMet.Tair;
+        WindMap[y][x].AirDens = LocalMet.AirDens;
+      }
+        
       
 		  PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
 		}
 	  }
     }
-
+  
+  if (Options.WindDrift) {
+    for (WindIter = 0; WindIter < NwindIters; WindIter++) {
+      // printf("WindIter: %d\n",WindIter);
+      for (y = 0; y < Map.NY; y++) {
+        for (x = 0; x < Map.NX; x++) {
+          if (INBASIN(TopoMap[y][x].Mask) &&
+              WindIter < WindMap[y][x].nIters) {
+            RedistributeSnow(y, x, Map.DX, Map.DY, Time.Dt, WindIter,
+                             &(SnowMap[y][x]), WindMap, TopoMap, &Map);
+          }
+        }
+      }
+    }
+  }
+  
 	/* Average all RBM inputs over each segment */
 	if (Options.StreamTemp) {
 	  channel_grid_avg(ChannelData.streams);
