@@ -27,6 +27,7 @@ float LIQUID_WATER_CAPACITY;	/* water holding capacity of snow as a fraction
 float MAX_SNOW_TEMP;		    /* maximum temperature at which snow can  occur (C) */
 float MIN_INTERCEPTION_STORAGE;	/* the amount of snow on the canopy that can 
 				                   only be melted off. (m) */
+float MIN_SNOW_RESET_ALBEDO; /* minimum snow (m) required to completely reset snow albedo */
 float MIN_RAIN_TEMP;		    /* minimum temperature at which rain can occur (C) */
 int NWINDMAPS;			        /* Number of wind maps in case the wind source is model */
 unsigned char OUTSIDEBASIN;	    /* Mask value indicating outside the basin */

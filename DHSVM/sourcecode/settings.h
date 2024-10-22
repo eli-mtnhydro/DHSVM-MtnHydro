@@ -133,7 +133,7 @@ enum KEYS {
   /* Constants */
   ground_roughness, snow_roughness, 
   snow_water_capacity, reference_height, rain_lai_multiplier,
-  snow_lai_multiplier, min_intercepted_snow, outside_basin,
+  snow_lai_multiplier, min_intercepted_snow, min_snow_reset_albedo, outside_basin,
   temp_lapse_rate, precip_lapse_rate, 
   max_swe, snowslide_parameter1,
   snowslide_parameter2, gapwind_adj, temperature_offset,

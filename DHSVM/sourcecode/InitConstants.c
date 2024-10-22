@@ -125,6 +125,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "RAIN LAI MULTIPLIER", "", ""},
     {"CONSTANTS", "SNOW LAI MULTIPLIER", "", ""},
     {"CONSTANTS", "MIN INTERCEPTED SNOW", "", ""},
+    {"CONSTANTS", "MIN ALBEDO RESET SNOWFALL", "", "" },
     {"CONSTANTS", "OUTSIDE BASIN VALUE", "", ""},
     {"CONSTANTS", "TEMPERATURE LAPSE RATE", "", ""},
     {"CONSTANTS", "PRECIPITATION LAPSE RATE", "", ""},
@@ -614,6 +615,12 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!CopyFloat(&MIN_INTERCEPTION_STORAGE,
 		 StrEnv[min_intercepted_snow].VarStr, 1))
     ReportError(StrEnv[min_intercepted_snow].KeyName, 51);
+
+  if (!CopyFloat(&MIN_SNOW_RESET_ALBEDO,
+		 StrEnv[min_snow_reset_albedo].VarStr, 1))
+    ReportError(StrEnv[min_snow_reset_albedo].KeyName, 51);
+  /* Divide by number of steps to convert [m/day] in config file to [m/step] here */
+  MIN_SNOW_RESET_ALBEDO /= Time->NDaySteps;
 
   if (!CopyUChar(&OUTSIDEBASIN, StrEnv[outside_basin].VarStr, 1))
     ReportError(StrEnv[outside_basin].KeyName, 51);

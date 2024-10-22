@@ -75,6 +75,7 @@ extern float LIQUID_WATER_CAPACITY;		/* water holding capacity of snow as a
 extern float MAX_SNOW_TEMP;				/* maximum temperature at which snow can occur (C) */
 extern float MIN_INTERCEPTION_STORAGE;	/* the amount of snow on the canopy
 										that can only be melted off. (m) */
+extern float MIN_SNOW_RESET_ALBEDO; /* minimum snow (m) required to completely reset snow albedo */
 extern float MIN_RAIN_TEMP;				/* minimum temperature at which rain can occur (C) */
 extern unsigned char OUTSIDEBASIN;		/* Mask value indicating outside the basin */
 extern float PRECIPLAPSE;				/* Precipitation lapse rate in m/timestep / m */
