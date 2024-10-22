@@ -632,15 +632,15 @@ void DumpMap(MAPSIZE *Map, DATE *Current, MAPDUMP *DMap, TOPOPIX **TopoMap,
     if (DMap->Resolution == MAP_OUTPUT) {
       for (y = 0; y < Map->NY; y++)
         for (x = 0; x < Map->NX; x++)
-          ((unsigned short *)Array)[y * Map->NX + x] = SnowMap[y][x].LastSnow;
+          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].LastSnow;
       Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
 
     }
     else if (DMap->Resolution == IMAGE_OUTPUT) {
       for (y = 0; y < Map->NY; y++)
         for (x = 0; x < Map->NX; x++)
-          ((unsigned char *)Array)[y * Map->NX + x] =
-          (unsigned char)(((float)SnowMap[y][x].LastSnow - Offset) / Range
+          ((float *)Array)[y * Map->NX + x] =
+          (((float)SnowMap[y][x].LastSnow - Offset) / Range
             * MAXUCHAR);
       Write2DMatrix(DMap->FileName, Array, NC_BYTE, Map, DMap, Index);
 
@@ -1196,8 +1196,8 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
     fprintf(OutFile->FilePtr, "Precip(m) ");
     fprintf(OutFile->FilePtr, "Snow(m) ");
     fprintf(OutFile->FilePtr, "IExcess(m) ");
-    fprintf(OutFile->FilePtr, "HasSnow SnowCover LastSnow Swq Melt   ");
-    fprintf(OutFile->FilePtr, "PackWater TPack ");
+    fprintf(OutFile->FilePtr, "HasSnow LastSnow Albedo Swq Melt ");
+    fprintf(OutFile->FilePtr, "PackWater TPack SurfWater TSurf ");
 
     fprintf(OutFile->FilePtr, " TotalET ");   /*total evapotranspiration*/
     for (i = 0; i < NCanopyStory + 1; i++)
@@ -1260,9 +1260,9 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
   fprintf(OutFile->FilePtr, " %g ", Soil->IExcess);
 
   /* Snow */
-  fprintf(OutFile->FilePtr, " %1d %1d %4d %g %g %g %g ",
-    Snow->HasSnow, Snow->SnowCoverOver, Snow->LastSnow, Snow->Swq,
-    Snow->Melt, Snow->PackWater, Snow->TPack);
+  fprintf(OutFile->FilePtr, " %g %g %g %g %g %g %g %g %g ",
+    ((float) Snow->HasSnow) / 255.0, Snow->LastSnow, Snow->Albedo, Snow->Swq,
+    Snow->Melt, Snow->PackWater, Snow->TPack, Snow->SurfWater, Snow->TSurf);
 
   fprintf(OutFile->FilePtr, " %g", Evap->ETot);
 

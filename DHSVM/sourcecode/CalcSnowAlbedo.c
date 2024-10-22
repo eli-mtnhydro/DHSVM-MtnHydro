@@ -34,30 +34,29 @@
   last observed snow fall. There are separete albedo curves for the freeze
   and thaw conditions.
 *****************************************************************************/
-float CalcSnowAlbedo(float TSurf, unsigned short Last, SNOWPIX *LocalSnow, 
-  int StepsPerDay)
+float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay)
 {
-
   /* Laramie and Schaake (1972) */
   /* Updated based on Storck (2000) */
-  if (Last > (unsigned short)DAYPYEAR)
-    Last = (unsigned short)DAYPYEAR;
-
-  LocalSnow->Freeze =
-    LocalSnow->amax * pow(LocalSnow->LamdaAcc, pow((float)Last/StepsPerDay, 0.58));
-  if (LocalSnow->Freeze < LocalSnow->AccMin)
-    LocalSnow->Freeze = LocalSnow->AccMin;
-
-  LocalSnow->Thaw =
-    LocalSnow->amax * pow(LocalSnow->LamdaMelt, pow((float)Last/StepsPerDay, 0.46));
-  if (LocalSnow->Thaw < LocalSnow->MeltMin)
-    LocalSnow->Thaw = LocalSnow->MeltMin;
-
-  /* Accumulation season */
-  if (TSurf < 0.0)
-    return LocalSnow->Freeze;
-
-  /* Melt season */
-  else
-    return LocalSnow->Thaw;
+  /* Updated by Eli Boardman 2024 to fix various issues */
+  float Last, Albedo;
+  
+  Last = LocalSnow->LastSnow / (float) StepsPerDay;
+  
+  if (Last > (float) DAYPYEAR)
+    Last = (float) DAYPYEAR;
+  
+  if (LocalSnow->AccumSeason == TRUE) {
+    /* Accumulation season */
+    Albedo = LocalSnow->amax * pow(LocalSnow->LamdaAcc, pow(Last, 0.58));
+    if (Albedo < LocalSnow->AccMin)
+      Albedo = LocalSnow->AccMin;
+  } else {
+    /* Melt season */
+    Albedo = LocalSnow->amax * pow(LocalSnow->LamdaMelt, pow(Last, 0.46));
+    if (Albedo < LocalSnow->MeltMin)
+      Albedo = LocalSnow->MeltMin;
+  }
+  
+  return Albedo;
 }

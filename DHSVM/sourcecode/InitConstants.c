@@ -619,8 +619,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!CopyFloat(&MIN_SNOW_RESET_ALBEDO,
 		 StrEnv[min_snow_reset_albedo].VarStr, 1))
     ReportError(StrEnv[min_snow_reset_albedo].KeyName, 51);
-  /* Divide by number of steps to convert [m/day] in config file to [m/step] here */
-  MIN_SNOW_RESET_ALBEDO /= Time->NDaySteps;
 
   if (!CopyUChar(&OUTSIDEBASIN, StrEnv[outside_basin].VarStr, 1))
     ReportError(StrEnv[outside_basin].KeyName, 51);

@@ -350,7 +350,8 @@ typedef struct {
 typedef struct {
   uchar HasSnow;			/* Snow cover flag determined by SWE */
   uchar SnowCoverOver;		/* Flag overstory can be covered */
-  unshort LastSnow;			/* Days since last snowfall */
+  uchar AccumSeason;      /* Flag for whether Tsurf > 0 since last snowfall */
+  float LastSnow;			/* Days since last snowfall */
   float Swq;				/* Snow water equivalent */
   float OldSwq;             /* Snow water equivalent from previous time step */
   float Melt;				/* Snow Melt */
@@ -373,7 +374,7 @@ typedef struct {
   float Qe;				    /* Latent heat exchange */
   float Qp;                 /* advected heat from rain input */
   float MeltEnergy;			/* Energy used to melt snow and change of cold content of snow pack */
-
+  
   // spatial parameters
   float Ts;	   				    /* snow temperature threshold */
   float Tr;	    				/* rain tempeature threshold */
@@ -382,10 +383,7 @@ typedef struct {
   float LamdaMelt;              /* lambda for melt period */
   float AccMin;                 /* minimum albedo for accumulation period*/
   float MeltMin;                /* minimu albedo for melt period*/
-
-  float Freeze;			/* albedo when surface temperature below 0 C */
-  float Thaw;			/* albedo when surface temperature above 0 C */
-
+  
   // SWE stats 
   float MaxSwe;         /*Peak SWE of the water year*/
   unint MaxSweDate;       /*Peak SWE date/timestep of the water year*/
@@ -483,7 +481,7 @@ typedef struct {
 typedef struct
 {
   uchar HasSnow;			    /* Snow cover flag determined by SWE */
-  unshort LastSnow;			    /* Days since last snowfall */
+  float LastSnow;			    /* Days since last snowfall */
   int NVegLActual;		        /* Number of vegetation layers above snow */
   float Albedo;				    /* Albedo of snow pack */
   float TSurf;				    /* Temperature of snow pack surface layer */

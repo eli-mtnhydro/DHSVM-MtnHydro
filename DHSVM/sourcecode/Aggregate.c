@@ -40,11 +40,12 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	       PRECIPPIX **Precip, PIXRAD **RadMap, SNOWPIX **Snow,
 	       SOILPIX **SoilMap, AGGREGATED *Total, VEGTABLE *VType,
 	       ROADSTRUCT **Network, CHANNEL *ChannelData, float *roadarea,
-         int Dt)
+         int Dt, int NDaySteps)
 {
-  int NPixels;			/* Number of pixels in the basin */
+  int NPixels;		/* Number of pixels in the basin */
   int NSoilL;			/* Number of soil layers for current pixel */
   int NVegL;			/* Number of vegetation layers for current pixel */
+  int NSnow;      /* Number of pixels with snow cover currently */
   int i;				/* counter */
   int j;				/* counter */
   int x;
@@ -52,6 +53,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   float DeepDepth;		/* depth to bottom of lowest rooting zone */
 
   NPixels = 0;
+  NSnow = 0;
   *roadarea = 0.;
 
   for (y = 0; y < Map->NY; y++) {
@@ -104,29 +106,31 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	}
 
 	/* aggregate snow data */
-	if (Snow[y][x].HasSnow)
-	  Total->Snow.HasSnow = TRUE;
+	if (Snow[y][x].HasSnow) {
+	  NSnow++;
+	  Total->Snow.Albedo += Snow[y][x].Albedo;
+	  Total->Snow.LastSnow += Snow[y][x].LastSnow;
+	  Total->Snow.PackWater += Snow[y][x].PackWater;
+	  Total->Snow.TPack += Snow[y][x].TPack;
+	  Total->Snow.SurfWater += Snow[y][x].SurfWater;
+	  Total->Snow.TSurf += Snow[y][x].TSurf;
+	  Total->Snow.ColdContent += Snow[y][x].ColdContent;
+	  Total->Snow.Depth += Snow[y][x].Depth;
+	  Total->Snow.Qe += Snow[y][x].Qe;
+	  Total->Snow.Qs += Snow[y][x].Qs;
+	  Total->Snow.Qsw += Snow[y][x].Qsw;
+	  Total->Snow.Qlw += Snow[y][x].Qlw;
+	  Total->Snow.Qp += Snow[y][x].Qp;
+	  Total->Snow.MeltEnergy += Snow[y][x].MeltEnergy;
+	}
   Total->Snow.Swq += Snow[y][x].Swq;
   Total->Snow.Glacier += Snow[y][x].Glacier;
   /* Total->Snow.Melt += Snow[y][x].Melt; */
   Total->Snow.Melt += Snow[y][x].Outflow;
-  Total->Snow.PackWater += Snow[y][x].PackWater;
-  Total->Snow.TPack += Snow[y][x].TPack;
-  Total->Snow.SurfWater += Snow[y][x].SurfWater;
-  Total->Snow.TSurf += Snow[y][x].TSurf;
-  Total->Snow.ColdContent += Snow[y][x].ColdContent;
-  Total->Snow.Albedo += Snow[y][x].Albedo;
-  Total->Snow.Depth += Snow[y][x].Depth;
-  Total->Snow.Qe += Snow[y][x].Qe;
-  Total->Snow.Qs += Snow[y][x].Qs;
-  Total->Snow.Qsw += Snow[y][x].Qsw;
-  Total->Snow.Qlw += Snow[y][x].Qlw;
-  Total->Snow.Qp += Snow[y][x].Qp;
-  Total->Snow.MeltEnergy += Snow[y][x].MeltEnergy;
   Total->Snow.VaporMassFlux += Snow[y][x].VaporMassFlux;
   Total->Snow.CanopyVaporMassFlux += Snow[y][x].CanopyVaporMassFlux;
 
-	if (VegMap[y][x].Gapping > 0.0 ) {
+	if (VegMap[y][x].Gapping > 0.0) {
 	  Total->Veg.Type[Opening].Qsw += VegMap[y][x].Type[Opening].Qsw;
 	  Total->Veg.Type[Opening].Qlin += VegMap[y][x].Type[Opening].Qlin;
 	  Total->Veg.Type[Opening].Qlw += VegMap[y][x].Type[Opening].Qlw;
@@ -187,7 +191,12 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   *roadarea /= Map->DX * Map->DY * NPixels;
 
   /* calculate average values for all quantities except the surface flow */
-
+  
+  /* Snow variables calculated for snow area only, except for mass variables */
+  if (NSnow < 1)
+    NSnow = 1;
+  Total->Snow.HasSnow = (uchar) (((float) NSnow / (float) NPixels) * 255.0);
+  
   /* average evaporation data */
   Total->Evap.ETot /= NPixels;
   for (i = 0; i < Veg->MaxLayers + 1; i++) {
@@ -231,19 +240,20 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   /* average snow data */
   Total->Snow.Swq /= NPixels;
   Total->Snow.Melt /= NPixels;
-  Total->Snow.PackWater /= NPixels;
-  Total->Snow.TPack /= NPixels;
-  Total->Snow.SurfWater /= NPixels;
-  Total->Snow.TSurf /= NPixels;
-  Total->Snow.ColdContent /= NPixels;
-  Total->Snow.Albedo /= NPixels;
-  Total->Snow.Depth /= NPixels;
-  Total->Snow.Qe /= NPixels;
-  Total->Snow.Qs /= NPixels;
-  Total->Snow.Qsw /= NPixels;
-  Total->Snow.Qlw /= NPixels;
-  Total->Snow.Qp /= NPixels;
-  Total->Snow.MeltEnergy /= NPixels;
+  Total->Snow.PackWater /= NSnow;
+  Total->Snow.TPack /= NSnow;
+  Total->Snow.SurfWater /= NSnow;
+  Total->Snow.TSurf /= NSnow;
+  Total->Snow.ColdContent /= NSnow;
+  Total->Snow.Albedo /= NSnow;
+  Total->Snow.LastSnow /= (NSnow * NDaySteps); /* Convert steps to days since last snow */
+  Total->Snow.Depth /= NSnow;
+  Total->Snow.Qe /= NSnow;
+  Total->Snow.Qs /= NSnow;
+  Total->Snow.Qsw /= NSnow;
+  Total->Snow.Qlw /= NSnow;
+  Total->Snow.Qp /= NSnow;
+  Total->Snow.MeltEnergy /= NSnow;
   Total->Snow.VaporMassFlux /= NPixels;
   Total->Snow.CanopyVaporMassFlux /= NPixels;
 

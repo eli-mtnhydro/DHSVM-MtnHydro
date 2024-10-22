@@ -189,7 +189,7 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].LastSnow = (unsigned short)((float *)Array)[y * Map->NX + x];
+        SnowMap[y][x].LastSnow = ((float *)Array)[y * Map->NX + x];
       }
     }
   }
@@ -256,6 +256,10 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
         SnowMap[y][x].TSurf = ((float *)Array)[y * Map->NX + x];
+        if (SnowMap[y][x].TSurf < 0.0)
+          SnowMap[y][x].AccumSeason = TRUE;
+        else
+          SnowMap[y][x].AccumSeason = FALSE;
       }
     }
   }
@@ -280,11 +284,11 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
         if (Options->CanopyGapping) {
           for (i = 0; i < CELL_PARTITION; i++)
           VegMap[y][x].Type[i].Albedo =
-          CalcSnowAlbedo(SnowMap[y][x].TSurf, SnowMap[y][x].LastSnow, &(SnowMap[y][x]), StepsPerDay);
+          CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
         }
         else {
           if (SnowMap[y][x].HasSnow)
-          SnowMap[y][x].Albedo = CalcSnowAlbedo(SnowMap[y][x].TSurf, SnowMap[y][x].LastSnow, &(SnowMap[y][x]), StepsPerDay);
+          SnowMap[y][x].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
           else
           SnowMap[y][x].Albedo = 0;
         }

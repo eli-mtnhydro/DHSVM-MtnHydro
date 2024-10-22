@@ -77,7 +77,7 @@ int main(int argc, char **argv)
                                                                                 /* PIXRAD */
     {0.0, 0.0, 0, NULL, NULL, 0.0, 0, 0.0, 0.0, 0.0, 0.0, NULL, NULL},				  /* ROADSTRUCT*/
 	  {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
+	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
     {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
     {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
 
   /* setup for mass balance calculations */
   Aggregate(&Map, &Options, TopoMap, &Soil, &Veg, VegMap, EvapMap, PrecipMap,
-	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, &roadarea, Time.Dt);
+	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, &roadarea, Time.Dt, Time.NDaySteps);
 
   Mass.StartWaterStorage =
     Total.Soil.IExcess + Total.CanopyWater + Total.SoilWater + Total.Snow.Swq +
@@ -393,7 +393,7 @@ int main(int argc, char **argv)
 	   MetMap, Network, &Options);
     
     Aggregate(&Map, &Options, TopoMap, &Soil, &Veg, VegMap, EvapMap, PrecipMap,
-	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, &roadarea, Time.Dt);
+	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, &roadarea, Time.Dt, Time.NDaySteps);
     
     if (Options.SnowStats)
       SnowStats(&(Time.Current), &Map, &Options, TopoMap, SnowMap, Time.Dt);

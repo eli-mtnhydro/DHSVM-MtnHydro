@@ -270,7 +270,7 @@ void StoreModelState(char *Path, DATE * Current, MAPSIZE * Map,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask))
-        ((float *)Array)[y * Map->NX + x] = (float)SnowMap[y][x].LastSnow;
+        ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].LastSnow;
       else
         ((float *)Array)[y * Map->NX + x] = NA;
     }

@@ -352,31 +352,27 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
 
   /* Snow albedo as a function of days since last snow */
   if (LocalSnow->HasSnow) {
+    if (PrecipMap->SnowFall > 0.0 && LocalSnow->TSurf < 0.0)
+      LocalSnow->AccumSeason = TRUE;
+    else if (fequal(LocalSnow->TSurf, 0.0))
+      LocalSnow->AccumSeason = FALSE;
+    
     if (PrecipMap->SnowFall > MIN_SNOW_RESET_ALBEDO)
-      LocalSnow->LastSnow = 0;
-    else if (PrecipMap->SnowFall > 0.0) 
+      LocalSnow->LastSnow = 0.0;
+    else if (PrecipMap->SnowFall > 0.0)
       LocalSnow->LastSnow *= (1.0 - PrecipMap->SnowFall / MIN_SNOW_RESET_ALBEDO);
     else
-      LocalSnow->LastSnow++;
-    LocalSnow->Albedo = CalcSnowAlbedo(LocalSnow->TSurf, LocalSnow->LastSnow, LocalSnow, NDaySteps);
+      LocalSnow->LastSnow += 1.0;
+    
+    LocalSnow->Albedo = CalcSnowAlbedo(LocalSnow, NDaySteps);
   }
   else
-    LocalSnow->LastSnow = 0;
+    LocalSnow->LastSnow = 0.0;
   /* if canopy gap is present */
   if (VegMap->Gapping > 0.0) {
     for (j = 0; j < CELL_PARTITION; j++) {
-      if ((*Gap)[j].HasSnow) {
-        if ((*Gap)[j].SnowFall > MIN_SNOW_RESET_ALBEDO)
-          (*Gap)[j].LastSnow = 0;
-        else if ((*Gap)[j].SnowFall > 0)
-          (*Gap)[j].LastSnow *= (1.0 - (*Gap)[j].SnowFall / MIN_SNOW_RESET_ALBEDO);
-        else
-          (*Gap)[j].LastSnow++;
-
-        (*Gap)[j].Albedo = CalcSnowAlbedo((*Gap)[j].TSurf, (*Gap)[j].LastSnow, LocalSnow, NDaySteps);
-      }
-      else
-        (*Gap)[j].LastSnow = 0.;
+      if ((*Gap)[j].HasSnow)
+        (*Gap)[j].Albedo = CalcSnowAlbedo(LocalSnow, NDaySteps);
     }
   }
 

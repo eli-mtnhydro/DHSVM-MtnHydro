@@ -24,7 +24,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	       LAYER *Soil, LAYER *Veg, VEGPIX **VegMap, EVAPPIX **Evap,
 	       PRECIPPIX **Precip, PIXRAD **RadMap, SNOWPIX **Snow,
 	       SOILPIX **SoilMap, AGGREGATED *Total, VEGTABLE *VType,
-	       ROADSTRUCT **Network, CHANNEL *ChannelData, float *roadarea, int Dt);
+	       ROADSTRUCT **Network, CHANNEL *ChannelData, float *roadarea, int Dt, int NDaySteps);
 
 void Avalanche(MAPSIZE *Map, TOPOPIX **TopoMap, TIMESTRUCT *Time, OPTIONSTRUCT *Options,
   SNOWPIX **SnowMap);
@@ -43,7 +43,7 @@ float CalcEffectiveKh(int NSoilLayers, float Top, float Bottom,
 
 float CalcKhDry(float Density);
 
-float CalcSnowAlbedo(float TSurf, unsigned short Last, SNOWPIX *LocalSnow, int StepsPerDay);
+float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay);
 
 float CalcTransmissivity(float SoilDepth, float WaterTable, float LateralKs,
 			 float KsExponent, float DepthThresh);
