@@ -258,18 +258,11 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
       PrecipMap->RainFall = 0.0;
       for (i = 0; i < NStats; i++) {
         CurrentWeight = ((float) MetWeights[i]) / WeightSum;
-        /* this is the real prism interpolation */
         /* note that X = position from left  boundary, ie # of columns */
         /* note that Y = position from upper boundary, ie # of rows   */
-        if (Options->Outside == FALSE)
-          ContribPrecip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
-        else
-          ContribPrecip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
-        
-        PrecipMap->Precip += ContribPrecip;
-        
-        /* ALSO redistribute snowfall according to snow pattern if applicable */
         if (Options->SnowPattern == TRUE) {
+          /* Separate weighting of snow and rain */
+          ContribPrecip = CurrentWeight * Stat[i].Data.Precip;
           /* First need to partition rain vs. snow */
           if (ContribPrecip > 0.0 && LocalMet.Tair < LocalSnow->Ts) {
             if (LocalMet.Tair > LocalSnow->Tr)
@@ -281,12 +274,20 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
           }
           ContribRain = ContribPrecip - ContribSnow;
           
-          /* Analogous to re-application of PRISM interpolation */
+          /* Apply snow pattern weighting */
           ContribSnow *= (SnowPatternMap[y][x] / Stat[i].SnowPattern);
-          
           PrecipMap->SnowFall += ContribSnow;
+          
+          /* Apply rain pattern weighting (here PRISM == rain pattern) */
+          ContribRain *= (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
           PrecipMap->RainFall += ContribRain;
-        }
+          
+          PrecipMap->Precip += (ContribSnow + ContribRain);
+        } /* End of snow pattern weighting */
+        else if (Options->Outside == FALSE)
+          PrecipMap->Precip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
+        else
+          PrecipMap->Precip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
       }
       PrecipMap->Precip *= precipMultiplier;
       PrecipMap->SnowFall *= precipMultiplier;
