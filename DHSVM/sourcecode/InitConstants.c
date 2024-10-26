@@ -134,6 +134,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SNOWSLIDE PARAMETER2", "", "" },
     {"CONSTANTS", "GAP WIND ADJ FACTOR", "", "" },
     {"CONSTANTS", "TEMPERATURE OFFSET", "", "" },
+    {"CONSTANTS", "LAPSE RATE BIAS", "", "" },
+    {"CONSTANTS", "LAPSE RATE BIAS ELEVATION", "", "" },
     {NULL, NULL, "", NULL}
   };
 
@@ -640,6 +642,11 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!CopyFloat(&TEMPERATURE_OFFSET, StrEnv[temperature_offset].VarStr, 1))
     ReportError(StrEnv[temperature_offset].KeyName, 51);
 
+  if (!CopyFloat(&LAPSE_RATE_BIAS, StrEnv[lapse_bias].VarStr, 1))
+    ReportError(StrEnv[lapse_bias].KeyName, 51);
+  
+  if (!CopyFloat(&LAPSE_BIAS_ELEV, StrEnv[lapse_elev].VarStr, 1))
+    ReportError(StrEnv[lapse_elev].KeyName, 51);
 
   /* maximum depth of the surface layer in snow water equivalent (m) */
   if (!CopyFloat(&MAX_SURFACE_SWE,

@@ -148,6 +148,9 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     }
     LocalMet.Tair += TEMPERATURE_OFFSET;
     
+    /* Optional additional elevation-dependent bias */
+    LocalMet.Tair += LAPSE_RATE_BIAS * (LocalElev - LAPSE_BIAS_ELEV);
+    
     if (Options->WindSource == MODEL)
       LocalMet.Wind = ScaleWind * WindModel[WindDirection - 1][y][x];
 

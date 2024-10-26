@@ -82,6 +82,8 @@ extern float PRECIPLAPSE;				/* Precipitation lapse rate in m/timestep / m */
 extern float MINELEV;
 extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
 extern float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
+extern float LAPSE_RATE_BIAS; /* Additional lapse rate relative to LAPSE_BIAS_ELEV (C/m) */
+extern float LAPSE_BIAS_ELEV; /* Elevation where temperature bias is zero (m) */
 extern int NWINDMAPS;					/* Number of wind maps in case the wind source is MODEL */
 extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */
