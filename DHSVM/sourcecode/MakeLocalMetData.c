@@ -288,9 +288,9 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
           PrecipMap->Precip += (ContribSnow + ContribRain);
         } /* End of snow pattern weighting */
         else if (Options->Outside == FALSE)
-          PrecipMap->Precip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
+          PrecipMap->Precip += (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
         else
-          PrecipMap->Precip = (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
+          PrecipMap->Precip += (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
       }
       PrecipMap->Precip *= precipMultiplier;
       PrecipMap->SnowFall *= precipMultiplier;
