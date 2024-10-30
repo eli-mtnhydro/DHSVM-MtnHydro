@@ -60,6 +60,7 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
   double avgdistance;
   double tempdistance;
   double cr, crt;
+  float uniformweight;
   int totalweight;
   int y;			/* Counter for rows */
   int x;			/* Counter for columns */
@@ -72,6 +73,13 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
   int crstat;
   COORD Loc;			/* Location of current point */
 
+  if (NStats > (int) MAXUCHAR && Options->Interpolation == UNIFORM) {
+    printf("\nWARNING:\nCannot use more than 255 stations with UNIFORM interpolation.\n");
+    printf("Setting interpolation method to INVDIST.\n\n");
+    Options->Interpolation = INVDIST;
+  }
+  
+  
   /* Allocate memory for a 3 dimensional array */
 
   if (DEBUG)
@@ -245,7 +253,31 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
       }
     }
   }
-
+  if (Options->Interpolation == UNIFORM) {
+    
+    /* Simple uniform "interpolation," actually just the average of all stations */
+    printf("Number of stations is %d, used as simple average for whole domain\n", NStats);
+    printf("Note that lapse rates, precip multiplier, etc. will still apply\n");
+    
+    uniformweight = ((float) MAXUCHAR) / ((float) NStats);
+    
+    for (y = 0; y < NY; y++) {
+      for (x = 0; x < NX; x++) {
+        if (INBASIN(BasinMask[y][x])) {	/*we are inside the basin mask */
+          
+          for (i = 0; i < NStats; i++) {
+            (*WeightArray)[y][x][i] = (uchar) uniformweight;
+          }
+          
+        }			/* done in basin mask */
+        else {
+          for (i = 0; i < NStats; i++)
+            (*WeightArray)[y][x][i] = 0;
+        }
+      }
+    }
+  }
+  
   /*check that all weights add up to MAXUCHAR */
   /* and output some stats on the interpolation field */
 

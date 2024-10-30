@@ -218,6 +218,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->Interpolation = NEAREST;
   else if (strncmp(StrEnv[interpolation].VarStr, "VARCRESS", 8) == 0)
     Options->Interpolation = VARCRESS;
+  else if (strncmp(StrEnv[interpolation].VarStr, "UNIFORM", 7) == 0)
+    Options->Interpolation = UNIFORM;
   else
     ReportError(StrEnv[interpolation].KeyName, 51);
 
