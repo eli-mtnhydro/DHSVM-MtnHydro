@@ -272,6 +272,7 @@ typedef struct {
 typedef struct {
   float Precip;					    /* Total amount of precipitation at pixel (m) */
   float SumPrecip;          /* Accumulated precipitation at pixel (m) */
+  float SnowAccum;          /* Cumulative SWE accumulation for the water year */
   float RainFall;		        /* Amount of rainfall (m) */
   float SnowFall;		        /* Amount of snowfall determined by air temperature (m) */
   float MomentSq;           /* Momentum squared for rain (kg* m/s)^2 /m^2*s) */

@@ -192,6 +192,9 @@ struct {
   414, "Snow.MeltOutDate",
       "Melt out date", "%d",
       " ", "Snow disappearance date of current water year", NC_INT, FALSE, FALSE, FALSE, 0 }, {
+  415, "Snow.SumAccum",
+    "Snow Accumulation", "%.4g",
+    " ", "Total snow accumulation for current water year", NC_FLOAT, FALSE, FALSE, FALSE, 0 }, {
   501, "Soil.Moist",
       "Soil Moisture Content", "%.4g",
       "", "Soil moisture for layer %d", NC_FLOAT, TRUE, FALSE, TRUE, 0}, {

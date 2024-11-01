@@ -421,12 +421,20 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
    At the start of a new water year, re-initiate the SWE stats maps 
  *****************************************************************************/
 void InitNewWaterYear(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
-                TOPOPIX **TopoMap, SNOWPIX **SnowMap)
+                TOPOPIX **TopoMap, SNOWPIX **SnowMap, PRECIPPIX **PrecipMap)
 {
   int y, x;
   if (DEBUG)
     printf("Initializing new water year \n");
-
+  
+  
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      PrecipMap[y][x].SumPrecip = 0;
+      PrecipMap[y][x].SnowAccum = 0;
+    }
+  }
+  
   /* If PRISM precipitation fields are being used to interpolate the
      observed precipitation fields, then read in the new months field */
 

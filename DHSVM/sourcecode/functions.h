@@ -194,7 +194,7 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
                  float **PrecipLapseMap, float ***WindModel, MAPSIZE *MM5Map);
 
 void InitNewWaterYear(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
-                TOPOPIX **TopoMap, SNOWPIX **SnowMap);
+                TOPOPIX **TopoMap, SNOWPIX **SnowMap, PRECIPPIX **PrecipMap);
 
 void InitParameterMaps(OPTIONSTRUCT *Options, MAPSIZE *Map, int Id,
   char *FileName, SNOWPIX ***SnowMap, int ParamType, float temp);

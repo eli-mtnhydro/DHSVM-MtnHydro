@@ -72,7 +72,7 @@ int main(int argc, char **argv)
 
   AGGREGATED Total = {			/* Total or average value of a  variable over the entire basin */
     {0.0, NULL, NULL, NULL, NULL, 0.0, 0.0},												/* EVAPPIX */
-    {0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0.0, 0, 0.0},								/* PRECIPPIX */
+    {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0.0, 0, 0.0},								/* PRECIPPIX */
     {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 },
                                                                                 /* PIXRAD */
     {0.0, 0.0, 0, NULL, NULL, 0.0, 0, 0.0, 0.0, 0.0, 0.0, NULL, NULL},				  /* ROADSTRUCT*/
@@ -281,7 +281,7 @@ int main(int argc, char **argv)
     }
 
     if (IsNewWaterYear(&(Time.Current)))
-      InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap);
+      InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
 
     if (IsNewMonth(&(Time.Current), Time.Dt))
       InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, ShadowMap,
@@ -355,6 +355,7 @@ int main(int argc, char **argv)
             &(Total.Rad), &ChannelData, SkyViewMap);
 	 
 		  PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
+		  PrecipMap[y][x].SnowAccum += PrecipMap[y][x].SnowFall;
 		}
 	  }
     }

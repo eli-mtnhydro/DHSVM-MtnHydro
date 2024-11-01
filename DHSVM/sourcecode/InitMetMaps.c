@@ -197,6 +197,8 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
 
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
+      (*PrecipMap)[y][x].SumPrecip = 0.0;
+      (*PrecipMap)[y][x].SnowAccum = 0.0;
       if (INBASIN(TopoMap[y][x].Mask))
         (*PrecipMap)[y][x].PrecipStart = TRUE;
     }
