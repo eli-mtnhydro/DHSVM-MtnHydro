@@ -63,6 +63,7 @@ typedef unsigned int unint;
 #define INVDIST        1
 #define NEAREST        2
 #define VARCRESS       3
+#define UNIFORM        4
 
 /* Options for model extent */
 #define POINT 1

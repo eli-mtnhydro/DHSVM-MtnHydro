@@ -11,7 +11,7 @@
  * DESCRIP-END.
  * FUNCTIONS:    CalcTransmissivity()
  * COMMENTS: Modified by Ted Bohn on 10/1/2013
-             Implemented 2-part transmissivity v depth function. бн
+             Implemented 2-part transmissivity v depth function. ??
              Introduced a new parameter, DEPTH_THRESHOLD.  When water table depth 
 			 is shallower than this threshold, transmissivity decays exponentially 
 			 with depth as before.  When water table depth is deeper than this threshold, 
@@ -68,19 +68,18 @@ float CalcTransmissivity(float SoilDepth, float WaterTable, float LateralKs,
   if (fequal(KsExponent, 0.0))
     Transmissivity = LateralKs * (SoilDepth - WaterTable);
   else {
-	/* a smaller value of WaterTable variables indicates a higher actual water table depth */
+	/* A smaller value of WaterTable variables indicates a higher actual water table depth */
 	if (WaterTable < DepthThresh) {
 	  Transmissivity = (LateralKs / KsExponent) * (exp(-KsExponent * WaterTable) - exp(-KsExponent * SoilDepth));
-	}
-    else  {
+	} else if (SoilDepth < DepthThresh) {
+	  /* Water table > depth thresh, but soil depth < depth thresh, so no transmissivity */
+	  Transmissivity = 0.0;
+	} else {
+	  /* Water table and soil depth both deeper than depth thresh,
+	     transmissivity decreases linearly with water table depth */
 	  TransThresh = (LateralKs / KsExponent) * (exp(-KsExponent * DepthThresh) - exp(-KsExponent * SoilDepth));
-	  if(SoilDepth < DepthThresh) {
-		printf("Warning: Soil DepthThreshold (%.2f) > the soil depth (%.2f)!\n", DepthThresh, SoilDepth);
-		printf("Transmissivity is set to zero!");
-	  }
-	  Transmissivity = (SoilDepth-WaterTable)/(SoilDepth-DepthThresh)*TransThresh;
+	  Transmissivity = ((SoilDepth-WaterTable) / (SoilDepth-DepthThresh)) * TransThresh;
 	}
   }
-
   return Transmissivity;
 }

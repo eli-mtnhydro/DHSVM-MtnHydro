@@ -875,7 +875,28 @@ void DumpMap(MAPSIZE *Map, DATE *Current, MAPDUMP *DMap, TOPOPIX **TopoMap,
     else
       ReportError(VarIDStr, 66);
     break;
-
+    
+  case 415:
+    if (DMap->Resolution == MAP_OUTPUT) {
+      for (y = 0; y < Map->NY; y++)
+        for (x = 0; x < Map->NX; x++)
+          ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].SnowAccum;
+      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
+                    DMap, Index);
+    }
+    else if (DMap->Resolution == IMAGE_OUTPUT) {
+      for (y = 0; y < Map->NY; y++)
+        for (x = 0; x < Map->NX; x++)
+          ((unsigned char *)Array)[y * Map->NX + x] =
+            (unsigned char)((PrecipMap[y][x].SnowAccum - Offset) /
+              Range * MAXUCHAR);
+      Write2DMatrix(DMap->FileName, Array, NC_BYTE, Map, DMap, Index);
+      
+    }
+    else
+      ReportError(VarIDStr, 66);
+    break;
+    
   case 501:
     if (DMap->Resolution == MAP_OUTPUT) {
       for (y = 0; y < Map->NY; y++) {
