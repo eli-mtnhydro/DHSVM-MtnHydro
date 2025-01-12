@@ -558,14 +558,20 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
 }
 
 /* -------------------------------------------------------------
- channel_segment_infiltration
+ channel_segment_infil_evap
 ------------------------------------------------------------- */
-void channel_segment_infiltration(Channel * segment)
+void channel_segment_infil_evap(Channel * segment)
 {
   ChannelMapPtr cell = segment->grid;
   float max_avail;
   
+  /* Prevent issues with floating point arithmetic */
+  if (segment->storage < 1e-6 * (segment->inflow + segment->lateral_inflow) &&
+      segment->storage < 1.0)
+    segment->storage = 0.0;
+  
   segment->infiltration = 0.0;
+  segment->evaporation = 0.0;
   max_avail = segment->storage + segment->inflow + segment->lateral_inflow;
   
   while (cell != NULL) {
@@ -577,17 +583,48 @@ void channel_segment_infiltration(Channel * segment)
        only considering amount originating uphill of current grid cell */
     if (cell->avail_water > max_avail)
       cell->avail_water = max_avail;
-    if (cell->infiltration > cell->avail_water)
-      cell->infiltration = cell->avail_water;
+    
+    /* Cell at bottom of channel must have all water available 
+       (otherwise rounding error can cause water to get "stuck") */
+    if (cell->next_seg == NULL)
+      cell->avail_water = max_avail;
+    
+    /* If insufficient water is available to completely satisfy the pre-calculated
+       infiltration capacity and potential evaporation, equally divide the
+       available water between infiltration and evaporation,
+       while ensuring that neither exceeds the maximum capacity/potential */
+    if ((cell->infiltration + cell->evaporation) > cell->avail_water) {
+      if (cell->infiltration > cell->evaporation) {
+        cell->evaporation = MIN(cell->avail_water / 2.0, cell->evaporation);
+        cell->infiltration = cell->avail_water - cell->evaporation;
+      } else {
+        cell->infiltration = MIN(cell->avail_water / 2.0, cell->infiltration);
+        cell->evaporation = cell->avail_water - cell->infiltration;
+      }
+    }
     
     segment->infiltration += cell->infiltration;
+    segment->evaporation += cell->evaporation;
     cell = cell->next_seg;
-    
   }
-  if (segment->infiltration > max_avail)
-    segment->infiltration = max_avail;
+  
   if (segment->infiltration < 0.0)
     segment->infiltration = 0.0;
+  if (segment->evaporation < 0.0)
+    segment->evaporation = 0.0;
+  
+  if ((segment->infiltration + segment->evaporation) > max_avail) {
+    if (segment->infiltration > segment->evaporation) {
+      segment->evaporation = MIN(max_avail / 2.0, segment->evaporation);
+      segment->infiltration = max_avail - segment->evaporation;
+    } else {
+      segment->infiltration = MIN(max_avail / 2.0, segment->infiltration);
+      segment->evaporation = max_avail - segment->infiltration;
+    }
+  }
+  
+  segment->remaining_infil = segment->infiltration;
+  segment->remaining_evap = segment->evaporation;
 }
 
 /* -------------------------------------------------------------
@@ -595,8 +632,7 @@ channel_route_segment
 ------------------------------------------------------------- */
 static int channel_route_segment(Channel * segment, int deltat)
 {
-  float inflow, lateral_inflow, outflow, storage;
-  float infiltration, storage_loss;
+  float net_balance, outflow, storage, storage_loss;
   int err = 0;
   
   if (segment->inflow < 0.0)
@@ -604,31 +640,33 @@ static int channel_route_segment(Channel * segment, int deltat)
   if (segment->storage < 0.0)
     segment->storage = 0.0;
   
-  /* Account for infiltration prior to routing each segment */
-  channel_segment_infiltration(segment);
-  segment->remaining_infil = segment->infiltration;
+  /* Account for infiltration and evaporation prior to routing each segment */
+  channel_segment_infil_evap(segment);
   
   /* Subtract any necessary water from storage instead of inflow */
-  storage_loss = segment->infiltration - (segment->inflow + segment->lateral_inflow);
+  storage_loss = (segment->infiltration + segment->evaporation) -
+                 (segment->inflow + segment->lateral_inflow);
   if (storage_loss < 0.0)
     storage_loss = 0.0;
+  if (storage_loss > segment->storage)
+    storage_loss = segment->storage;
   segment->storage -= storage_loss;
   
-  /* Change masses to rates */
-  inflow = segment->inflow / deltat;
-  lateral_inflow = segment->lateral_inflow / deltat;
-  infiltration = (segment->infiltration - storage_loss) / deltat;
+  /* Add up mass balance components and change masses to rates */
+  net_balance = segment->inflow + segment->lateral_inflow -
+                (segment->infiltration + segment->evaporation - storage_loss);
+  net_balance /= deltat;
   
   if (segment->K > 1e-10)
-    storage = ((inflow + lateral_inflow - infiltration) / segment->K) +
-      (segment->storage - (inflow + lateral_inflow - infiltration) / segment->K) * segment->X;
+    storage = (net_balance / segment->K) +
+              (segment->storage - net_balance / segment->K) * segment->X;
   else
-    storage = (inflow + lateral_inflow - infiltration);
+    storage = net_balance;
   
   if (storage < 0.0)
     storage = 0.0;
   
-  outflow = (inflow + lateral_inflow - infiltration) - (storage - segment->storage) / deltat;
+  outflow = net_balance - (storage - segment->storage) / deltat;
   
   if (outflow < 0.0)
     outflow = 0.0;

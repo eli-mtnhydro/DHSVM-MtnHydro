@@ -83,6 +83,7 @@ struct _channel_rec_ {
   float infiltration;		/* cubic meters - completely separate from the road infiltration! */
   float remaining_infil; /* cubic meters */
   float evaporation; /* cubic meters */
+  float remaining_evap; /* cubic meters */
   float last_lateral_inflow;
   /* Added for John's RBM model */
   float ATP;	        /* Avg air temp (C) */
@@ -123,7 +124,7 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
 Channel *channel_find_segment(Channel *net, SegmentID id);
 int channel_step_initialize_network(Channel *net);
 int channel_incr_lat_inflow(Channel *segment, float linflow);
-void channel_segment_infiltration(Channel * segment);
+void channel_segment_infil_evap(Channel * segment);
 int channel_route_network(Channel *net, int deltat);
 int channel_save_outflow(double time, Channel * net, FILE *file, FILE *file2);
 int channel_save_outflow_text(char *tstring, Channel *net, FILE *out,

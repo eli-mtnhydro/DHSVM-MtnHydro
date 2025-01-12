@@ -67,14 +67,13 @@ float PondEvaporation(int Dt, float DXDY, float ChannelArea,
 /*****************************************************************************
  ChannelEvaporation()
  *****************************************************************************/
-float ChannelEvaporation(int Dt, float DXDY,
-                         float Temp, float Slope, float Gamma,
-                         float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
-                         float Evapotranspiration, int x, int y, CHANNEL *ChannelData)
+void ChannelEvaporation(int Dt, float DXDY,
+                        float Temp, float Slope, float Gamma,
+                        float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
+                        float Evapotranspiration, int x, int y, CHANNEL *ChannelData)
 {
   float EPot;			/* Potential evaporation rate during timestep (m) */
   float EPotCell;  /* Unsatisfied atmospheric demand during timestep (m) */
-  float ChannelEvap;	/* Amount of evaporation directly from the channel (m) */
   
   /* Maximum atmospheric demand if the whole grid cell is covered by water */
   EPot = (Slope * NetRad + AirDens * CP * Vpd / LowerRa) /
@@ -90,12 +89,9 @@ float ChannelEvaporation(int Dt, float DXDY,
    up to the limit imposed by the total grid cell EPot */
   
   if (EPotCell > 0.0)
-    ChannelEvap = channel_grid_evaporation(ChannelData->stream_map, x, y,
-                                           EPot, (EPotCell * DXDY)) / DXDY;
+    channel_grid_calc_evaporation(ChannelData->stream_map, x, y, EPot, (EPotCell * DXDY));
   else
-    ChannelEvap = 0.0;
-  
-  return ChannelEvap;
+    channel_grid_calc_evaporation(ChannelData->stream_map, x, y, 0.0, 0.0);
 }
 
 /*****************************************************************************

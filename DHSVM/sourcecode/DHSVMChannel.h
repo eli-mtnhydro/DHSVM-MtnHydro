@@ -55,7 +55,7 @@ double ChannelCulvertFlow(int y, int x, CHANNEL *ChannelData);
 void RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 		  TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
 		  OPTIONSTRUCT *Options, ROADSTRUCT **Network, SOILTABLE *SType,
-		  VEGTABLE *VType, VEGPIX **VegMap,
+		  VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap,
 		  PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap);
 void ChannelCut(int y, int x, CHANNEL *ChannelData, ROADSTRUCT *Network);
 void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,

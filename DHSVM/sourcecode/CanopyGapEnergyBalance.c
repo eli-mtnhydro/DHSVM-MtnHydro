@@ -210,6 +210,7 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
 {
   float NetRadiation;		/* Total Net long- and shortwave radiation (W/m2) */
   float Rp;					/* radiation flux in visible part of the spectrum (W/m^2) */
+  float DryChannelEvap;
 
   /********************** for gap **********************/
   if ((*Gap)[Opening].HasSnow != TRUE && VType->UnderStory == TRUE) {
@@ -271,17 +272,13 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
   /* Calculate open water evaporation from the stream channel */
   if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
     NetRadiation = (*Gap)[Opening].NetShort[1] + (*Gap)[Opening].LongIn[1] - (*Gap)[Opening].LongOut[1];
-    (*Gap)[Opening].EvapChannel =
-      ChannelEvaporation(Dt, (DX*DY),
-                         LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-                         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-                         (*Gap)[Opening].MoistureFlux, x, y, ChannelData);
+    
     if ((*Gap)[Opening].HasSnow != TRUE)
-      (*Gap)[Opening].EvapSoil +=
+      DryChannelEvap =
         ChannelSoilEvaporation(Dt, (DX*DY),
                                LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
                                LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-                               ((*Gap)[Opening].MoistureFlux + (*Gap)[Opening].EvapChannel),
+                               (*Gap)[Opening].MoistureFlux,
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
                                SType->Press, SType->PoreDist,
                                ((SType->NLayers == LocalNetwork->CutBankZone) ?
@@ -289,12 +286,12 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
                                   VType->RootDepth[LocalNetwork->CutBankZone]),
                                (*Gap)[Opening].Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
+    (*Gap)[Opening].EvapSoil += DryChannelEvap;
+    (*Gap)[Opening].MoistureFlux += DryChannelEvap;
+    (*Gap)[Opening].ETot += DryChannelEvap;
   }
-  else
-    (*Gap)[Opening].EvapChannel = 0.0;
+  (*Gap)[Opening].EvapChannel = 0.0;
   
-  (*Gap)[Opening].MoistureFlux += (*Gap)[Opening].EvapChannel;
-  (*Gap)[Opening].ETot += (*Gap)[Opening].EvapChannel;
 }
 
 /*****************************************************************************
@@ -400,6 +397,7 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
 {
   float Rp;
   float NetRadiation;
+  float DryChannelEvap;
 
   if (VType->OverStory == TRUE) {
     Rp = VISFRACT * (*Gap)[Forest].NetShort[0];
@@ -482,17 +480,12 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
     else
       NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
     
-    (*Gap)[Forest].EvapChannel =
-      ChannelEvaporation(Dt, (DX*DY),
-                         LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-                         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-                         (*Gap)[Forest].MoistureFlux, x, y, ChannelData);
     if ((*Gap)[Forest].HasSnow != TRUE)
-      (*Gap)[Forest].EvapSoil +=
+      DryChannelEvap =
         ChannelSoilEvaporation(Dt, (DX*DY),
                                LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
                                LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-                               ((*Gap)[Forest].MoistureFlux + (*Gap)[Forest].EvapChannel),
+                               (*Gap)[Forest].MoistureFlux,
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
                                SType->Press, SType->PoreDist,
                                ((SType->NLayers == LocalNetwork->CutBankZone) ?
@@ -500,12 +493,11 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
                                   VType->RootDepth[LocalNetwork->CutBankZone]),
                                (*Gap)[Forest].Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
+    (*Gap)[Forest].EvapSoil += DryChannelEvap;
+    (*Gap)[Forest].MoistureFlux += DryChannelEvap;
+    (*Gap)[Forest].ETot += DryChannelEvap;
   }
-  else
-    (*Gap)[Forest].EvapChannel = 0.0;
-  
-  (*Gap)[Forest].MoistureFlux += (*Gap)[Forest].EvapChannel;
-  (*Gap)[Forest].ETot += (*Gap)[Forest].EvapChannel;
+  (*Gap)[Forest].EvapChannel = 0.0;
 }
 
 /*****************************************************************************

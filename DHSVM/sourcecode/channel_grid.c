@@ -727,9 +727,9 @@ void channel_grid_satflow(ChannelMapPtr ** map, int col, int row)
     /* Updates the amount of water available for infiltration;
        only water originating from inflow above the current cell
        is eligible for infiltration at the current location. */
-    cell->avail_water += cell->channel->lateral_inflow;
     if (cell->avail_water < 0.0)
       cell->avail_water = 0.0;
+    cell->avail_water += cell->channel->lateral_inflow;
     
     cell = cell->next;
   }
@@ -964,58 +964,62 @@ float channel_grid_infiltration(ChannelMapPtr ** map, int col, int row)
 }
 
 /* -------------------------------------------------------------
- channel_grid_evaporation
+ channel_grid_calc_evaporation
  If the channel(s) within the cell have nonzero water storage,
  this function totals the mass of evaporation from the channel(s),
- subtracts it from the respective channel segments, and returns
- the total mass to be added to the channel evaporation.
+ assuming that sufficient water is available (handled later)
  ------------------------------------------------------------- */
-float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row,
-                                float EPot, float MaxEvapCap)
+void channel_grid_calc_evaporation(ChannelMapPtr ** map, int col, int row,
+                                    float EPot, float MaxEvapCap)
 {
   ChannelMapPtr cell = map[col][row];
-  float evaporation; /* From one channel segment */
-  float max_evaporation;
-  float cell_evaporation = 0.0; /*  From all channel segments in cell */
-  float water_depth;
   
   while (cell != NULL) {
-    if (cell->channel->storage > 0.0) {
-      
-      evaporation = EPot * cell->cut_width * cell->length;
-      
-      /* Maximum evaporation is proportional to the channel length
-         unless water depth < 1 mm, in which case all water
-         is allowed to evaporate from a single grid cell */
-      water_depth = ((cell->channel->storage + cell->channel->last_storage) / 2.0) /
-                    (cell->channel->class2->width * cell->channel->length);
-      if (water_depth < 0.001)
-        max_evaporation = cell->channel->storage;
-      else
-        max_evaporation = cell->channel->storage * (cell->length / cell->channel->length);
-      if (max_evaporation > MaxEvapCap)
-        max_evaporation = MaxEvapCap;
-      if (max_evaporation > cell->avail_water)
-        max_evaporation = cell->avail_water;
-      
-      if (evaporation > max_evaporation)
-        evaporation = max_evaporation;
-      if (evaporation < 0.0)
-        evaporation = 0.0;
-      
-      cell->avail_water -= evaporation;
-      cell->channel->evaporation += evaporation;
-      cell->channel->storage -= evaporation;
-      cell_evaporation += evaporation;
-      
-      /* Keep track of remaining total grid cell EPot */
-      MaxEvapCap -= evaporation;
-      if (MaxEvapCap < 0.0)
-        MaxEvapCap = 0.0;
-    }
+    
+    cell->evaporation = EPot * cell->cut_width * cell->length;
+    
+    if (cell->evaporation > MaxEvapCap)
+      cell->evaporation = MaxEvapCap;
+    if (cell->evaporation < 0.0)
+      cell->evaporation = 0.0;
+    
+    /* Keep track of remaining total grid cell EPot */
+    MaxEvapCap -= cell->evaporation;
+    if (MaxEvapCap < 0.0)
+      MaxEvapCap = 0.0;
+    
     cell = cell->next;
   }
-  return cell_evaporation;
+}
+
+
+/* -------------------------------------------------------------
+ channel_grid_evaporation
+ This function returns the sum of all ACTUAL evaporation
+ after the updated routing method enforces constraints on
+ the maximum amount of water available from inflow and storage.
+ ------------------------------------------------------------- */
+float channel_grid_evaporation(ChannelMapPtr ** map, int col, int row)
+{
+  ChannelMapPtr cell = map[col][row];
+  float tot_evap = 0.0; /* From all channel segments in cell */
+  
+  while (cell != NULL) {
+    
+    if (cell->channel->remaining_evap > 0.0){
+      
+      if (cell->evaporation > cell->channel->remaining_evap)
+        cell->evaporation = cell->channel->remaining_evap;
+      
+      cell->channel->remaining_evap -= cell->evaporation;
+      cell->avail_water -= cell->evaporation;
+      tot_evap += cell->evaporation;
+    } else
+      cell->evaporation = 0.0;
+    
+    cell = cell->next;
+  }
+  return tot_evap;
 }
 
 /* -------------------------------------------------------------

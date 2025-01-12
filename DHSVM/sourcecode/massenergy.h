@@ -73,9 +73,10 @@ float PondEvaporation(int Dt, float DXDY, float ChannelArea,
                       float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
                       float Evapotranspiration, float *IExcess);
 
-float ChannelEvaporation(int Dt, float DXDY, float Temp, float Slope, float Gamma,
-                         float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
-                         float Evapotranspiration, int x, int y, CHANNEL *ChannelData);
+void ChannelEvaporation(int Dt, float DXDY,
+                        float Temp, float Slope, float Gamma,
+                        float Lv, float AirDens, float Vpd, float NetRad, float LowerRa,
+                        float Evapotranspiration, int x, int y, CHANNEL *ChannelData);
 
 float ChannelSoilEvaporation(int Dt, float DXDY,
                              float Temp, float Slope, float Gamma, float Lv,

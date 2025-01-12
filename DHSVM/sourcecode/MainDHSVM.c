@@ -375,7 +375,7 @@ int main(int argc, char **argv)
 
     if (Options.HasNetwork)
       RouteChannel(&ChannelData, &Time, &Map, TopoMap, SoilMap, &Total, 
-		   &Options, Network, SType, VType, VegMap,
+		   &Options, Network, SType, VType, VegMap, EvapMap,
 		   PrecipMap, LocalMet.Tair, LocalMet.Rh, SnowMap);
 
     if (Options.Extent == BASIN)

@@ -202,7 +202,7 @@ void
 RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 	    TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
 	     OPTIONSTRUCT *Options, ROADSTRUCT **Network, SOILTABLE *SType,
-	     VEGTABLE *VType, VEGPIX **VegMap,
+	     VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap,
 	     PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap)
 {
   int k, x, y;
@@ -218,7 +218,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   float EffThickness;
   float MaxInfiltrationCap;
   int i;
-  float StreamInfiltration;
+  float StreamInfiltration, StreamEvap;
   
   SPrintDate(&(Time->Current), buffer);
   flag = IsEqualTime(&(Time->Current), &(Time->Start));
@@ -301,7 +301,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
                                                       SoilMap[y][x].FCap[Network[y][x].CutBankZone]),
                                                      Map->DX);
         
-        if (ChannelTableDepth > (max_bank_height + 0.001)) {
+        if (ChannelTableDepth > max_bank_height) {
           
           /* Find maximum amount of water that can be added to subsurface */
           /* So that water table immediately below channel just reaches bottom of lowest channel cut */
@@ -346,9 +346,14 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
         
         StreamInfiltration = channel_grid_infiltration(ChannelData->stream_map, x, y);
         StreamInfiltration /= Map->DX * Map->DY;
-        
         SoilMap[y][x].SatFlow += StreamInfiltration;
         SoilMap[y][x].ChannelInfiltration += StreamInfiltration;
+        
+        StreamEvap = channel_grid_evaporation(ChannelData->stream_map, x, y);
+        StreamEvap /= Map->DX * Map->DY;
+        VegMap[y][x].MoistureFlux += StreamEvap;
+        Evap[y][x].ETot += StreamEvap;
+        Evap[y][x].EvapChannel = StreamEvap;
     }
     }
     

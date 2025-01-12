@@ -92,6 +92,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   int i, j;
   float R;                  /* Radius of canopy gap */
   double weight = 0.0;             /* ratio of canopy gap to the grid cell area*/
+  float DryChannelEvap;
 
   /* Used in snow surface energy balance */
   float OldSnowTSurf;       /* Effective surface temperature at the end of the last timestep (C) */
@@ -437,8 +438,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   LocalVeg->MoistureFlux += LocalEvap->EvapSoil;
   LocalEvap->ETot += LocalEvap->EvapSoil;
   
-  /* Calculate open water evaporation from the stream channel */
-  /* Note that it is assumed that flowing channels are always snow-free */
+  /* Calculate open water and/or dry soil evaporation from stream channels */
   if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
     if (VType->OverStory == TRUE && VType->UnderStory == TRUE)
       NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
@@ -449,19 +449,13 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     else
       NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
     
-    LocalEvap->EvapChannel =
-      ChannelEvaporation(Dt, (DX*DY),
-                         LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-                         LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-                         LocalVeg->MoistureFlux, x, y, ChannelData);
-    
-    /* Also consider soil evaporation from dry channels if not snow-covered */
-    if (LocalSnow->HasSnow != TRUE)
-      LocalEvap->EvapSoil +=
+    /* Calculate soil evaporation from dry channels if not snow-covered */
+    if (LocalSnow->HasSnow != TRUE) {
+      DryChannelEvap =
         ChannelSoilEvaporation(Dt, (DX*DY),
                                LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
                                LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
-                               (LocalVeg->MoistureFlux + LocalEvap->EvapChannel),
+                               LocalVeg->MoistureFlux,
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
                                SType->Press, SType->PoreDist,
                                ((SType->NLayers == LocalNetwork->CutBankZone) ?
@@ -469,12 +463,21 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
                                   VType->RootDepth[LocalNetwork->CutBankZone]),
                                LocalSoil->Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
+      LocalEvap->EvapSoil += DryChannelEvap;
+      LocalVeg->MoistureFlux += DryChannelEvap;
+      LocalEvap->ETot += DryChannelEvap;
+    }
+    
+    /* Calculate amount of potential evaporation from flowing channels
+       Note that actual subtraction and water balance is handled during routing
+       Note that it is assumed that flowing channels are always snow-free */
+    ChannelEvaporation(Dt, (DX*DY),
+                       LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
+                       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                       LocalVeg->MoistureFlux, x, y, ChannelData);
   }
   else
     LocalEvap->EvapChannel = 0.0;
-  
-  LocalVeg->MoistureFlux += LocalEvap->EvapChannel;
-  LocalEvap->ETot += LocalEvap->EvapChannel;
   
   /* with canopy gaps */
   if (LocalVeg->Gapping > 0.0) {
