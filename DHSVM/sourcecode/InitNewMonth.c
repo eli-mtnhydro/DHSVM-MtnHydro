@@ -39,7 +39,7 @@
    (diffuse and direct beam), and potentially a new LAI value.
  *****************************************************************************/
 void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
-  TOPOPIX **TopoMap, float **PrismMap, unsigned char ***ShadowMap, 
+  TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase, unsigned char ***ShadowMap, 
   INPUTFILES *InFiles, int NVegs, VEGTABLE *VType, int NStats,
   METLOCATION *Stat, char *Path, VEGPIX ***VegMap)
 {
@@ -85,6 +85,21 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
     else ReportError((char *)Routine, 57);
 
     free(Array);
+    
+    /* Re-weight snow pattern with fractional amount of current precip pattern */
+    if (Options->SnowPattern == TRUE) {
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          SnowPatternMap[y][x] = (SnowPatternMapBase[y][x] * SNOWPAT_WEIGHT) +
+                                 (PrismMap[y][x] * (1.0 - SNOWPAT_WEIGHT));
+        }
+      }
+      for (i = 0; i < NStats; i++) {
+        Stat[i].SnowPattern = (Stat[i].SnowPatternBase * SNOWPAT_WEIGHT) +
+                              (Stat[i].PrismPrecip[Time->Current.Month - 1] * (1.0 - SNOWPAT_WEIGHT));
+      }
+    } /* End snow pattern re-weighting */
+    
   }
 
   if (Options->Shading == TRUE) {

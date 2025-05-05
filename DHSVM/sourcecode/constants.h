@@ -80,6 +80,7 @@ extern float MIN_RAIN_TEMP;				/* minimum temperature at which rain can occur (C
 extern unsigned char OUTSIDEBASIN;		/* Mask value indicating outside the basin */
 extern float PRECIPLAPSE;				/* Precipitation lapse rate in m/timestep / m */
 extern float MINELEV;
+extern float SNOWPAT_WEIGHT; /* Fractional weight between snow pattern and precip pattern for snowfall */
 extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
 extern float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
 extern float LAPSE_RATE_BIAS; /* Additional lapse rate relative to LAPSE_BIAS_ELEV (C/m) */

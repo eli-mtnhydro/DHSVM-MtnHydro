@@ -193,7 +193,8 @@ typedef struct {
   COORD Loc;					        /* Station locations */
   float Elev;					        /* Station elevations */
   float PrismPrecip[12];		  /* MonthlyPrism Precip for each station if outside=TRUE */
-  float SnowPattern;		      /* Snow pattern average for each station */
+  float SnowPattern;		      /* Snow pattern average for each station - after re-weighting with precip pattern */
+  float SnowPatternBase;		  /* Snow pattern average for each station */
   uchar IsWindModelLocation;	/* Only used in case the wind model option is
                                  specified.  In that case this field is TRUE
                                  for one (and only one) station, and FALSE for all others */

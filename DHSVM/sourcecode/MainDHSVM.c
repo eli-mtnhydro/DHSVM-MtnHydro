@@ -36,7 +36,7 @@
 /******************************************************************************/
 
 /* global strings */
-char *version = "Version X.1.1";        /* store version string */
+char *version = "Version X.1.2";        /* store version string */
 char commandline[BUFSIZE + 1] = "";		/* store command line */
 char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */
@@ -50,6 +50,7 @@ int main(int argc, char **argv)
   float **PrecipLapseMap = NULL;
   float **PrismMap = NULL;
   float **SnowPatternMap = NULL;
+  float **SnowPatternMapBase = NULL;
   unsigned char ***ShadowMap = NULL;
   float **SkyViewMap = NULL;
   float ***WindModel = NULL;
@@ -207,7 +208,7 @@ int main(int argc, char **argv)
   }
 
   InitMetMaps(Input, Time.NDaySteps, &Map, &Radar, &Options, InFiles.WindMapPath,
-	      InFiles.PrecipLapseFile, &PrecipLapseMap, &PrismMap, &SnowPatternMap,
+	      InFiles.PrecipLapseFile, &PrecipLapseMap, &PrismMap, &SnowPatternMap, &SnowPatternMapBase,
 	      &ShadowMap, &SkyViewMap, &EvapMap, &PrecipMap, &PptMultiplierMap,
 	      &RadarMap, &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap,
 	      &MM5Input, &WindModel);
@@ -232,7 +233,7 @@ int main(int argc, char **argv)
 		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
 		 TopoMap, Network, &HydrographInfo, Hydrograph, &ChannelData);
 
-  InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, ShadowMap,
+  InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
 	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap);
 
   InitNewDay(Time.Current.JDay, &SolarGeo);
@@ -284,7 +285,7 @@ int main(int argc, char **argv)
       InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
 
     if (IsNewMonth(&(Time.Current), Time.Dt))
-      InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, ShadowMap,
+      InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
 		   &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap);
 
     if (IsNewDay(Time.DayStep)) {
@@ -330,19 +331,19 @@ int main(int argc, char **argv)
 			       0.0, SolarGeo.SunMax,
 			       SolarGeo.SineSolarAltitude);
 
-		  /* get surface tempeature of each soil layer */
+		  /* get surface temperature of each soil layer */
 		  for (i = 0; i < Soil.MaxLayers; i++) {
 	        if (Options.HeatFlux == TRUE) {
 	          if (Options.MM5 == TRUE)
 		        SoilMap[y][x].Temp[i] =
 				MM5Input[shade_offset + i + N_MM5_MAPS][y][x];
 
-              /* read tempeature of each soil layer from met station input */
+              /* read temperature of each soil layer from met station input */
 			  else
 		        SoilMap[y][x].Temp[i] = Stat[0].Data.Tsoil[i];
 			}
             /* if heat flux option is turned off, soil temperature of all 3 layers 
-            is taken equal to air tempeature */
+            is taken equal to air temperature */
 	        else
 	          SoilMap[y][x].Temp[i] = LocalMet.Tair;
 		  }

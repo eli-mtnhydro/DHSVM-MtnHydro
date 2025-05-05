@@ -147,7 +147,7 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map, TOPOPIX **T
 
 void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, MAPSIZE *Radar,
 		 OPTIONSTRUCT *Options, char *WindPath, char *PrecipLapsePath,
-		 float ***PrecipLapseMap, float ***PrismMap, float ***SnowPatternMap,
+		 float ***PrecipLapseMap, float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
 		 unsigned char ****ShadowMap, float ***SkyViewMap,
 		 EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
 		 RADARPIX ***RadarMap, PIXRAD ***RadMap, SOILPIX **SoilMap, 
@@ -182,7 +182,7 @@ void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
 void InitNewDay(int DayOfYear, SOLARGEOMETRY *SolarGeo);
 
 void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
-		  TOPOPIX **TopoMap, float **PrismMap, unsigned char ***ShadowMap, 
+		  TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase, unsigned char ***ShadowMap, 
 		  INPUTFILES *InFiles, int NVegs, VEGTABLE *VType, int NStats,
 		  METLOCATION *Stat, char *Path, VEGPIX ***VegMap);
 
@@ -211,7 +211,8 @@ void InitPrecipLapseMap(char *PrecipLapseFile, MAPSIZE *Map,
 
 void InitPrismMap(int NY, int NX, float ***PrismMap);
 
-void InitSnowPatternMap(float ***SnowPatternMap, MAPSIZE *Map, OPTIONSTRUCT *Options);
+void InitSnowPatternMap(float ***SnowPatternMap, float ***SnowPatternMapBase,
+                        MAPSIZE *Map, OPTIONSTRUCT *Options);
 
 void InitShadeMap(OPTIONSTRUCT *Options, int NDaySteps, MAPSIZE *Map,
 		  unsigned char ****ShadowMap, float ***SkyViewMap);

@@ -225,7 +225,7 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
     for (i = 0; i < *NStats; i++) {
       sprintf(tempfilename, "%s.snowpattern", (*Stat)[i].MetFile.FileName);
       OpenFile(&SnowPatternStatFile, tempfilename, "rt", FALSE);
-      if (fscanf(SnowPatternStatFile, "%f ", &(*Stat)[i].SnowPattern) == EOF)
+      if (fscanf(SnowPatternStatFile, "%f ", &(*Stat)[i].SnowPatternBase) == EOF)
         ReportError(tempfilename, 2);
       fclose(SnowPatternStatFile);
     }
