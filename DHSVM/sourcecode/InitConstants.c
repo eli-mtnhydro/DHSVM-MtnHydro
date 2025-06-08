@@ -133,10 +133,17 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SNOWSLIDE PARAMETER1", "", "" },
     {"CONSTANTS", "SNOWSLIDE PARAMETER2", "", "" },
     {"CONSTANTS", "GAP WIND ADJ FACTOR", "", "" },
-    {"CONSTANTS", "SNOW PATTERN WEIGHT", "", "" },
-    {"CONSTANTS", "TEMPERATURE OFFSET", "", "" },
-    {"CONSTANTS", "LAPSE RATE BIAS", "", "" },
-    {"CONSTANTS", "LAPSE RATE BIAS ELEVATION", "", "" },
+    {"CONSTANTS", "SNOW PATTERN WEIGHT", "", "1.0" },
+    {"CONSTANTS", "TEMPERATURE OFFSET", "", "0.0" },
+    {"CONSTANTS", "LAPSE RATE BIAS", "", "0.0" },
+    {"CONSTANTS", "LAPSE RATE BIAS ELEVATION", "", "0.0" },
+    {"CONSTANTS", "SOIL DEPTH ADJUST", "", "0.0" },
+    {"CONSTANTS", "SOIL CONDUCTIVITY ADJUST", "", "1.0" },
+    {"CONSTANTS", "SOIL EXP DEC ADJUST", "", "1.0" },
+    {"CONSTANTS", "SOIL POROSITY ADJUST", "", "1.0" },
+    {"CONSTANTS", "SOIL FIELD CAP ADJUST", "", "1.0" },
+    {"CONSTANTS", "VEG LAI ADJUST", "", "1.0" },
+    {"CONSTANTS", "VEG TREE COVER ADJUST", "", "1.0" },
     {NULL, NULL, "", NULL}
   };
 
@@ -651,13 +658,31 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   
   if (!CopyFloat(&TEMPERATURE_OFFSET, StrEnv[temperature_offset].VarStr, 1))
     ReportError(StrEnv[temperature_offset].KeyName, 51);
-
+  
   if (!CopyFloat(&LAPSE_RATE_BIAS, StrEnv[lapse_bias].VarStr, 1))
     ReportError(StrEnv[lapse_bias].KeyName, 51);
   
-  if (!CopyFloat(&LAPSE_BIAS_ELEV, StrEnv[lapse_elev].VarStr, 1))
-    ReportError(StrEnv[lapse_elev].KeyName, 51);
-
+  if (!CopyFloat(&SOIL_DEPTH_ADJ, StrEnv[soil_depth_adj].VarStr, 1))
+    ReportError(StrEnv[soil_depth_adj].KeyName, 51);
+  
+  if (!CopyFloat(&SOIL_KSAT_ADJ, StrEnv[soil_ksat_adj].VarStr, 1))
+    ReportError(StrEnv[soil_ksat_adj].KeyName, 51);
+  
+  if (!CopyFloat(&SOIL_EXPDEC_ADJ, StrEnv[soil_expdec_adj].VarStr, 1))
+    ReportError(StrEnv[soil_expdec_adj].KeyName, 51);
+  
+  if (!CopyFloat(&SOIL_POROSITY_ADJ, StrEnv[soil_porosity_adj].VarStr, 1))
+    ReportError(StrEnv[soil_porosity_adj].KeyName, 51);
+  
+  if (!CopyFloat(&SOIL_FIELDCAP_ADJ, StrEnv[soil_fieldcap_adj].VarStr, 1))
+    ReportError(StrEnv[soil_fieldcap_adj].KeyName, 51);
+  
+  if (!CopyFloat(&VEG_LAI_ADJ, StrEnv[veg_lai_adj].VarStr, 1))
+    ReportError(StrEnv[veg_lai_adj].KeyName, 51);
+  
+  if (!CopyFloat(&VEG_FC_ADJ, StrEnv[veg_fc_adj].VarStr, 1))
+    ReportError(StrEnv[veg_fc_adj].KeyName, 51);
+  
   /* maximum depth of the surface layer in snow water equivalent (m) */
   if (!CopyFloat(&MAX_SURFACE_SWE,
     StrEnv[max_swe].VarStr, 1))

@@ -279,7 +279,14 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     }
   }
   else ReportError((char *)Routine, 57);
-
+  
+  /* Apply calibration parameter adjustment */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      (*SoilMap)[y][x].Depth += SOIL_DEPTH_ADJ;
+    }
+  }
+  
   /******************************************************************/
 
   /* Read the spatial Lateral Conductivity map */
@@ -329,6 +336,13 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
     }
   }
   
+  /* Apply calibration parameter adjustment */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      (*SoilMap)[y][x].KsLat *= SOIL_KSAT_ADJ;
+    }
+  }
+  
   /******************************************************************/
   
   /* Read the spatial exponential decrease map */
@@ -369,6 +383,13 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
       for (x = 0; x < Map->NX; x++, i++) {
         (*SoilMap)[y][x].KsLatExp = SType[(*SoilMap)[y][x].Soil - 1].KsLatExp;
       }
+    }
+  }
+  
+  /* Apply calibration parameter adjustment */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      (*SoilMap)[y][x].KsLatExp *= SOIL_EXPDEC_ADJ;
     }
   }
   
@@ -492,7 +513,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
         SizeOfNumberType(NumberType))))
         ReportError((char *)Routine, 1);
       flag = Read2DMatrix(StrEnv[fc_file].VarStr, FC, NumberType, Map, NSet, VarName, 0);
-
+      
       if ((Options->FileFormat == NETCDF && flag == 0)
         || (Options->FileFormat == BIN))
       {
@@ -502,12 +523,12 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
               sidx = (*SoilMap)[y][x].Soil - 1;
               if (NSet < Soil->NLayers[sidx]) {
                 if (FC[i] > 0.0)
-                  (*SoilMap)[y][x].FCap[NSet] = FC[i];
+                  (*SoilMap)[y][x].FCap[NSet] = FC[i] * SOIL_FIELDCAP_ADJ;
                 else
-                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet];
-                /*Make sure FCap larger than WP*/
-                if (((*SoilMap)[y][x].FCap[NSet] < SType[sidx].WP[NSet]))
-                  ReportError(SType[sidx].Desc, 11);
+                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet] * SOIL_FIELDCAP_ADJ;
+                /* Make sure FCap is larger than WP */
+                if ((*SoilMap)[y][x].FCap[NSet] < (SType[sidx].WP[NSet] + 0.01))
+                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].WP[NSet] + 0.01;
               }
             }            
           }
@@ -519,11 +540,12 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
               sidx = (*SoilMap)[y][x].Soil - 1;
               if (NSet < Soil->NLayers[sidx]) {
                 if (FC[i] > 0.0)
-                  (*SoilMap)[y][x].FCap[NSet] = FC[i];
+                  (*SoilMap)[y][x].FCap[NSet] = FC[i] * SOIL_FIELDCAP_ADJ;
                 else
-                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet];
-                if (((*SoilMap)[y][x].FCap[NSet] <SType[sidx].WP[NSet]))
-                  ReportError(SType[sidx].Desc, 11);
+                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet] * SOIL_FIELDCAP_ADJ;
+                /* Make sure FCap is larger than WP */
+                if ((*SoilMap)[y][x].FCap[NSet] < (SType[sidx].WP[NSet] + 0.01))
+                  (*SoilMap)[y][x].FCap[NSet] = SType[sidx].WP[NSet] + 0.01;
               }
             }
           }
@@ -542,9 +564,10 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
           /* FIXME: this assumes a valid soil type index */
           sidx = (*SoilMap)[y][x].Soil - 1;
           for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
-            (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet];
-            if (((*SoilMap)[y][x].FCap[NSet] <SType[sidx].WP[NSet]))
-              ReportError(SType[sidx].Desc, 11);
+            (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet] * SOIL_FIELDCAP_ADJ;
+            /* Make sure FCap is larger than WP */
+            if ((*SoilMap)[y][x].FCap[NSet] < (SType[sidx].WP[NSet] + 0.01))
+              (*SoilMap)[y][x].FCap[NSet] = SType[sidx].WP[NSet] + 0.01;
           }
         }
       }
@@ -597,13 +620,12 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
               sidx = (*SoilMap)[y][x].Soil - 1;
               if (NSet < Soil->NLayers[sidx]) {
                 if (Porosity[i] > 0.0)
-                  (*SoilMap)[y][x].Porosity[NSet] = Porosity[i];
+                  (*SoilMap)[y][x].Porosity[NSet] = Porosity[i] * SOIL_POROSITY_ADJ;
                 else
-                  (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet];
-                /*Make sure porosity larger than FCap and WP*/
-                if (((*SoilMap)[y][x].Porosity[NSet] < (*SoilMap)[y][x].FCap[NSet])
-                    || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
-                  ReportError(SType[sidx].Desc, 11);
+                  (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet] * SOIL_POROSITY_ADJ;
+                /* Make sure porosity is larger than FCap, which is already larger than WP */
+                if ((*SoilMap)[y][x].Porosity[NSet] < ((*SoilMap)[y][x].FCap[NSet] + 0.01))
+                  (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].FCap[NSet] + 0.01;
               }
             }            
           }
@@ -615,13 +637,12 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
               sidx = (*SoilMap)[y][x].Soil - 1;
               if (NSet < Soil->NLayers[sidx]) {
                 if (Porosity[i] > 0.0)
-                  (*SoilMap)[y][x].Porosity[NSet] = Porosity[i];
+                  (*SoilMap)[y][x].Porosity[NSet] = Porosity[i] * SOIL_POROSITY_ADJ;
                 else
-                  (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet];
-                /*Make sure porosity larger than FCap and WP*/
-                if (((*SoilMap)[y][x].Porosity[NSet] < (*SoilMap)[y][x].FCap[NSet])
-                    || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
-                  ReportError(SType[sidx].Desc, 11);
+                  (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet] * SOIL_POROSITY_ADJ;
+                /* Make sure porosity is larger than FCap, which is already larger than WP */
+                if ((*SoilMap)[y][x].Porosity[NSet] < ((*SoilMap)[y][x].FCap[NSet] + 0.01))
+                  (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].FCap[NSet] + 0.01;
               }
             }
           }
@@ -640,11 +661,10 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
           /* FIXME: this assumes a valid soil type index */
           sidx = (*SoilMap)[y][x].Soil - 1;
           for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
-            (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet];
-            /*Make sure porosity larger than FCap and WP*/
-            if (((*SoilMap)[y][x].Porosity[NSet] < (*SoilMap)[y][x].FCap[NSet])
-                || ((*SoilMap)[y][x].Porosity[NSet] < SType[sidx].WP[NSet]))
-              ReportError(SType[sidx].Desc, 11);
+            (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet] * SOIL_POROSITY_ADJ;
+            /* Make sure porosity is larger than FCap, which is already larger than WP */
+            if ((*SoilMap)[y][x].Porosity[NSet] < ((*SoilMap)[y][x].FCap[NSet] + 0.01))
+              (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].FCap[NSet] + 0.01;
           }
         }
       }
@@ -815,7 +835,7 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
           /*Allocate Memory*/
           if (!((*VegMap)[y][x].Fract = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
             ReportError((char *)Routine, 1);
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
             if (FC[i] > 0.0)
               (*VegMap)[y][x].Fract[0] = FC[i];
             else
@@ -839,7 +859,7 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
           if (!((*VegMap)[y][x].Fract = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
             ReportError((char *)Routine, 1);
 
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {  
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {  
             if (FC[i] > 0.0)
               (*VegMap)[y][x].Fract[0] = FC[i];
             else
@@ -850,7 +870,7 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
               (*VegMap)[y][x].Fract[1] = 1.0;
           }
           else{
-            if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
+            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
               (*VegMap)[y][x].Fract[0] = 1.0;	   
           }
         }
@@ -880,11 +900,23 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
         }
       }
   }
-
-  /*Calculate Vf */
+  
+  /* Apply calibration parameter adjustment - overstory only */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+        (*VegMap)[y][x].Fract[0] *= VEG_FC_ADJ;
+        /* Limit to maximum of 100% cover */
+        if ((*VegMap)[y][x].Fract[0] > 1.0)
+          (*VegMap)[y][x].Fract[0] = 1.0;
+      }
+    }
+  }
+  
+  /* Calculate Vf */
   if (Options->ImprovRadiation == TRUE) {
-    for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
+    for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
           if ( VType[(*VegMap)[y][x].Veg - 1].NVegLayers >0) 
             (*VegMap)[y][x].Vf = (*VegMap)[y][x].Fract[0] * VType[(*VegMap)[y][x].Veg - 1].VfAdjust;
         }
@@ -926,17 +958,17 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
     {
       for (y = 0, i = 0; y < Map->NY; y++) {
         for (x = 0; x < Map->NX; x++, i++) {
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
            if (LAIMonthly[i] > 0.0)
               (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
             else
               (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
            
-            if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory  == TRUE )
+            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory  == TRUE )
               (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
           }
           else{
-            if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
+            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
               (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
           }
         }
@@ -946,12 +978,11 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
       for (y = Map->NY - 1, i = 0; y >= 0; y--) {
         for (x = 0; x < Map->NX; x++, i++) {
         
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
             if (LAIMonthly[i] > 0.0)
               (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
             else
               (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-            /*If understory exists, set default understory FC=1.0*/
             if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
               (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
           }
@@ -986,14 +1017,14 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
       for (y = 0, i = 0; y < Map->NY; y++) {
           for (x = 0; x < Map->NX; x++, i++) {
 
-            if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {        
+            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {        
               (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
               if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE ){
                 (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet]; 
               }
             }
             else{
-              if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE){
+              if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE){
                 (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
               }
             }
@@ -1001,6 +1032,18 @@ void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX ***
         }
     }
   }
+  
+  /* Apply calibration parameter adjustment - overstory only */
+  for (NSet = 0; NSet < 12; NSet++) {
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+          (*VegMap)[y][x].LAIMonthly[0][NSet] *= VEG_LAI_ADJ;
+        }
+      }
+    }
+  }
+  
   /*Need to be careful here about the MaxInt*/
   for (y = 0; y < Map->NY; y++) {
 		for (x = 0; x < Map->NX; x++) {

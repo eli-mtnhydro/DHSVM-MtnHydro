@@ -138,6 +138,7 @@ enum KEYS {
   temp_lapse_rate, precip_lapse_rate, 
   max_swe, snowslide_parameter1,
   snowslide_parameter2, gapwind_adj, snowpattern_weight, temperature_offset, lapse_bias, lapse_elev,
+  soil_depth_adj, soil_ksat_adj, soil_expdec_adj, soil_porosity_adj, soil_fieldcap_adj, veg_lai_adj, veg_fc_adj,
   /* Constants that can vary spatially */
   rain_threshold = 0,
   snow_threshold,

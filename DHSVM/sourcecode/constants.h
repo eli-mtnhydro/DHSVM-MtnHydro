@@ -85,6 +85,13 @@ extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
 extern float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
 extern float LAPSE_RATE_BIAS; /* Additional lapse rate relative to LAPSE_BIAS_ELEV (C/m) */
 extern float LAPSE_BIAS_ELEV; /* Elevation where temperature bias is zero (m) */
+extern float SOIL_DEPTH_ADJ; /* Calibration param - additive */
+extern float SOIL_KSAT_ADJ; /* Calibration param - multiplicative */
+extern float SOIL_EXPDEC_ADJ; /* Calibration param - multiplicative */
+extern float SOIL_POROSITY_ADJ; /* Calibration param - multiplicative */
+extern float SOIL_FIELDCAP_ADJ; /* Calibration param - multiplicative */
+extern float VEG_LAI_ADJ; /* Calibration param - multiplicative */
+extern float VEG_FC_ADJ; /* Calibration param - multiplicative */
 extern int NWINDMAPS;					/* Number of wind maps in case the wind source is MODEL */
 extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */

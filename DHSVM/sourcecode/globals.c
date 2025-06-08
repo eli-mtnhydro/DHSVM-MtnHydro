@@ -38,6 +38,13 @@ float TEMPLAPSE;		/* Temperature lapse rate in C/m */
 float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
 float LAPSE_RATE_BIAS; /* Additional lapse rate relative to LAPSE_BIAS_ELEV (C/m) */
 float LAPSE_BIAS_ELEV; /* Elevation where temperature bias is zero (m) */
+float SOIL_DEPTH_ADJ; /* Calibration param - additive */
+float SOIL_KSAT_ADJ; /* Calibration param - multiplicative */
+float SOIL_EXPDEC_ADJ; /* Calibration param - multiplicative */
+float SOIL_POROSITY_ADJ; /* Calibration param - multiplicative */
+float SOIL_FIELDCAP_ADJ; /* Calibration param - multiplicative */
+float VEG_LAI_ADJ; /* Calibration param - multiplicative */
+float VEG_FC_ADJ; /* Calibration param - multiplicative */
 float Z0_GROUND;		/* Roughness length for bare soil (m) */
 float Z0_SNOW;			/* Roughness length for snow (m) */
 float Zref;			    /* Reference height (m) */
