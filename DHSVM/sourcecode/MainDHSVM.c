@@ -36,7 +36,7 @@
 /******************************************************************************/
 
 /* global strings */
-char *version = "Version X.1.2";        /* store version string */
+char *version = "Version X.1.3";        /* store version string */
 char commandline[BUFSIZE + 1] = "";		/* store command line */
 char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */

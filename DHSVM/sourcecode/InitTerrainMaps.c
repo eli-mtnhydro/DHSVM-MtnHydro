@@ -190,7 +190,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   int flag;
   int NSet, VSet;
   int sidx;
-  float LayerDepth, Transmissivity, KsVertCalc;
+  float TotalRootDepth, LayerDepth, Transmissivity, KsVertCalc;
   
   STRINIENTRY StrEnv[] = {
     {"SOILS", "SOIL MAP FILE", "", ""},
@@ -284,6 +284,21 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       (*SoilMap)[y][x].Depth += SOIL_DEPTH_ADJ;
+    }
+  }
+  
+  /* Ensure soil is at least 1 cm deeper than rooting depth */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN((TopoMap)[y][x].Mask)) {
+        TotalRootDepth = 0.0;
+        sidx = (*SoilMap)[y][x].Soil - 1;
+        for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
+          TotalRootDepth += VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet];
+        }
+        if ((*SoilMap)[y][x].Depth < (TotalRootDepth + 0.01))
+          (*SoilMap)[y][x].Depth = (TotalRootDepth + 0.01);
+      }
     }
   }
   
@@ -389,6 +404,10 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   /* Apply calibration parameter adjustment */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
+      if ((*SoilMap)[y][x].KsLatExp < 0.001 &&
+          SOIL_EXPDEC_ADJ != 1.0) {
+        (*SoilMap)[y][x].KsLatExp = 0.001;
+      }
       (*SoilMap)[y][x].KsLatExp *= SOIL_EXPDEC_ADJ;
     }
   }
