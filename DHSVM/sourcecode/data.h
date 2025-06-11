@@ -260,6 +260,9 @@ typedef struct {
   int SnowStats;        /* if TRUE dumps snow statistics for each water year */
   int DynamicVeg;       /* if TRUE update vegetation maps at user defined dates*/
   int DumpExtraStream;  /* Whether to save extra stream data when dumping model state */
+  int GW_SPINUP;        /* Whether to spinup groundwater state prior to launching run */
+  int GW_SPINUP_YRS;    /* Number of years in groundwater spinup */
+  float GW_SPINUP_RECHARGE; /* Yearly groundwater recharge rate during spinup (m/yr) */
   char PrismDataPath[BUFSIZE + 1];
   char PrismDataExt[BUFSIZE + 1];
   char SnowPatternDataPath[BUFSIZE + 1];

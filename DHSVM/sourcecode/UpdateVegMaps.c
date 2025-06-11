@@ -102,7 +102,7 @@ uchar IsVegDate(DATE *Current, DYNAVEG *DVeg){
 
   Comments     :
 *****************************************************************************/
-void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map,
+void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 LAYER *Veg, VEGPIX *** VegMap, VEGTABLE *VType, DYNAVEG *DVeg)
 {  
   const char *Routine = "UpdateVegMap";

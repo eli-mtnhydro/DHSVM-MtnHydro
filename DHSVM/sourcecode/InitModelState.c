@@ -26,6 +26,7 @@
 #include "soilmoisture.h"
 #include "varid.h"
 #include "channel_grid.h"
+#include "Calendar.h"
 
  /*****************************************************************************
    Function name: InitModelState()
@@ -47,7 +48,8 @@
      can be specified in the file with dump information.
 
  *****************************************************************************/
-void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Options, PRECIPPIX **PrecipMap,
+void InitModelState(DATE *Start, int StepsPerDay, int Dt,
+  MAPSIZE *Map, OPTIONSTRUCT *Options, PRECIPPIX **PrecipMap,
   SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
   VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path, 
   TOPOPIX **TopoMap, ROADSTRUCT **Network, UNITHYDRINFO *HydrographInfo,
@@ -434,6 +436,60 @@ void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Op
   if (remove > 0.0) {
     printf("WARNING:excess water in soil profile is %f m^3 \n", remove);
     printf("Expect possible large flood wave during first timesteps \n\n");
+  }
+  
+  /* Spinup groundwater state (optional, not included in mass balance) */
+  if (Options->GW_SPINUP == TRUE) {
+    
+    Options->GW_SPINUP_RECHARGE /= DAYPYEAR; /* Convert m/yr to m/day */
+    
+    float **SubFlowGrad;	        /* Magnitude of subsurface flow gradient slope * width */
+    unsigned char ***SubDir;      /* Fraction of flux moving in each direction*/ 
+    unsigned int **SubTotalDir;	/* Sum of Dir array */
+    
+    if (!(SubFlowGrad = (float **)calloc(Map->NY, sizeof(float *))))
+      ReportError((char *) Routine, 1);
+    for(i=0; i<Map->NY; i++) {
+      if (!(SubFlowGrad[i] = (float *)calloc(Map->NX, sizeof(float))))
+        ReportError((char *) Routine, 1);
+    }
+    
+    if (!((SubDir) = (unsigned char ***) calloc(Map->NY, sizeof(unsigned char **))))
+      ReportError((char *) Routine, 1);
+    for (i=0; i<Map->NY; i++) {
+      if (!((SubDir)[i] = (unsigned char **) calloc(Map->NX, sizeof(unsigned char*))))
+  	  ReportError((char *) Routine, 1);
+  	for (j=0; j<Map->NX; j++) {
+        if (!(SubDir[i][j] = (unsigned char *)calloc(NDIRS, sizeof(unsigned char ))))
+  		ReportError((char *) Routine, 1);
+      }
+    }
+  
+    if (!(SubTotalDir = (unsigned int **)calloc(Map->NY, sizeof(unsigned int *))))
+      ReportError((char *) Routine, 1);
+    for (i=0; i<Map->NY; i++) {
+      if (!(SubTotalDir[i] = (unsigned int *)calloc(Map->NX, sizeof(unsigned int))))
+        ReportError((char *) Routine, 1);
+    }
+    
+    for (i = 0; i < Options->GW_SPINUP_YRS; i++) {
+      printf("Groundwater spinup: year %d\n",i+1);
+      for (j = 0; j < DAYPYEAR; j++) {
+        RouteSubSurfaceSpinup(Dt * StepsPerDay, Map, TopoMap, VType, VegMap, Network, SType, SoilMap, Options,
+                              SubFlowGrad, SubDir, SubTotalDir);
+      }
+    }
+    printf("Groundwater spinup complete\n\n");
+    
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        SoilMap[y][x].SatFlow = 0.0;
+        if (INBASIN(TopoMap[y][x].Mask)) {
+          if (Options->HasNetwork == TRUE)
+            channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
+        }
+      }
+    }
   }
   
   /* If the unit hydrograph is used for flow routing, initialize the unit hydrograph array */

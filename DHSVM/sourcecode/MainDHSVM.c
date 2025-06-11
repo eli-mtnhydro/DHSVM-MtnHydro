@@ -217,7 +217,10 @@ int main(int argc, char **argv)
 
   InitDump(Input, &Options, &Map, Soil.MaxLayers, Veg.MaxLayers, Time.Dt,
 	   TopoMap, &Dump, &NGraphics, &which_graphics);
-    
+  
+  /* Done with initialization, delete the list with input strings */
+  DeleteList(Input);
+  
 #ifndef SNOW_ONLY
   if (Options.HasNetwork == TRUE) {
     InitChannelDump(&Options, &ChannelData, Dump.Path);
@@ -229,7 +232,7 @@ int main(int argc, char **argv)
 
   InitAggregated(&Options, Veg.MaxLayers, Soil.MaxLayers, &Total);
 
-  InitModelState(&(Time.Start), Time.NDaySteps, &Map, &Options, PrecipMap, SnowMap, SoilMap,
+  InitModelState(&(Time.Start), Time.NDaySteps, Time.Dt, &Map, &Options, PrecipMap, SnowMap, SoilMap,
 		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
 		 TopoMap, Network, &HydrographInfo, Hydrograph, &ChannelData);
 
@@ -246,10 +249,7 @@ int main(int argc, char **argv)
   shade_offset = FALSE;
   if (Options.Shading == TRUE)
     shade_offset = TRUE;
-
-  /* Done with initialization, delete the list with input strings */
-  DeleteList(Input);
-
+  
   /* setup for mass balance calculations */
   Aggregate(&Map, &Options, TopoMap, &Soil, &Veg, VegMap, EvapMap, PrecipMap,
 	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, &roadarea, Time.Dt, Time.NDaySteps);
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
     
     if (Options.DynamicVeg){
       if (IsVegDate(&(Time.Current), &DVeg))        
-        UpdateVegMap(&(Time.Current), &Options, Input, &Map, &Veg, &VegMap, VType, &DVeg);
+        UpdateVegMap(&(Time.Current), &Options, &Map, &Veg, &VegMap, VType, &DVeg);
     }
 
     if (IsNewWaterYear(&(Time.Current)))
@@ -371,8 +371,7 @@ int main(int argc, char **argv)
  #ifndef SNOW_ONLY
     
     RouteSubSurface(Time.Dt, &Map, TopoMap, VType, VegMap, Network,
-		    SType, SoilMap, &ChannelData, &Time, &Options, Dump.Path,
-		    MaxStreamID, SnowMap);
+		    SType, SoilMap, &ChannelData, &Time, &Options, Dump.Path);
 
     if (Options.HasNetwork)
       RouteChannel(&ChannelData, &Time, &Map, TopoMap, SoilMap, &Total, 

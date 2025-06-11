@@ -104,6 +104,9 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "SNOW STATISTICS", "", "FALSE" },
     {"OPTIONS", "DYNAMIC VEGETATION", "", "FALSE" },
     {"OPTIONS", "EXTRA STREAM STATE DATA", "", "FALSE" },
+    {"OPTIONS", "GROUNDWATER SPINUP", "", "FALSE" },
+    {"OPTIONS", "GROUNDWATER SPINUP YEARS", "", "0" },
+    {"OPTIONS", "GROUNDWATER SPINUP RECHARGE", "", "0.0" },
     {"AREA", "COORDINATE SYSTEM", "", ""},
     {"AREA", "EXTREME NORTH", "", ""},
     {"AREA", "EXTREME WEST", "", ""},
@@ -435,6 +438,21 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->DumpExtraStream = FALSE;
   else
     ReportError(StrEnv[streamdata].KeyName, 51);
+  
+  /* Determine whether to spinup groundwater state before starting model run */
+  if (strncmp(StrEnv[gw_spinup].VarStr, "TRUE", 4) == 0)
+    Options->GW_SPINUP = TRUE;
+  else if (strncmp(StrEnv[gw_spinup].VarStr, "FALSE", 5) == 0)
+    Options->GW_SPINUP = FALSE;
+  else
+    ReportError(StrEnv[gw_spinup].KeyName, 51);
+  
+  if (Options->GW_SPINUP == TRUE) {
+    if (!CopyInt(&(Options->GW_SPINUP_YRS), StrEnv[gw_spinup_yrs].VarStr, 1))
+      ReportError(StrEnv[gw_spinup_yrs].KeyName, 51);
+    if (!CopyFloat(&(Options->GW_SPINUP_RECHARGE), StrEnv[gw_spinup_recharge].VarStr, 1))
+      ReportError(StrEnv[gw_spinup_recharge].KeyName, 51);
+  }
   
   /* If canopy gapping option is true, the improved radiation scheme must be true */
   if (Options->CanopyGapping == TRUE && Options->ImprovRadiation == FALSE) {

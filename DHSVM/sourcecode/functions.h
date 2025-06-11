@@ -166,7 +166,8 @@ void InitMM5(LISTPTR Input, int NSoilLayers, TIMESTRUCT *Time,
 void InitMM5Maps(int NSoilLayers, int NY, int NX, float ****MM5Input,
 		 PIXRAD ***RadMap, OPTIONSTRUCT *Options);
 
-void InitModelState(DATE *Start, int StepsPerDay, MAPSIZE *Map, OPTIONSTRUCT *Options,
+void InitModelState(DATE *Start, int StepsPerDay, int Dt,
+        MAPSIZE *Map, OPTIONSTRUCT *Options,
 		    PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
 		    SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
 		    VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path,
@@ -336,7 +337,13 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 		     ROADSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, CHANNEL *ChannelData, 
 		     TIMESTRUCT *Time, OPTIONSTRUCT *Options, 
-		     char *DumpPath, int MaxStreamID, SNOWPIX **SnowMap);
+		     char *DumpPath);
+
+void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
+                           VEGTABLE *VType, VEGPIX **VegMap,
+                           ROADSTRUCT **Network, SOILTABLE *SType,
+                           SOILPIX **SoilMap, OPTIONSTRUCT *Options,
+                           float **SubFlowGrad, unsigned char ***SubDir, unsigned int **SubTotalDir);
 
 void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
   SOILPIX ** SoilMap, OPTIONSTRUCT *Options,
@@ -371,7 +378,7 @@ void StoreModelState(char *Path, DATE *Current, MAPSIZE *Map,
 void SnowStats(DATE *Now, MAPSIZE *Map, OPTIONSTRUCT *Options, 
         TOPOPIX **TopoMap, SNOWPIX **Snow, int Dt);
 
-void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map,
+void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 LAYER *Veg, VEGPIX *** VegMap, VEGTABLE *VType, DYNAVEG *DVeg);
 
 float viscosity(float Tair, float Rh);

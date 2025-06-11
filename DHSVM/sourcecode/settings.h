@@ -124,7 +124,7 @@ enum KEYS {
   prism_data_path, prism_data_ext, snowpattern_data_path,
   shading_data_path, shading_data_ext, skyview_data_path, 
   stream_temp, canopy_shading, improv_radiation, gapping, snowslide, sepr, 
-  snowstats, dynaveg, streamdata,
+  snowstats, dynaveg, streamdata, gw_spinup, gw_spinup_yrs, gw_spinup_recharge,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
   center_longitude, time_zone_meridian, number_of_rows,

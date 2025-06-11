@@ -100,12 +100,12 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 		     ROADSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, CHANNEL *ChannelData,
 		     TIMESTRUCT *Time, OPTIONSTRUCT *Options, 
-		     char *DumpPath, int MaxStreamID, SNOWPIX **SnowMap)
+		     char *DumpPath)
 {
   const char *Routine = "RouteSubSurface";
-  int x, nx;			/* counter */
-  int y, ny;			/* counter */
-  int i, j;	        /* counters */
+  int x, nx;			/* counters */
+  int y, ny;			/* counters */
+  int i, j;	      /* counters */
   int flag;
   float BankHeight;
   float ChannelWaterLevel;
@@ -599,3 +599,125 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   fclose(fs);    
 }
 
+/*******************************************************************************
+  Simplified/condensed subsurface routing scheme used during spinup
+*******************************************************************************/
+
+void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
+		     VEGTABLE *VType, VEGPIX **VegMap,
+		     ROADSTRUCT **Network, SOILTABLE *SType,
+		     SOILPIX **SoilMap, OPTIONSTRUCT *Options,
+		     float **SubFlowGrad, unsigned char ***SubDir, unsigned int **SubTotalDir)
+{
+  int x, nx;			/* counters */
+  int y, ny;			/* counters */
+  float fract_used;
+  float OutFlow;
+  float Transmissivity;
+  float TotalAvailableWater = 0.0;
+  float ActualSatFlow;
+  int k, q;
+  
+  /* Reset the saturated subsurface flow to zero 
+     and update water table elevation */
+  for (q = (Map->NumCells - 1); q > -1;  q--) {
+    y = Map->OrderedCells[q].y;
+    x = Map->OrderedCells[q].x;
+    
+    SoilMap[y][x].IExcess = 0.0;
+    SoilMap[y][x].SatFlow = 0.0;
+    SoilMap[y][x].WaterLevel = TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
+  }
+  
+  /* Calculate flow directions and gradient */
+  if (Options->FlowGradient == WATERTABLE) {
+    for (q = (Map->NumCells - 1); q > -1;  q--)
+      HeadSlopeAspect(Map, TopoMap, SoilMap, SubFlowGrad, SubDir, SubTotalDir, Options->MultiFlowDir,
+                      Map->OrderedCells[q].x, Map->OrderedCells[q].y);
+  }
+  
+  /* Next sweep through all the grid cells (by descending elevation),
+     calculate the amount of flow in each direction,
+     and divide the flow over the surrounding pixels */
+  for (q = (Map->NumCells - 1); q > -1;  q--) {
+    y = Map->OrderedCells[q].y;
+    x = Map->OrderedCells[q].x;
+    
+    fract_used = 0.0f;
+    
+    if (Options->FlowGradient == TOPOGRAPHY) {
+      SubTotalDir[y][x] = TopoMap[y][x].TotalDir;
+      SubFlowGrad[y][x] = TopoMap[y][x].FlowGrad;
+      for (k = 0; k < NDIRS; k++) 
+        SubDir[y][x][k] = TopoMap[y][x].Dir[k];
+    }
+    
+    for (k = 0; k < NDIRS; k++) {
+      fract_used += (float) SubDir[y][x][k];
+    }
+    if (SubTotalDir[y][x] > 0)
+      fract_used /= (float) SubTotalDir[y][x];
+    else
+      fract_used = 0.;
+    
+    /* Only bother calculating subsurface flow if water table is above bedrock */
+    if (SoilMap[y][x].TableDepth < SoilMap[y][x].Depth) {
+      
+      Transmissivity = CalcTransmissivity(SoilMap[y][x].Depth, SoilMap[y][x].TableDepth,
+                                          SoilMap[y][x].KsLat,
+                                          SoilMap[y][x].KsLatExp,
+                                          SType[SoilMap[y][x].Soil - 1].DepthThresh);
+      
+      OutFlow = (Transmissivity * fract_used * SubFlowGrad[y][x] * Dt) / (Map->DX * Map->DY);
+      
+      /* Determine TOTAL amount of water available for redistribution */
+      TotalAvailableWater =
+      CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
+                         SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
+                         SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
+                         SoilMap[y][x].TableDepth, Network[y][x].Adjust);
+    }
+    else
+      OutFlow = 0.0f;
+    
+    /* Subsurface Component - decrease water change only by as much
+     as possible (up to transmissivity) to not violate TotalAvailableWater */
+    OutFlow = (OutFlow > TotalAvailableWater) ? TotalAvailableWater : OutFlow; 
+    
+    /* Assign the water to appropriate surrounding pixels */
+    if (SubTotalDir[y][x] > 0)
+      OutFlow /= (float) SubTotalDir[y][x];
+    else
+      OutFlow = 0.;
+    
+    for (k = 0; k < NDIRS; k++) {
+      nx = xdirection[k] + x;
+      ny = ydirection[k] + y;
+      if (valid_cell(Map, nx, ny) && INBASIN(TopoMap[ny][nx].Mask)) {
+        ActualSatFlow = OutFlow * (float) SubDir[y][x][k];
+        SoilMap[ny][nx].SatFlow += ActualSatFlow;
+        SoilMap[y][x].SatFlow -= ActualSatFlow;
+      }
+    }
+  }
+  
+  for (q = (Map->NumCells - 1); q > -1;  q--) {
+    y = Map->OrderedCells[q].y;
+    x = Map->OrderedCells[q].x;
+    
+    /* Add constant recharge */
+    SoilMap[y][x].SatFlow += Options->GW_SPINUP_RECHARGE;
+    
+    DistributeSatflow(Dt, Map->DX, Map->DX, SoilMap[y][x].SatFlow,
+                      SType[SoilMap[y][x].Soil - 1].NLayers, SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
+                      SoilMap[y][x].Porosity, SoilMap[y][x].FCap,
+                      Network[y][x].Adjust, &(SoilMap[y][x].TableDepth),
+                      &(SoilMap[y][x].IExcess), SoilMap[y][x].Moist);
+    
+    SoilMap[y][x].TableDepth = WaterTableDepth(SType[SoilMap[y][x].Soil - 1].NLayers, SoilMap[y][x].Depth,
+                                               VType[VegMap[y][x].Veg - 1].RootDepth, SoilMap[y][x].Porosity, SoilMap[y][x].FCap,
+                                               Network[y][x].Adjust, SoilMap[y][x].Moist);
+      
+  }
+  
+}
