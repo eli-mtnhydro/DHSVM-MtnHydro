@@ -117,7 +117,7 @@ enum CanopyType {
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
   format = 0, extent, gradient, flow_routing, routing_neighbors, routing_mfd,
-  sensible_heat_flux, routing, vertksatsource, infiltration, interpolation,
+  sensible_heat_flux, routing, lakedyna, vertksatsource, infiltration, interpolation,
   mm5, qpf, prism, snowpattern, grid, canopy_radatt, 
   shading, snotel, outside, rhoverride, precipitation_source, wind_source, 
   temp_lapse, precip_lapse, cressman_radius, cressman_stations,
@@ -176,8 +176,9 @@ enum KEYS {
   number_of_root_zones, root_zone_depth, overstory_fraction, understory_fraction, 
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
   /* terrain information */
-  demfile = 0, maskfile,
-  soiltype_file = 0, soildepth_file, kslat_file, expdec_file, porosity_file, fc_file,
+  demfile = 0, maskfile, lakefile, 
+  lake_name = 0, lake_outlet, lake_scale, lake_exponent,
+  soiltype_file = 0, soildepth_file, kslat_file, expdec_file, porosity_file, fc_file, 
   vegtype_file = 0, vegfc_file, veglai_file, vegheight_file, 
   dynaveg_path, dynaveg_num, 
   /* DHSVM channel keys */

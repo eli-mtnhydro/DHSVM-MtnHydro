@@ -36,7 +36,7 @@
 /******************************************************************************/
 
 /* global strings */
-char *version = "Version X.1.3";        /* store version string */
+char *version = "Version X.1.4";        /* store version string */
 char commandline[BUFSIZE + 1] = "";		/* store command line */
 char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */
@@ -110,6 +110,7 @@ int main(int argc, char **argv)
   SOLARGEOMETRY SolarGeo;		/* Geometry of Sun-Earth system (needed for INLINE radiation calculations */
   TIMESTRUCT Time;
   TOPOPIX **TopoMap = NULL;
+  LAKETABLE *LType = NULL;
   UNITHYDR **UnitHydrograph = NULL;
   UNITHYDRINFO HydrographInfo;	/* Information about unit hydrograph */
   VEGPIX **VegMap = NULL;
@@ -155,8 +156,8 @@ int main(int argc, char **argv)
   InitConstants(Input, &Options, &Map, &SolarGeo, &Time);
 
   InitFileIO(Options.FileFormat);
-  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg);
-  InitTerrainMaps(Input, &Options, &Map, &Soil, &Veg, &TopoMap, SType, &SoilMap, VType, &VegMap, &DVeg);
+  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg, &LType);
+  InitTerrainMaps(Input, &Options, &Map, &Soil, &Veg, &TopoMap, SType, &SoilMap, VType, &VegMap, &DVeg, LType);
 
   InitSnowMap(&Map, &SnowMap, &Time);
 
@@ -170,6 +171,7 @@ int main(int argc, char **argv)
   
   if (Options.HasNetwork)
     InitChannel(Input, &Map, Time.Dt, &ChannelData, SType, SoilMap, VType, VegMap,
+                LType, TopoMap,
                 &MaxStreamID, &MaxRoadID, &Options);
   else if (Options.Extent != POINT)
     InitUnitHydrograph(Input, &Map, TopoMap, &UnitHydrograph,
@@ -261,7 +263,7 @@ int main(int argc, char **argv)
 
   /* computes the number of grid cell contributing to one segment */
   if (Options.StreamTemp) 
-	Init_segment_ncell(TopoMap, ChannelData.stream_map, Map.NY, Map.NX, ChannelData.streams);
+	  Init_segment_ncell(TopoMap, ChannelData.stream_map, Map.NY, Map.NX, ChannelData.streams);
 
 /*****************************************************************************
   Perform Calculations 
@@ -303,7 +305,6 @@ int main(int argc, char **argv)
       channel_step_initialize_network(ChannelData.streams);
       channel_step_initialize_network(ChannelData.roads);
     }
-
 
     for (y = 0; y < Map.NY; y++) {
       for (x = 0; x < Map.NX; x++) {
@@ -370,21 +371,21 @@ int main(int argc, char **argv)
 
  #ifndef SNOW_ONLY
     
-    RouteSubSurface(Time.Dt, &Map, TopoMap, VType, VegMap, Network,
+    RouteSubSurface(Time.Dt, &Map, TopoMap, VType, VegMap, Network, 
 		    SType, SoilMap, &ChannelData, &Time, &Options, Dump.Path);
 
     if (Options.HasNetwork)
       RouteChannel(&ChannelData, &Time, &Map, TopoMap, SoilMap, &Total, 
 		   &Options, Network, SType, VType, VegMap, EvapMap,
-		   PrecipMap, LocalMet.Tair, LocalMet.Rh, SnowMap);
+		   PrecipMap, LocalMet.Tair, LocalMet.Rh, SnowMap, LType);
 
     if (Options.Extent == BASIN)
       RouteSurface(&Map, &Time, TopoMap, SoilMap, &Options,
         UnitHydrograph, &HydrographInfo, Hydrograph,
-        &Dump, VegMap, VType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
+        &Dump, VegMap, VType, LType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
 
 
-#endif
+  #endif
 
     if (NGraphics > 0)
       draw(&(Time.Current), IsEqualTime(&(Time.Current), &(Time.Start)),
@@ -414,7 +415,7 @@ int main(int argc, char **argv)
 	   Network, &ChannelData, &Soil, &Total, &HydrographInfo, Hydrograph);
 
 #ifndef SNOW_ONLY
-  FinalMassBalance(&(Dump.FinalBalance), &Total, &Mass);
+  FinalMassBalance(&(Dump.FinalBalance), &Total, &Mass, &Options);
 #endif
 
   printf("\nEND OF MODEL RUN\n\n");

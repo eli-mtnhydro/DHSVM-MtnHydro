@@ -27,11 +27,13 @@
    Reads stream and road files and builds the networks.
    -------------------------------------------------------------------------- */
 void
-InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
+InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *ChannelData,
 	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
+	    LAKETABLE *LType, TOPOPIX **TopoMap,
 	    int *MaxStreamID, int *MaxRoadID, OPTIONSTRUCT *Options)
 {
-  int i;
+  int i, x, y;
+  ChannelMapPtr cell;
   STRINIENTRY StrEnv[] = {
     {"ROUTING", "STREAM NETWORK FILE", "", ""},
     {"ROUTING", "STREAM MAP FILE", "", ""},
@@ -61,12 +63,12 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
     }
   }
 
-  channel->stream_class = NULL;
-  channel->road_class = NULL;
-  channel->streams = NULL;
-  channel->roads = NULL;
-  channel->stream_map = NULL;
-  channel->road_map = NULL;
+  ChannelData->stream_class = NULL;
+  ChannelData->road_class = NULL;
+  ChannelData->streams = NULL;
+  ChannelData->roads = NULL;
+  ChannelData->stream_map = NULL;
+  ChannelData->road_map = NULL;
 
   channel_init();
   channel_grid_init(Map->NX, Map->NY);
@@ -75,33 +77,63 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
 
     printf("\tReading Stream data\n");
 
-    if ((channel->stream_class =
+    if ((ChannelData->stream_class =
 	 channel_read_classes(StrEnv[stream_class].VarStr, stream_class)) == NULL) {
       ReportError(StrEnv[stream_class].VarStr, 5);
     }
-    if ((channel->streams =
+    if ((ChannelData->streams =
 	 channel_read_network(StrEnv[stream_network].VarStr,
-			      channel->stream_class, MaxStreamID)) == NULL) {
+			      ChannelData->stream_class, MaxStreamID)) == NULL) {
       ReportError(StrEnv[stream_network].VarStr, 5);
     }
-    if ((channel->stream_map =
-	 channel_grid_read_map(channel->streams,
+    if ((ChannelData->stream_map =
+	 channel_grid_read_map(ChannelData->streams,
 			       StrEnv[stream_map].VarStr, SType, SoilMap, VType, VegMap)) == NULL) {
       ReportError(StrEnv[stream_map].VarStr, 5);
     }
     
     /* Associate each channel segment with its constituent map cells */
-    channel_combine_map_network(channel->streams, channel->stream_map, Map);
+    channel_combine_map_network(ChannelData->streams, ChannelData->stream_map, Map);
+    
+    if (Options->LakeDynamics) {
+      
+      /* Find channel segments that intersect lake cells */
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          cell = ChannelData->stream_map[x][y];
+          while (cell != NULL) {
+            if (TopoMap[y][x].LakeID != 0) {
+              cell->channel->IntersectsLake = TRUE;
+              cell->channel->lake = &(LType[TopoMap[y][x].LakeID - 1]);
+            }
+            cell = cell->next;
+      }
+      }
+      }
+      
+      /* Find outlets from lakes */
+      for (i = 0; i < Map->NumLakes; i++) {
+        if (LType[i].OutletID != 0) {
+          LType[i].outlet = channel_find_segment(ChannelData->streams, LType[i].OutletID);
+          if (LType[i].outlet == NULL) {
+            printf("ERROR! cannot find outlet (%d) for lake %d", LType[i].OutletID, i);
+          } else {
+            LType[i].outlet->IntersectsLake = FALSE;
+            LType[i].outlet->lake = NULL;
+          }
+        }
+      }
+    } /* End of lake dynamics */
     
     error_handler(ERRHDL_STATUS,
 		  "InitChannel: computing stream network routing coefficients");
-    channel_routing_parameters(channel->streams, (double) deltat);
+    channel_routing_parameters(ChannelData->streams, (double) deltat);
   }
 
   if (Options->StreamTemp) {
 	if (strncmp(StrEnv[riparian_veg].VarStr, "none", 4)) {
 	  printf("\tReading channel riparian vegetation params\n");
-	  channel_read_rveg_param(channel->streams, StrEnv[riparian_veg].VarStr, MaxStreamID);
+	  channel_read_rveg_param(ChannelData->streams, StrEnv[riparian_veg].VarStr, MaxStreamID);
 	}
   }
 
@@ -109,72 +141,72 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
 
     printf("\tReading Road data\n");
 
-    if ((channel->road_class =
+    if ((ChannelData->road_class =
 	 channel_read_classes(StrEnv[road_class].VarStr, road_class)) == NULL) {
       ReportError(StrEnv[road_class].VarStr, 5);
     }
-    if ((channel->roads =
+    if ((ChannelData->roads =
 	 channel_read_network(StrEnv[road_network].VarStr,
-			      channel->road_class, MaxRoadID)) == NULL) {
+			      ChannelData->road_class, MaxRoadID)) == NULL) {
       ReportError(StrEnv[road_network].VarStr, 5);
     }
-    if ((channel->road_map =
-	 channel_grid_read_map(channel->roads,
+    if ((ChannelData->road_map =
+	 channel_grid_read_map(ChannelData->roads,
 			       StrEnv[road_map].VarStr, SType, SoilMap, VType, VegMap)) == NULL) {
       ReportError(StrEnv[road_map].VarStr, 5);
     }
     error_handler(ERRHDL_STATUS,
 		  "InitChannel: computing road network routing coefficients");
-    channel_routing_parameters(channel->roads, (double) deltat);
+    channel_routing_parameters(ChannelData->roads, (double) deltat);
   }
 }
 
 /* -------------------------------------------------------------
    InitChannelDump
    ------------------------------------------------------------- */
-void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL * channel, 
+void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL * ChannelData, 
 					 char *DumpPath)
 {
   char buffer[NAMESIZE];
 
-  if (channel->streams != NULL) {
+  if (ChannelData->streams != NULL) {
     sprintf(buffer, "%sStream.Flow", DumpPath);
-    OpenFile(&(channel->streamout), buffer, "w", TRUE);
+    OpenFile(&(ChannelData->streamout), buffer, "w", TRUE);
     sprintf(buffer, "%sStreamflow.Only", DumpPath);
-    OpenFile(&(channel->streamflowout), buffer, "w", TRUE);
+    OpenFile(&(ChannelData->streamflowout), buffer, "w", TRUE);
     /* output files for John's RBM model */
 	if (Options->StreamTemp) {
       //inflow to segment
       sprintf(buffer, "%sInflow.Only", DumpPath);
-      OpenFile(&(channel->streaminflow), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streaminflow), buffer, "w", TRUE);
       // outflow ( redundant but it's a check
       sprintf(buffer, "%sOutflow.Only", DumpPath);
-      OpenFile(&(channel->streamoutflow), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streamoutflow), buffer, "w", TRUE);
       //net incoming short wave
       sprintf(buffer, "%sNSW.Only", DumpPath);
-      OpenFile(&(channel->streamNSW), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streamNSW), buffer, "w", TRUE);
       // net incoming long wave
       sprintf(buffer, "%sNLW.Only", DumpPath);
-      OpenFile(&(channel->streamNLW), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streamNLW), buffer, "w", TRUE);
       //Vapor pressure
       sprintf(buffer, "%sVP.Only", DumpPath);
-      OpenFile(&(channel->streamVP), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streamVP), buffer, "w", TRUE);
       //wind speed
       sprintf(buffer, "%sWND.Only", DumpPath);
-      OpenFile(&(channel->streamWND), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streamWND), buffer, "w", TRUE);
       //air temperature
       sprintf(buffer, "%sATP.Only", DumpPath);
-      OpenFile(&(channel->streamATP), buffer, "w", TRUE);
+      OpenFile(&(ChannelData->streamATP), buffer, "w", TRUE);
       //melt water in flow
       sprintf(buffer, "%sMelt.Only", DumpPath);
-      OpenFile(&(channel->streamMelt), buffer, "w", TRUE);                      
+      OpenFile(&(ChannelData->streamMelt), buffer, "w", TRUE);                      
 	}
   }
-  if (channel->roads != NULL) {
+  if (ChannelData->roads != NULL) {
     sprintf(buffer, "%sRoad.Flow", DumpPath);
-    OpenFile(&(channel->roadout), buffer, "w", TRUE);
+    OpenFile(&(ChannelData->roadout), buffer, "w", TRUE);
     sprintf(buffer, "%sRoadflow.Only", DumpPath);
-    OpenFile(&(channel->roadflowout), buffer, "w", TRUE);
+    OpenFile(&(ChannelData->roadflowout), buffer, "w", TRUE);
 
   }
 }
@@ -203,7 +235,8 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 	    TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
 	     OPTIONSTRUCT *Options, ROADSTRUCT **Network, SOILTABLE *SType,
 	     VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap,
-	     PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap)
+	     PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap, 
+	     LAKETABLE *LType)
 {
   int k, x, y;
   int flag;
@@ -223,8 +256,9 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   SPrintDate(&(Time->Current), buffer);
   flag = IsEqualTime(&(Time->Current), &(Time->Start));
   
-  /* Give any surface water to roads w/o sinks */
+  /* Roads */
   if (ChannelData->roads != NULL) {
+    /* Give any surface water to roads w/o sinks */
     for (y = 0; y < Map->NY; y++) {
       for (x = 0; x < Map->NX; x++) {
         if (INBASIN(TopoMap[y][x].Mask)) {
@@ -255,12 +289,13 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
     CulvertFlow /= Map->DX * Map->DY;
     /* CulvertFlow = (CulvertFlow > 0.0) ? CulvertFlow : 0.0; */
     
-    if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+    if (channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
       channel_grid_inc_inflow(ChannelData->stream_map, x, y,
                               (SoilMap[y][x].IExcess + CulvertFlow) * Map->DX * Map->DY);
       
       channel_grid_satflow(ChannelData->stream_map, x, y);
       
+      /* Only seems to be relevant for RBM temperature model */
       if (SnowMap[y][x].Outflow > SoilMap[y][x].IExcess)
         temp = SoilMap[y][x].IExcess;
       else
@@ -285,7 +320,7 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
     for (k = (Map->NumCells - 1); k > -1;  k--) {
       y = Map->OrderedCells[k].y;
       x = Map->OrderedCells[k].x;
-      if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+      if (channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
         
         /* Only allow stream re-infiltration if local water table is 1 mm below deepest channel */
         /* Update water table depth directly below channel based on lateral diffusion on previous timestep */
@@ -337,12 +372,19 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
     }
     }
     
+    /* Route lakes, then route streams */
+    if (Options->LakeDynamics) {
+      for (i = 0; i < Map->NumLakes; i++) {
+        LType[i].outlet->lake_inflow += LType[i].Outflow * LType[i].Area;
+      }
+    }
+    
     channel_route_network(ChannelData->streams, Time->Dt);
     
     for (k = (Map->NumCells - 1); k > -1;  k--) {
       y = Map->OrderedCells[k].y;
       x = Map->OrderedCells[k].x;
-      if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+      if (channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
         
         StreamInfiltration = channel_grid_infiltration(ChannelData->stream_map, x, y);
         StreamInfiltration /= Map->DX * Map->DY;

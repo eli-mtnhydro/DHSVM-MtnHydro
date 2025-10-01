@@ -88,6 +88,9 @@ struct {
   016, "Soil.KsLatExp",
        "Soil Exponential Decrease", "%.6f", 
        "", "Soil Exponential Decrease", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{  
+  017, "Lake.ID",
+      "Lake Map ID", "%d", 
+      "", "Lake Map ID", NC_BYTE, FALSE, FALSE, FALSE, 0 }, {
   100, "Met.PrecipMultiplier",
 	   "PptMultiplier", "%.8f",
 	   "", "Precipitation Multiplier", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{

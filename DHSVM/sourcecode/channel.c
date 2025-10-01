@@ -256,6 +256,7 @@ static Channel *alloc_channel_segment(void)
   seg->last_inflow = 0.0;
   seg->last_outflow = 0.0;
   seg->inflow = 0.0;
+  seg->lake_inflow = 0.0;
   seg->outflow = 0.0;
   seg->storage = 0.0;
   seg->infiltration = 0.0;
@@ -449,6 +450,8 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
       current->next = alloc_channel_segment();
       current = current->next;
     }
+    
+    current->IntersectsLake = FALSE;
 
     for (i = 0; i < fields; i++) {
       if (chan_fields[i].read) {
@@ -635,6 +638,8 @@ static int channel_route_segment(Channel * segment, int deltat)
   float net_balance, outflow, storage, storage_loss;
   int err = 0;
   
+  segment->inflow += segment->lake_inflow;
+  
   if (segment->inflow < 0.0)
     segment->inflow = 0.0;
   if (segment->storage < 0.0)
@@ -645,7 +650,7 @@ static int channel_route_segment(Channel * segment, int deltat)
   
   /* Subtract any necessary water from storage instead of inflow */
   storage_loss = (segment->infiltration + segment->evaporation) -
-                 (segment->inflow + segment->lateral_inflow);
+  (segment->inflow + segment->lateral_inflow);
   if (storage_loss < 0.0)
     storage_loss = 0.0;
   if (storage_loss > segment->storage)
@@ -654,12 +659,12 @@ static int channel_route_segment(Channel * segment, int deltat)
   
   /* Add up mass balance components and change masses to rates */
   net_balance = segment->inflow + segment->lateral_inflow -
-                (segment->infiltration + segment->evaporation - storage_loss);
+  (segment->infiltration + segment->evaporation - storage_loss);
   net_balance /= deltat;
   
   if (segment->K > 1e-10)
     storage = (net_balance / segment->K) +
-              (segment->storage - net_balance / segment->K) * segment->X;
+      (segment->storage - net_balance / segment->K) * segment->X;
   else
     storage = net_balance;
   
@@ -674,8 +679,15 @@ static int channel_route_segment(Channel * segment, int deltat)
   segment->outflow = outflow * deltat;
   segment->storage = storage;
   
-  if (segment->outlet != NULL)
-    segment->outlet->inflow += segment->outflow;
+  if (segment->IntersectsLake) {
+    segment->outflow += segment->storage;
+    segment->storage = 0.0;
+    segment->lake_inflow -= segment->outflow;
+    segment->lake->Inflow += segment->outflow / segment->lake->Area;
+  } else {
+    if (segment->outlet != NULL)
+      segment->outlet->inflow += segment->outflow;
+  }
   
   return (err);
 }
@@ -719,6 +731,7 @@ int channel_step_initialize_network(Channel *net)
     
     net->last_inflow = net->inflow;
     net->inflow = 0.0;
+    net->lake_inflow = 0.0;
     net->lateral_inflow = 0.0;
     net->melt = 0.0;                 
     net->last_outflow = net->outflow;
@@ -759,7 +772,7 @@ int channel_save_outflow(double time, Channel * net, FILE * out, FILE * out2)
 }
 
 /* -------------------------------------------------------------
-channel_save_outflow_wtext
+channel_save_outflow_text
 Saves the channel outflow using a text string as the time field
 ------------------------------------------------------------- */
 int
@@ -796,7 +809,7 @@ int
   }
 
   for (; net != NULL; net = net->next) {
-    total_lateral_inflow += net->lateral_inflow;
+    total_lateral_inflow += (net->lateral_inflow + net->lake_inflow);
     if (net->outlet == NULL) {
       total_outflow += net->outflow;
     }

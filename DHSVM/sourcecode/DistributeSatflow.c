@@ -25,7 +25,7 @@
 void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
   int NSoilLayers, float TotalDepth, float *RootDepth,
   float *Porosity, float *FCap, float *Adjust,
-  float *TableDepth, float *Runoff, float *Moist)
+  float *TableDepth, float *IExcess, float *Moist)
 
 {
   float DeepLayerDepth;		/* depth of the layer below the deepest root layer */
@@ -132,5 +132,5 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
   }
 
   if (SatFlow > 0.0)
-    *Runoff += SatFlow;
+    *IExcess += SatFlow;
 }

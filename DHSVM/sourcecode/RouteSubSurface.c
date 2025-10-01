@@ -296,7 +296,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     
     /* Compute stream lateral inflow/outflow if water table is above channel cut */
     if (AdjTableDepth < BankHeight &&
-    channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+    channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
       
       /* Also consider depth of water stored in channel */
       ChannelWaterLevel = BankHeight - channel_grid_cell_water_depth(ChannelData->stream_map, x, y);

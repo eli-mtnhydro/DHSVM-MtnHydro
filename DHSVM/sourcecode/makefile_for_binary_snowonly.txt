@@ -2,7 +2,7 @@
 # SUMMARY:      makefile for DHSVM
 # USAGE:        make DHSVM
 
-#	$Id: makefile,v3.2  2018/2/22 Ning Exp $	
+#	$Id: makefile $	
 
 OBJS = AdjustStorage.o Aggregate.o AggregateRadiation.o	CalcAerodynamic.o \
 CalcAvailableWater.o CalcDistance.o CalcEffectiveKh.o CalcKhDry.o   \
@@ -57,7 +57,7 @@ LIBS = -lm -L/usr/X11R6/lib -lX11 -L/sw/lib -L/usr/local/lib
 #LIBS = -lm -L/usr/X11R6/lib -lX11 -L/sw/lib -L/usr/local/lib -lnetcdf
 
 DHSVM: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.1.2_SnowOnly $(LIBS)
+	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.1.4_SnowOnly $(LIBS)
 
 clean::
 	rm -f DHSVM

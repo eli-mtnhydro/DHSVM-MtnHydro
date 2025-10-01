@@ -36,8 +36,8 @@
 
 /*******************************************************************************/
 void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options, 
-  MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType,
-  LAYER *Veg)
+  MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType, LAYER *Veg,
+  LAKETABLE **LType)
 {
   printf("Initializing tables\n");
 
@@ -47,6 +47,13 @@ void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options,
 
   if ((Veg->NTypes = InitVegTable(VType, Input, Options, Veg)) == 0)
     ReportError("Input Options File", 8);
+  
+  if (Options->LakeDynamics) {
+    if ((Map->NumLakes = InitLakeTable(LType, Input, Options)) == 0)
+      ReportError("Input Options File", 8);
+  } else {
+    Map->NumLakes = 0;
+  }
 
   InitSatVaporTable();
 }
@@ -637,5 +644,70 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
   }
 
   return NVegs;
+}
+
+/********************************************************************************
+InitLakeTable()
+********************************************************************************/
+int InitLakeTable(LAKETABLE **LType, 
+  LISTPTR Input, OPTIONSTRUCT *Options)
+{
+  const char *Routine = "InitLakeTable";
+  int i;			/* counter */
+  int j;			/* counter */
+  int NumLakes;			/* Number of unique lakes */
+  int OutId;
+  char KeyName[lake_exponent + 1][BUFSIZE + 1];
+  char *KeyStr[] = {
+    "LAKE NAME",
+    "OUTFLOW CHANNEL",
+    "POWER LAW SCALE",
+    "POWER LAW EXPONENT"
+  };
+  char SectionName[] = "TERRAIN";
+  char VarStr[lake_exponent + 1][BUFSIZE + 1];
+
+  /* Get the number of unique lakes */
+  GetInitString(SectionName, "NUMBER OF LAKES", "", VarStr[0],
+    (unsigned long)BUFSIZE, Input);
+  if (!CopyInt(&NumLakes, VarStr[0], 1))
+    ReportError("NUMBER OF LAKES", 51);
+
+  if (NumLakes == 0)
+    return NumLakes;
+
+  if (!(*LType = (LAKETABLE *)calloc(NumLakes, sizeof(LAKETABLE))))
+    ReportError((char *)Routine, 1);
+
+  /********** Read information and allocate memory for each lake *********/
+
+  for (i = 0; i < NumLakes; i++) {
+
+    /* Read the key-entry pairs from the input file */
+    for (j = 0; j <= lake_exponent; j++) {
+      sprintf(KeyName[j], "%s %d", KeyStr[j], i + 1);
+      GetInitString(SectionName, KeyName[j], "", VarStr[j],
+        (unsigned long)BUFSIZE, Input);
+    }
+
+    /* Assign the entries to the appropriate variables */
+    if (IsEmptyStr(VarStr[lake_name]))
+      ReportError(KeyName[lake_name], 51);
+
+    strcpy((*LType)[i].Name, VarStr[lake_name]);
+    (*LType)[i].Index = i+1;
+    
+    if (!CopyInt(&(OutId), VarStr[lake_outlet], 1))
+      ReportError(KeyName[lake_outlet], 51);
+    (*LType)[i].OutletID = OutId;
+    
+    if (!CopyFloat(&((*LType)[i].PowLawScale), VarStr[lake_scale], 1))
+      ReportError(KeyName[lake_scale], 51);
+
+    if (!CopyFloat(&((*LType)[i].PowLawExponent), VarStr[lake_exponent], 1))
+      ReportError(KeyName[lake_exponent], 51);
+  }
+  
+  return NumLakes;
 }
 

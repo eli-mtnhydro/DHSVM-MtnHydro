@@ -91,7 +91,7 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
 
 unsigned char fequal(float a, float b);
 
-void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass);
+void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONSTRUCT *Options);
 
 float FindDT(SOILPIX **SoilMap, MAPSIZE *Map, TIMESTRUCT *Time, 
              TOPOPIX **TopoMap, SOILTABLE *SType); 
@@ -246,16 +246,19 @@ void InitGraphicsDump(LISTPTR Input, int NGraphics, int ***which_graphics);
 void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
 		  OPTIONSTRUCT *Options, int *NStats, METLOCATION **Stat);
 
-void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options,
-    MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType,
-    LAYER *Veg);
+void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options, 
+  MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType, LAYER *Veg,
+  LAKETABLE **LType);
     
 void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-  LAYER *Soil, LAYER *Veg, TOPOPIX ***TopoMap, SOILTABLE *SType,
-  SOILPIX ***SoilMap, VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg);
+  LAYER *Soil, LAYER *Veg, TOPOPIX ***TopoMap, SOILTABLE *SType, SOILPIX ***SoilMap, 
+  VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg, LAKETABLE *LType);
 
-void InitTopoMap(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-		 TOPOPIX ***TopoMap);
+void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
+  TOPOPIX *** TopoMap, LAKETABLE *LType);
+
+int InitLakeTable(LAKETABLE **LType, 
+                  LISTPTR Input, OPTIONSTRUCT *Options);
 
 void InitUnitHydrograph(LISTPTR Input, MAPSIZE *Map, TOPOPIX **TopoMap,
 			UNITHYDR ***UnitHydrograph, float **Hydrograph,
@@ -348,7 +351,7 @@ void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
   SOILPIX ** SoilMap, OPTIONSTRUCT *Options,
   UNITHYDR ** UnitHydrograph, UNITHYDRINFO * HydrographInfo, float *Hydrograph,
-  DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE * VType, SOILTABLE *SType, CHANNEL *ChannelData,
+  DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE *VType, LAKETABLE *LType, SOILTABLE *SType, CHANNEL *ChannelData,
   float Tair, float Rh);
 
 float SatVaporPressure(float Temperature);

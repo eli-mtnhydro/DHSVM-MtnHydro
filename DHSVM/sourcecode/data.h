@@ -163,6 +163,7 @@ typedef struct {
   int OffsetX;					 /* Offset in x-direction compared to basemap */
   int OffsetY;					 /* Offset in y-direction compared to basemap */
   int NumCells;                  /* Number of cells within the basin */
+  int NumLakes;                  /* Number of lakes within the basin */
   ITEM *OrderedCells;            /* Structure array to hold the ranked elevations; NumCells in size */
 } MAPSIZE;
 
@@ -230,6 +231,7 @@ typedef struct {
   int HeatFlux;					/* Specifies whether a sensible heat flux 
                            should be calculated, TRUE or FALSE */
   int Routing;          /* Overland flow routing indicator, either CONVENTIONAL (FALSE) or KINEMATIC (TRUE) */
+  int LakeDynamics;		  /* If TRUE, lake dynamics will be simulated using power law storage relationships */
   int UseKsatAnisotropy;/* Vertical Ksat from lateral Ksat and anisotropy (TRUE) or default table (FALSE) */
   int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
   int FlowGradient;			/* Specifies whether the flow gradient is based
@@ -458,6 +460,19 @@ typedef struct {
   float G_Infilt;                /* Mean capillary drive for dynamic maximum infiltration rate (m)   */
 } SOILTABLE;
 
+struct LAKETABLE {
+  char Name[BUFSIZE + 1];	/* Lake name */
+  int Index;
+  SegmentID OutletID;     /* ID of channel into which the lake pours */
+  Channel *outlet;		    /* Pointer to outlet segment record */
+  float PowLawScale;      /* Exponent for power law controlling lake outflow */
+  float PowLawExponent;   /* Scale for power law controlling lake outflow */
+  float Area;             /* Lake area (m^2) */
+  float Storage;          /* Lake storage area-normalized (m) */
+  float Inflow;           /* Lake inflow area-normalized (m/timestep) */
+  float Outflow;          /* Lake outflow area-normalized (m/timestep) */
+};
+
 typedef struct {
   char Distribution[BUFSIZE+1];	/* Distribution type */
   float mean;
@@ -480,6 +495,7 @@ typedef struct {
   unsigned int TotalDir;	    /* Sum of Dir array */
   int drains_x;					/* x-loc of cell to which this impervious cell drains */
   int drains_y;					/* y-loc of cell to which this impervious cell drains */
+  int LakeID;           /* Unique ID of each discrete lake */
   ITEM *OrderedTopoIndex;       /* Structure array to hold the ranked topoindex for fine pixels in a coarse pixel */
 } TOPOPIX;
 

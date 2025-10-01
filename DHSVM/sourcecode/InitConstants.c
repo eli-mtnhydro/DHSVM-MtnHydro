@@ -70,6 +70,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "MULTIPLE FLOW DIRECTIONS", "", "TRUE"},
     {"OPTIONS", "SENSIBLE HEAT FLUX", "", ""},
     {"OPTIONS", "OVERLAND ROUTING", "", ""},
+    {"OPTIONS", "LAKE DYNAMICS", "", "FALSE"},
     {"OPTIONS", "VERTICAL KSAT SOURCE", "", "TABLE"},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
@@ -270,6 +271,14 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->Routing = FALSE;
   else
     ReportError(StrEnv[routing].KeyName, 51);
+  
+  /* Determine whether to simulate lake dynamics */
+  if (strncmp(StrEnv[lakedyna].VarStr, "TRUE", 4) == 0)
+    Options->LakeDynamics = TRUE;
+  else if (strncmp(StrEnv[lakedyna].VarStr, "FALSE", 5) == 0)
+    Options->LakeDynamics = FALSE;
+  else
+    ReportError(StrEnv[lakedyna].KeyName, 51);
   
   /* Determine if vertical conductivity is calculated from map anisotropy
    or read from default soil table */

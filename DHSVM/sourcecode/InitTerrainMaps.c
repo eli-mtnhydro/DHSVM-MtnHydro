@@ -35,12 +35,12 @@
  *****************************************************************************/
 void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   LAYER *Soil, LAYER *Veg, TOPOPIX ***TopoMap, SOILTABLE *SType, SOILPIX ***SoilMap, 
-  VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg)
+  VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg, LAKETABLE *LType)
 
 {
   printf("\nInitializing terrain maps\n");
 
-  InitTopoMap(Input, Options, Map, TopoMap);
+  InitTopoMap(Input, Options, Map, TopoMap, LType);
   InitVegMap(Options, Input, Map, VegMap, VType, DVeg);
   InitSoilMap(Input, Options, Map, Soil, *TopoMap, SoilMap, SType, VegMap, VType);
   if (Options->CanopyGapping)
@@ -51,7 +51,7 @@ void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   InitTopoMap()
 *****************************************************************************/
 void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
-  TOPOPIX *** TopoMap)
+  TOPOPIX *** TopoMap, LAKETABLE *LType)
 {
   const char *Routine = "InitTopoMap";
   char VarName[BUFSIZE + 1];	/* Variable name */
@@ -61,10 +61,13 @@ void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   int flag;         /* either or not reverse the matrix */
   int NumberType;		/* Number type of data set */
   unsigned char *Mask = NULL;	/* Basin mask */
+  unsigned char *Lakes;		/* Lake IDs */
   float *Elev;			/* Surface elevation */
+  float Area; /* Area of a lake */
   STRINIENTRY StrEnv[] = {
     {"TERRAIN", "DEM FILE", "", ""},
     {"TERRAIN", "BASIN MASK FILE", "", ""},
+    {"TERRAIN", "LAKE MAP FILE", "", "none"},
     {NULL, NULL, "", NULL}
   };
 
@@ -141,6 +144,67 @@ void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
   else ReportError((char *)Routine, 57);
   free(Mask);
 
+  /* Read the lake map */
+  if (Options->LakeDynamics) {
+    printf("\nSetting up lakes\n");
+    GetVarName(017, 0, VarName);
+    GetVarNumberType(017, &NumberType);
+    if (!(Lakes = (unsigned char *)calloc(Map->NX * Map->NY,
+      SizeOfNumberType(NumberType))))
+      ReportError((char *)Routine, 1);
+    flag = Read2DMatrix(StrEnv[lakefile].VarStr, Lakes, NumberType, 
+  	Map, 0, VarName, 0);
+  
+    if ((Options->FileFormat == NETCDF && flag == 0)
+      || (Options->FileFormat == BIN))
+    {
+      for (y = 0, i = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          if (((int)Lakes[i]) > Map->NumLakes)
+            ReportError(StrEnv[lakefile].VarStr, 32);
+          (*TopoMap)[y][x].LakeID = Lakes[i];
+        }
+      }
+    }
+    else if (Options->FileFormat == NETCDF && flag == 1) {
+      for (y = Map->NY - 1, i = 0; y >= 0; y--) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          if (((int)Lakes[i]) > Map->NumLakes)
+            ReportError(StrEnv[lakefile].VarStr, 32);
+          (*TopoMap)[y][x].LakeID = Lakes[i];
+        }
+      }
+    }
+    else ReportError((char *)Routine, 57);
+    
+    /* Calculate the area of each lake */
+    for (i = 0; i < Map->NumLakes; i++) {
+      Area = 0.0;
+      
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          if (INBASIN((*TopoMap)[y][x].Mask) && (*TopoMap)[y][x].LakeID == i+1)
+            Area += 1.0;
+        }
+      }
+      
+      LType[i].Area = Area * (Map->DX * Map->DY);
+      LType[i].Storage = 0.0;
+      LType[i].Inflow = 0.0;
+      LType[i].Outflow = 0.0;
+      
+      printf("%20s: %4.2f km^2\t\tQ ~ %3.2f*L^%3.2f\n", 
+             LType[i].Name, LType[i].Area/(1000*1000), 
+             LType[i].PowLawScale, LType[i].PowLawExponent);
+    }
+    printf("Total: %d lakes\n\n",Map->NumLakes);
+  } else {
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        (*TopoMap)[y][x].LakeID = 0;
+      }
+    }
+  }
 
   /* Calculate slope, aspect, magnitude of subsurface flow gradient, and
      fraction of flow flowing in each direction based on the land surface

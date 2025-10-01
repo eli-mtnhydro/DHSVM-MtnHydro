@@ -36,7 +36,7 @@
   The aggregated values are set to zero in the function RestAggregate,
   which is executed at the beginning of each time step.
 *****************************************************************************/
-void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
+void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONSTRUCT *Options)
 {
   float NewWaterStorage;	/* water storage at the end of the time step */
   float Output;			/* total water flux leaving the basin;  */
@@ -124,7 +124,8 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass)
     fprintf(Out->FilePtr,
       "FINAL MASS BALANCE ERROR:  Negative soil moisture %.3f\n", (Total->SoilWater + Total->Soil.SatFlow) * 1000);
   }
-  if ((Total->Soil.IExcess + Total->CanopyWater + Total->Soil.DetentionStorage)/ Input > 0.1) {
+  if ((Total->Soil.IExcess + Total->CanopyWater + Total->Soil.DetentionStorage)/ Input > 0.1 &&
+      !Options->LakeDynamics) {
     fprintf(stderr, "FINAL MASS BALANCE ERROR:  TOO MUCH SURFACE WATER PONDING %.3f\n", 
       (Total->Soil.IExcess + Total->CanopyWater + Total->Soil.DetentionStorage) * 1000);
     fprintf(Out->FilePtr, "FINAL MASS BALANCE ERROR:  TOO MUCH SURFACE WATER PONDING %.3f\n",

@@ -43,7 +43,7 @@ the Saint-Venant equations.
 void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
   SOILPIX ** SoilMap, OPTIONSTRUCT *Options,
   UNITHYDR ** UnitHydrograph, UNITHYDRINFO * HydrographInfo, float *Hydrograph,
-  DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE * VType,
+  DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE * VType, LAKETABLE *LType,
   SOILTABLE *SType, CHANNEL *ChannelData, float Tair, float Rh)
 {
   const char *Routine = "RouteSurface";
@@ -56,6 +56,7 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
   TIMESTRUCT VariableTime;
   int i, j, x, y, n, k;         /* Counters */
   float **Runon; /* (m3/s) */
+  float LakeDepth;
   
   /* Kinematic wave routing */
   float knviscosity;           /* kinematic viscosity JSL */  
@@ -83,7 +84,7 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
       for (y = 0; y < Map->NY; y++) {
         for (x = 0; x < Map->NX; x++) {
           if (INBASIN(TopoMap[y][x].Mask)) {
-            if (!channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+            if (!channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
               if (VType[VegMap[y][x].Veg - 1].ImpervFrac > 0.0) {
                 /* Calculate the outflow from impervious portion of urban cell straight to nearest channel cell */
                 SoilMap[TopoMap[y][x].drains_y][TopoMap[y][x].drains_x].IExcess +=
@@ -116,12 +117,46 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
                     SoilMap[yn][xn].IExcess += SoilMap[y][x].Runoff * ((float) TopoMap[y][x].Dir[n] / (float) TopoMap[y][x].TotalDir);
                 }
               }
-            } else if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+            } else if (channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
               SoilMap[y][x].IExcess += SoilMap[y][x].Runoff;
+            } else {
+              LType[TopoMap[y][x].LakeID - 1].Storage += SoilMap[y][x].Runoff * (Map->DX * Map->DY / LType[TopoMap[y][x].LakeID - 1].Area);
             }
           }
         }
       }
+      
+      if (Options->LakeDynamics) {
+        
+        for (i = 0; i < Map->NumLakes; i++) {
+          
+          LType[i].Storage += LType[i].Inflow;
+          
+          if (LType[i].Storage < 0.0)
+            LType[i].Storage = 0.0;
+          
+          /* Calculate lake outflow based on power law parameters */
+          LType[i].Outflow = LType[i].PowLawScale * pow(LType[i].Storage, LType[i].PowLawExponent) * Time->Dt / LType[i].Area;
+          
+          LType[i].Outflow = MIN(LType[i].Outflow,LType[i].Storage);
+          LType[i].Storage -= LType[i].Outflow;
+          
+          /* Redistribute lake storage evenly across cells */
+          for (y = 0; y < Map->NY; y++) {
+            for (x = 0; x < Map->NX; x++) {
+              if (INBASIN(TopoMap[y][x].Mask) && TopoMap[y][x].LakeID == i+1) {
+                SoilMap[y][x].IExcess += LType[i].Storage;
+                SoilMap[y][x].ChannelInt += LType[i].Outflow;
+                SoilMap[y][x].ChannelInfiltration += LType[i].Inflow;
+          }
+          }
+          }
+          LType[i].Storage = 0.0;
+          LType[i].Inflow = 0.0;
+        }
+      }
+      
+      
       /* End if Options->routing = conventional */
     } else {
       /* Begin code for kinematic wave routing */
@@ -170,8 +205,6 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
           
           /* Only compute kinematic routing parameters for cells with non-zero runoff */
           if (SoilMap[y][x].IExcess > 0.0 || Runon[y][x] > 0.0){
-            
-            // printf("%d k IExcess %6.6f Runon  %6.6f startRunoff %6.6f\n",k,SoilMap[y][x].IExcess,Runon[y][x],SoilMap[y][x].startRunoff);
             
             outflow = SoilMap[y][x].startRunoff;
             

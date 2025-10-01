@@ -68,7 +68,7 @@ Returns      : void
 
 Modifies     :
 float *TableDepth - Depth of the water table below the ground surface (m)
-float *RunOff     - Amount of runoff produced at the pixel (m)
+float *IExcess     - Amount of IExcess produced at the pixel (m)
 float *Moist      - Moisture content in each soil layer
 
 Comments     :
@@ -118,7 +118,7 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   float *PoreDist, float *Porosity, float *FCap,
   float *Perc, float *PercArea, float *Adjust,
   int CutBankZone, float BankHeight, float *TableDepth,
-  float *Runoff, float *Moist, int InfiltOption)
+  float *IExcess, float *Moist, int InfiltOption)
 {
   float DeepDrainage;		/* amount of drainage from the lowest root
                                zone to the layer below it (m) */
@@ -138,7 +138,7 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   /* first take care of infiltration through the roadbed/channel, then through the
   remaining surface */
   if (*TableDepth <= BankHeight) { /* watertable above road/channel surface */
-    *Runoff += RoadbedInfiltration;
+    *IExcess += RoadbedInfiltration;
   }
 
   else {
@@ -152,7 +152,7 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
     }
   }
   if (*TableDepth <= 0) { /* watertable above surface */
-    *Runoff += Infiltration;
+    *IExcess += Infiltration;
     if (InfiltOption == DYNAMIC) 
       Infiltration = 0.;
   }
@@ -221,12 +221,12 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   profile and adjust the soil moisture profile, to assure that the soil
   moisture is never more than the maximum allowed soil moisture amount,
   i.e. the porosity.  A negative water table depth means that the water is
-  ponding on the surface.  This amount of water becomes surface Runoff */
+  ponding on the surface.  This amount of water becomes surface IExcess */
 
   *TableDepth = WaterTableDepth(NSoilLayers, TotalDepth, RootDepth, Porosity, FCap, Adjust, Moist);
   
   if (*TableDepth < 0.0) {
-    *Runoff += -(*TableDepth);
+    *IExcess += -(*TableDepth);
     if (InfiltOption == DYNAMIC) {
       if (Infiltration > -(*TableDepth))
         Infiltration += *TableDepth;

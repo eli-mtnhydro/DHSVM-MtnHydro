@@ -13,6 +13,10 @@
 #ifndef _channel_h_
 #define _channel_h_
 
+#include "settings.h"
+
+typedef struct LAKETABLE LAKETABLE;
+
 typedef unsigned short int SegmentID, ClassID;
 
 /* -------------------------------------------------------------
@@ -71,6 +75,8 @@ struct _channel_rec_ {
   float K;              /* Travel time constant, a function of slope */
   float X;              /* Weighting factor (0~1), exponential function of K */
   ChannelClass *class2;	/* ChannelClass identifier */
+  uchar IntersectsLake; /* Logical flag for whether the channel enters a lake */
+  LAKETABLE *lake;        /* Pointer to lake that is intersected by this channel */
 
   /* necessary routing terms */
   float lateral_inflow;	/* cubic meters */
@@ -78,6 +84,7 @@ struct _channel_rec_ {
   float last_outflow;	/* cubic meters */
   float last_storage;	/* cubic meters */
   float inflow;			/* cubic meters */
+  float lake_inflow; /* cubic meters */
   float outflow;		/* cubic meters */
   float storage;		/* cubic meters */
   float infiltration;		/* cubic meters - completely separate from the road infiltration! */
