@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      snow.h - header file for DHSVM snow routines
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:              nijssen@u.washington.edu
- * ORIG-DATE:    29-Aug-1996 at 16:03:11
- * DESCRIPTION:  header file for DHSVM snow routines
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: snow.h,v 1.5 2003/11/12 20:01:53 colleen Exp $     
- */
 
 #ifndef SNOW_H
 #define SNOW_H

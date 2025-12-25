@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      settings.h - Definition of string, array sizes, etc.
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  Definition of string, array sizes, etc.
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: settings.h,v 3.1.2 2013/10/18 ning Exp $     
- */
 
 #ifndef SETTINGS_H
 #define SETTINGS_H
@@ -50,11 +36,6 @@ typedef unsigned int unint;
 /* Default value for not applicable */
 #define NOT_APPLICABLE -9999
 
-/* Options for precipitation and wind source */
-#define RADAR          1
-#define STATION        2
-#define MODEL          3
-
 /* Options for flow gradient calculation */
 #define TOPOGRAPHY     1
 #define WATERTABLE     2
@@ -69,7 +50,7 @@ typedef unsigned int unint;
 #define POINT 1
 #define BASIN 2
 
-/* Options for temperature and precipitation lapse rates */
+/* Options for lapse rate and spatial parameters */
 #define CONSTANT 1
 #define VARIABLE 2
 #define MAP 3
@@ -81,9 +62,6 @@ typedef unsigned int unint;
 /* Options for canopy radiation attenuation */
 #define FIXED    1
 #define VARIABLE 2
-
-/* indicate ICE or GLACIER class */
-#define GLACIER -1234
 
 #define TINY       1e-20
 #define DEBUG      FALSE
@@ -100,10 +78,7 @@ typedef unsigned int unint;
 
 #define NA          -9999	/* Not applicable */
 
-#define N_MM5_MAPS 8
-
 #define MAP_OUTPUT 1
-#define IMAGE_OUTPUT 2
 
 #define MIN_SWE 0.005
 #define MELTOUT_SWE 0.05
@@ -116,14 +91,14 @@ enum CanopyType {
 
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
-  format = 0, extent, gradient, flow_routing, routing_neighbors, routing_mfd,
+  extent = 0, gradient, routing_neighbors, routing_mfd,
   sensible_heat_flux, routing, lakedyna, vertksatsource, infiltration, interpolation,
-  mm5, qpf, prism, snowpattern, grid, canopy_radatt, 
-  shading, snotel, outside, rhoverride, precipitation_source, wind_source, 
-  temp_lapse, precip_lapse, cressman_radius, cressman_stations,
+  prism, snowpattern, canopy_radatt, 
+  shading, outside, rhoverride, 
+  temp_lapse, cressman_radius, cressman_stations,
   prism_data_path, prism_data_ext, snowpattern_data_path,
   shading_data_path, shading_data_ext, skyview_data_path, 
-  stream_temp, canopy_shading, improv_radiation, gapping, snowslide, sepr, 
+  improv_radiation, gapping, snowslide, sepr, 
   snowstats, dynaveg, streamdata, gw_spinup, gw_spinup_yrs, gw_spinup_recharge,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
@@ -135,9 +110,8 @@ enum KEYS {
   ground_roughness, snow_roughness, 
   snow_water_capacity, reference_height, rain_lai_multiplier,
   snow_lai_multiplier, min_intercepted_snow, min_snow_reset_albedo, outside_basin,
-  temp_lapse_rate, precip_lapse_rate, 
-  max_swe, snowslide_parameter1,
-  snowslide_parameter2, gapwind_adj, snowpattern_weight, temperature_offset, lapse_bias, lapse_elev,
+  temp_lapse_rate, max_swe, snowslide_parameter1, snowslide_parameter2,
+  gapwind_adj, snowpattern_weight, temperature_offset, lapse_bias, lapse_elev,
   soil_depth_adj, soil_ksat_adj, soil_expdec_adj, soil_porosity_adj, soil_fieldcap_adj, veg_lai_adj, veg_fc_adj,
   /* Constants that can vary spatially */
   rain_threshold = 0,
@@ -150,20 +124,6 @@ enum KEYS {
   multiplier,
   /* Station information */
   station_name = 0, station_north, station_east, station_elev, station_file,
-  /* RADAR information */
-  radar_start = 0, radar_file, radar_north, radar_west, radar_rows, radar_cols,
-  radar_grid,
-  /* Wind model information */
-  number_of_maps = 0, wind_map_path, wind_station,
-  /* precipitation lapse rate information */
-  precip_lapse_rate_file = 0,
-  /* MM5 information */
-  MM5_start = 0, MM5_temperature, MM5_humidity, MM5_wind, MM5_shortwave,
-  MM5_longwave, MM5_precip, MM5_terrain, MM5_lapse, MM5_lapse_freq,
-  MM5_rows, MM5_cols, MM5_ext_north, MM5_ext_west, MM5_dy, MM5_precip_dist, MM5_precip_freq,
-  /* grid information */
-  grid_ext_north=0, grid_ext_south, grid_ext_east, grid_ext_west, tot_grid, decim,
-  grid_met_file, file_prefix,
   /* Soil information */
   soil_description = 0, lateral_ks, exponent, depth_thresh, anisotropy, max_infiltration, capillary_drive,
   soil_albedo, manning, number_of_layers, porosity, pore_size, bubbling_pressure, field_capacity,
@@ -182,22 +142,16 @@ enum KEYS {
   vegtype_file = 0, vegfc_file, veglai_file, vegheight_file, 
   dynaveg_path, dynaveg_num, 
   /* DHSVM channel keys */
-  stream_network = 0, stream_map, stream_class, riparian_veg,
-  road_network, road_map, road_class,
+  stream_network = 0, stream_map, stream_class,
   /* number of each type of output */
   output_path =
-    0, initial_state_path, npixels, nstates, nmapvars, nimagevars, ngraphics,
+    0, initial_state_path, npixels, nstates, nmapvars,
   /* pixel information */
   north = 0, east, name,
   /* state information */
   state_date = 0,
   /* map information */
-  map_variable = 0, map_layer, nmaps, map_date,
-  /* image information */
-  image_variable = 0, image_layer, image_start, image_end, image_interval,
-  image_upper, image_lower,
-  /* graphics information */
-  graphics_variable = 0
+  map_variable = 0, map_layer, nmaps, map_date
 };
 
 #endif

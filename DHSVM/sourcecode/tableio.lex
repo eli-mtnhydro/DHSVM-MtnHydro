@@ -1,16 +1,4 @@
 %{
-/* -------------------------------------------------------------
-   file: tableio.lex
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Battelle Memorial Institute
-   Pacific Northwest Laboratory
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Created January 22, 1996 by William A. Perkins
-   $Id: tableio.lex,v 1.4 2003/07/01 21:26:33 olivier Exp $
-   ------------------------------------------------------------- */
-
 
 const char* TABLE_LEX_ID = "$Id: tableio.lex,v 1.4 2003/07/01 21:26:33 olivier Exp $";
 
@@ -57,6 +45,9 @@ typedef struct {
 #define YY_DECL static TableStatus table_yy_lex(TableScanField *field)
 
 %}
+
+%option noinput
+%option nounput
 %option noyywrap
 %option nostdinit
 %x comment_start record_start string_start

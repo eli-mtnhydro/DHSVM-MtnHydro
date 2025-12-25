@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      data.h - header file with data structures
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header file with data structures
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
-* $Id: data.h, v 3.1.1  2012/10/31   Ning Exp $ 
- */
 
 #ifndef DATA_H
 #define DATA_H
@@ -35,7 +21,6 @@ typedef struct {
   int Layer;			/* Layer for which to dump */
   char Name[BUFSIZE + 1];	/* Variable Name */
   char LongName[BUFSIZE + 1];	/* Long name */
-  char Format[BUFSIZE + 1];	/* Output format (for netcdf files) */
   char Units[BUFSIZE + 1];	/* Units */
   uchar Resolution;		/* Resolution at which to dump */
   int N;			/* Number of timesteps for which to dump */
@@ -89,32 +74,8 @@ typedef struct {
   int *WaveLength;
 } UNITHYDRINFO;
 
-typedef enum {
-  FreqSingle = 0,
-  FreqMonth,
-  FreqContinous
-} MM5FREQ;
-
 typedef struct {
   char Const[BUFSIZE + 1];	/* Filename for main input file  */
-  char RadMapPath[BUFSIZE + 1];	/* Path and start of filename for rad files */
-  char RadTablePath[BUFSIZE + 1];	/* Same for rad tables */
-  char RadarFile[BUFSIZE + 1];	/* File with radar precipitation */
-  char MM5Terrain[BUFSIZE + 1];	/* File with MM5 terrain (m) */
-  char MM5Lapse[BUFSIZE + 1];	/* File with MM5 Lapse Rate (C/m) */
-  char MM5Temp[BUFSIZE + 1];	/* File with MM5 temperature (C) */
-  char MM5Humidity[BUFSIZE + 1];	/* File with MM5 humidity (%) */
-  char MM5Wind[BUFSIZE + 1];	/* File with MM5 wind speed (m/s) */
-  char MM5ShortWave[BUFSIZE + 1];	/* File with MM5 shortwave (W/m2) */
-  char MM5LongWave[BUFSIZE + 1];	/* File with MM5 longwave (W/m2) */
-  char MM5Precipitation[BUFSIZE + 1];	/* File with MM5 precipitation 
-					   (m/timestep) */
-  char **MM5SoilTemp;		/* Files with MM5 soil temperatures (C) */
-  MM5FREQ MM5LapseFreq;         /* Frequency of MM5 temperature lapse maps */
-  MM5FREQ MM5PrecipDistFreq;    /* Frequency of MM5 precip distribution maps */
-  char PrecipLapseFile[BUFSIZE + 1];	/* File with precipitation 
-					   lapse rate map */
-  char WindMapPath[BUFSIZE + 1];	/* File with wind factors */
 } INPUTFILES;
 
 typedef struct {
@@ -172,7 +133,6 @@ typedef struct {
   float TempLapse;				/* Temperature lapse rate (C/m) */
   float Rh;						/* Relative humidity (%) */
   float Wind;					/* Wind (m/s) */
-  int WindDirection;    		/* Wind direction, used when WindSource == MODEL  */
   float Sin;					/* Incoming shortwave (W/m^2) */
   float SinBeamObs;				/* Observed incoming beam radiation (W/m^2) */
   float SinDiffuseObs;			/* Observed incoming diffuse radiation (W/m^2) */
@@ -186,7 +146,6 @@ typedef struct {
   float Snow;                   /* Snowfall (m)*/
   float Rain;                   /* Rainfall (m) */
   float Tsoil[3];				/* Soil temperature in upper three layers */
-  float PrecipLapse;			/* Elevation Adjustment Factor for Precip */
 } MET;
 
 typedef struct {
@@ -196,9 +155,6 @@ typedef struct {
   float PrismPrecip[12];		  /* MonthlyPrism Precip for each station if outside=TRUE */
   float SnowPattern;		      /* Snow pattern average for each station - after re-weighting with precip pattern */
   float SnowPatternBase;		  /* Snow pattern average for each station */
-  uchar IsWindModelLocation;	/* Only used in case the wind model option is
-                                 specified.  In that case this field is TRUE
-                                 for one (and only one) station, and FALSE for all others */
   FILES MetFile;				      /* File with observations */
   MET Data;
 } METLOCATION;
@@ -215,25 +171,7 @@ typedef struct {
 } GRID;
 
 typedef struct {
-  int FileFormat;				/* File format indicator, BIN or HDF */
-  int HasNetwork;				/* Flag to indicate whether roads and/or channels are imposed on the model area,
-                           TRUE if NETWORK, FALSE if UNIT_HYDROGRAPH */
-  int CanopyRadAtt;			/* Radiation attenuation through the canopy, either FIXED (old method) or VARIABLE (based
-                           on Nijssen and Lettenmaier) */
-  int PrecipType;				/* Precipitation source indicator, either RADAR or STATION */
-  int Prism;					  /* If TRUE, user supplied PRISM maps will be  used to interpolate precipitation */
-  int SnowPattern;		  /* If TRUE, user supplied snow map will be used to redistribute precipitation */
-  int PrecipLapse;		  /* Whether the precipitation lapse rate is CONSTANT or VARIABLE */
-  int TempLapse;				/* Whether the temperature lapse rate is CONSTANT or VARIABLE */
-  int CressRadius;
-  int CressStations;
-  int WindSource;				/* Wind source indicator, either MODEL or STATION */
-  int HeatFlux;					/* Specifies whether a sensible heat flux 
-                           should be calculated, TRUE or FALSE */
-  int Routing;          /* Overland flow routing indicator, either CONVENTIONAL (FALSE) or KINEMATIC (TRUE) */
-  int LakeDynamics;		  /* If TRUE, lake dynamics will be simulated using power law storage relationships */
-  int UseKsatAnisotropy;/* Vertical Ksat from lateral Ksat and anisotropy (TRUE) or default table (FALSE) */
-  int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
+  int Extent;					  /* Specifies the extent of the model run, either POINT or BASIN */
   int FlowGradient;			/* Specifies whether the flow gradient is based
                            on the terrain elevation (TOPOGRAPHY) or the 
                            water table elevation (WATERTABLE).  The 
@@ -242,19 +180,22 @@ typedef struct {
                            be recalculated every timestep */
   int MultiFlowDir;     /* TRUE to use multiple flow directions or FALSE for steepest descent;
                            only applicable if ROUTING NEIGHBORS = 8*/
-  int Extent;					  /* Specifies the extent of the model run, either POINT or BASIN */
+  int HeatFlux;					/* Specifies whether a sensible heat flux 
+                           should be calculated, TRUE or FALSE */
+  int Routing;          /* Overland flow routing indicator, either CONVENTIONAL (FALSE) or KINEMATIC (TRUE) */
+  int LakeDynamics;		  /* If TRUE, lake dynamics will be simulated using power law storage relationships */
+  int UseKsatAnisotropy;/* Vertical Ksat from lateral Ksat and anisotropy (TRUE) or default table (FALSE) */
+  int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
   int Interpolation;
-  int MM5;						  /* TRUE if MM5 interface is to be used, FALSE otherwise */
-  int QPF;						  /* TRUE if QPF override, else FALSE */
-  int GRIDMET;          /* TRUE if gridded forcing will be used, FALSE otherwise */
-  int PointX;					  /* X-index of point to model in POINT mode */
-  int PointY;					  /* Y-index of point to model in POINT mode */
-  int Snotel;					  /* if TRUE then station veg = bare for output */
+  int Prism;					  /* If TRUE, user supplied PRISM maps will be  used to interpolate precipitation */
+  int SnowPattern;		  /* If TRUE, user supplied snow map will be used to redistribute precipitation */
+  int CanopyRadAtt;			/* Radiation attenuation through the canopy, either FIXED (old method) or VARIABLE */
+  int Shading;					/* if TRUE then terrain shading for solar is on */
   int Outside;					/* if TRUE then all listed met stats are used */
   int Rhoverride;				/* if TRUE then RH=100% if Precip>0 */
-  int Shading;					/* if TRUE then terrain shading for solar is on */
-  int StreamTemp;
-  int CanopyShading;
+  int TempLapse;				/* Whether the temperature lapse rate is CONSTANT or VARIABLE */
+  int CressRadius;
+  int CressStations;
   int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
   int CanopyGapping;    /* if canopy gapping is on */
   int SnowSlide;        /* if snow sliding option is true */
@@ -262,6 +203,8 @@ typedef struct {
   int SnowStats;        /* if TRUE dumps snow statistics for each water year */
   int DynamicVeg;       /* if TRUE update vegetation maps at user defined dates*/
   int DumpExtraStream;  /* Whether to save extra stream data when dumping model state */
+  int PointX;					  /* X-index of point to model in POINT mode */
+  int PointY;					  /* Y-index of point to model in POINT mode */
   int GW_SPINUP;        /* Whether to spinup groundwater state prior to launching run */
   int GW_SPINUP_YRS;    /* Number of years in groundwater spinup */
   float GW_SPINUP_RECHARGE; /* Yearly groundwater recharge rate during spinup (m/yr) */
@@ -281,17 +224,11 @@ typedef struct {
   float SnowAccum;          /* Cumulative SWE accumulation for the water year */
   float RainFall;		        /* Amount of rainfall (m) */
   float SnowFall;		        /* Amount of snowfall determined by air temperature (m) */
-  float MomentSq;           /* Momentum squared for rain (kg* m/s)^2 /m^2*s) */
   float *IntRain;		        /* Rain interception by each vegetation layer (m) */
   float *IntSnow;		        /* Snow interception by each vegetation layer (m) */
   float TempIntStorage;			/* Temporary snow and rain interception storage, used by MassRelease() */
-  int PrecipStart;          /* TRUE if there was surface water in the last time step */ 
-  float Dm;                 /* Median raindrop diameter (m) */
+  int PrecipStart;          /* TRUE if there was surface water in the last time step */
  } PRECIPPIX;
-
-typedef struct {
-  float Precip;			        /* Radar precipitation for current bin */
-} RADARPIX;
 
 typedef struct {
   float NetShort[2];        /* Shortwave radiation for vegetation surfaces and ground/snow surface W/m2 */
@@ -305,30 +242,17 @@ typedef struct {
   float BeamIn;             /* Incoming beam radiation */
   float DiffuseIn;          /* Incomning diffuse radiation */
   float Tair;               /* Air temperature */
-  // for RBM use only 
-  float RBMNetLong;         /* Longwave radiation reaching the water surface W/m2 (for RBM only) */
-  float RBMNetShort;        /* Shortwave radiation reaching the water surface W/m2 (for RBM only) */
-  float PixelBeam;          /* Net beam radiation W/m2 (used for RBM only) */
-  float PixelDiffuse;       /* Net diffuse radiation W/m2 (used for RBM only) */
 } PIXRAD;
 
 typedef struct {
-  float Area;			    /* Area of road or channel cut (m) */
-  float BankHeight;		/* Height of road or channel cut (m) */
-  int   CutBankZone;	/* Number of the soil layer that contains the bottom of the road/channel cut */
-  float *PercArea;		/* Area of percolation zone for each soil layer, corrected for the road/channel cut,
+  float Area;			    /* Area of channel cut (m) */
+  float BankHeight;		/* Height of channel cut (m) */
+  int   CutBankZone;	/* Number of the soil layer that contains the bottom of the channel cut */
+  float *PercArea;		/* Area of percolation zone for each soil layer, corrected for the channel cut,
                          divided by the grid cell area (0-1)  */
-  float *Adjust;		  /* Array with coefficients to correct for loss of soil storage due to channel/road-cut for each soil layer.
+  float *Adjust;		  /* Array with coefficients to correct for loss of soil storage due to channel for each soil layer.
                          Multiplied with RootDepth to give the zone thickness for use in calculating soil moisture */
-  float MaxInfiltrationRate;	   /* Area weighted infiltration rate through the road bed */
-  uchar fraction;				         /* flow fraction intercepted by road channel */
-  float RoadArea;                /* Road surface area (and area of percolation)*/
-  float IExcess;                 /* Infiltration excess generated on road surface (m)*/
-  float FlowLength;              /* Representative surface water flow length across the road surface (m) */
-  float FlowSlope;               /* Representative road surface slope along the flow path (m/m) */
-  ChannelClass *RoadClass;       /* Class of road with most area in the pixel */
-  float *h;                      /* Infiltration excess on road grid cell (m)*/
-} ROADSTRUCT;
+} NETSTRUCT;
 
 typedef struct {
   float SolarAzimuth;		/* solar azimuth */
@@ -345,9 +269,8 @@ typedef struct {
 
   float SunEarthDistance;	/* Distance from Sun to Earth */
   float SineSolarAltitude;	/* Sine of sun's SolarAltitude  */
-  int DayLight;				/* FALSE: measured solar radiation and the sun is below the horizon.  
-
-							TRUE: sun is above the horizon */
+  int DayLight;				/* FALSE: measured solar radiation and the sun is below the horizon.
+                         TRUE: sun is above the horizon */
   float SolarTimeStep;		/* Fraction of the timestep the sun is above the horizon  */
 
   float SunMax;				/* Calculated solar radiation at the top of the atmosphere (W/m^2) */
@@ -374,7 +297,6 @@ typedef struct {
   float VaporMassFlux;		/* Vapor mass flux to/from snow pack,(m/timestep). 
                                A negataive value indicates flux from snow -- sublimiation */
   float CanopyVaporMassFlux;/* Vapor mass flux to/from intercepted snow in the canopy (m/timestep) */
-  float Glacier;		    /* Amount of snow added to glacier during simulation */
   float Qsw;                /* Net shortwave radiation exchange at surface */
   float Qlw;                /* Net longwave radiation exchange at surface */
   float Qs;				    /* Sensible heat exchange */
@@ -413,7 +335,6 @@ typedef struct {
   float Runoff;         /* Surface water flux (m) from the grid cell. */
   float ChannelInt;		/* amount of subsurface flow intercepted by the channel */
   float ChannelInfiltration;		/* amount of channel storage returned to the subsurface */
-  float RoadInt;		/* amount of water intercepted by the road */
   float TSurf;			/* Soil surface temperature */
   float Qnet;			/* Net radiation exchange at surface */
   float Qrest;			/* Rest term for energy balance (should be 0) */
@@ -575,10 +496,6 @@ typedef struct {
   int NUpdate; /*number of dates to update vegetation*/
   DATE *DUpdate;		/* Date(s) at which to update vegetation layer */
   char DynaVegPath[BUFSIZE + 1];			/* Path to read from */
-  // char FileName[BUFSIZE + 1];	/* File to write dump to */
-  // char FileLabel[BUFSIZE + 1];	/* File label */
-  // int NumberType;		/* Number type of variable */
-  
 } DYNAVEG;
 
 typedef struct {
@@ -646,18 +563,8 @@ typedef struct {
   float CumChannelInt;
   float CumChannelInfiltration;
   float CumChannelEvap;
-  float CumRoadInt;
   float CumSnowVaporFlux;
-  float CumCulvertReturnFlow;
-  float CumCulvertToChannel;
 } WATERBALANCE;
-
-typedef struct {
-  float accum_precip;
-  float air_temp;
-  float wind_speed;
-  float humidity;
-} MET_MAP_PIX;
 
 typedef struct node node;
 struct node {
@@ -670,7 +577,6 @@ typedef struct {
   EVAPPIX Evap;
   PRECIPPIX Precip;
   PIXRAD Rad;
-  ROADSTRUCT Road;
   SNOWPIX Snow;
   SOILPIX Soil;
   VEGPIX Veg;
@@ -680,10 +586,7 @@ typedef struct {
   float Runoff;
   float ChannelInt;
   float ChannelInfiltration;
-  float RoadInt;
   unsigned long Saturated;
-  float CulvertReturnFlow;
-  float CulvertToChannel;
   float CumulativeErr;
 } AGGREGATED;
 

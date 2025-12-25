@@ -1,13 +1,3 @@
-/*
- * SUMMARY:      getinit.h - header file for GetInit.c
- * USAGE:        Not a stand-alone program
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:     6-May-97 at 10:43:13
- $Id: getinit.h,v 1.4 2003/07/01 21:26:30 olivier Exp $
- */
 
 #ifndef GETINIT_H
 #define GETINIT_H

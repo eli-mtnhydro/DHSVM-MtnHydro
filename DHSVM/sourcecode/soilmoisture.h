@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      soilmoisture.h - Header file for soil moisture calculations
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Mark Wigmosta
- * ORG:          Batelle Pacific Northwest Laboratories
- * E-MAIL:       ms_wigmosta@pnl.gov
- * ORIG-DATE:    Jul-1996
- * DESCRIPTION:  Header file for soil moisture calculations, including
- *               corrections for road and channel cuts
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: soilmoisture.h,v 1.7 2004/02/04 03:08:56 colleen Exp $     
- */
 
 #ifndef SOILMOISTURE_H
 #define SOILMOISTURE_H
@@ -40,7 +25,7 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
                        float *TableDepth, float *Runoff, float *Moist);
 
 void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration, 
-		     float RoadbedInfiltration, float SatFlow, int NSoilLayers, 
+		     float SatFlow, int NSoilLayers, 
 		     float TotalDepth, float Area, float *RootDepth, float *Ks, 
 		     float *PoreDist, float *Porosity, float *FCap, float *Perc, 
 		     float *PercArea, float *Adjust, int CutBankZone, float BankHeight,

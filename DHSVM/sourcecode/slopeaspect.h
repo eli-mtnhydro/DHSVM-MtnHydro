@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      slopeaspect.h - header file for SlopeAspect.c
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header file for SlopeAspect.c
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: slopeaspect.h,v 1.10 2004/04/16 04:18:29 colleen Exp $     
- */
 
 #ifndef SLOPEASPECT_H
 #define SLOPEASPECT_H

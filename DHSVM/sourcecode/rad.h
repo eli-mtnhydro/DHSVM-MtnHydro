@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      rad.h header file for radiation functions for DHSVM
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header file for radiation functions for DHSVM
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: rad.h,v 1.4 2003/07/01 21:26:31 olivier Exp $     
- */
 
 #ifndef RAD_H
 #define RAD_H

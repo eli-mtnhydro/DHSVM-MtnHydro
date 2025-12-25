@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      massenergy.h - header file for MassEnergyBalance() part 
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header file for MassEnergyBalance() part of DHSVM
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: massenergy.h,v 1.5 2003/11/12 20:01:53 colleen Exp $     
- */
 
 #ifndef MASSENERGY_H
 #define MASSENERGY_H
@@ -46,8 +32,6 @@ void InterceptionStorage(int NAct, float *MaxInt, float *Fract, float *Int,
 void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory, 
 			   float F, float Vf, float Ld, float Tcanopy, float Tsurf, 
                PIXRAD *LocalRad);
-
-void NoEvap(int Layer, int NSoilLayers, EVAPPIX * LocalEvap);
 
 void NoSensibleHeatFlux(int Dt, PIXMET *LocalMet, float ETot, SOILPIX *LocalSoil);
 

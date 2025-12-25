@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      sizeofnt.h - header for number types defined in DHSVM
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header for number types defined in DHSVM
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: sizeofnt.h,v 1.4 2003/07/01 21:26:32 olivier Exp $     
- */
 
 #ifndef SIZEOFNT_H
 #define SIZEOFNT_H

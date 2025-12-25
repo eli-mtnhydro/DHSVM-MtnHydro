@@ -1,14 +1,3 @@
-/* -------------------------------------------------------------
-   file: Calendar.h
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Battelle Memorial Institute
-   Pacific Northwest Laboratory
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Created September 12, 1996 by  William A Perkins
-   $Id: Calendar.h,v 1.7 2004/07/08 19:53:03 colleen Exp $
-   ------------------------------------------------------------- */
 
 #ifndef _Calendar_h_
 #define _Calendar_h_
@@ -45,8 +34,6 @@ typedef struct {
   DATE Start;		/* Starting date of run */
   DATE End;			/* Ending date of run */
   DATE Current;		/* Current date in run */
-  DATE StartRadar;	/* Start radar file */
-  DATE StartMM5;	/* Start of MM5 files */
   int Step;			/* Timestep since start */
   int DayStep;		/* Time step since midnight */
   int NDaySteps;	/* Number of timesteps per day */
@@ -62,8 +49,7 @@ void CopyDate(DATE *Copy, DATE *Original);
 int DayOfYear(int Year, int Month, int Day);
 void IncreaseTime(TIMESTRUCT *Time);
 void IncreaseVariableTime(TIMESTRUCT *Time, float VariableDT, TIMESTRUCT *NextTime);
-int InitTime(TIMESTRUCT *Time, DATE *Start, DATE *End, DATE *StartRadar,
-	     DATE *StartMM5, int Dt);
+int InitTime(TIMESTRUCT *Time, DATE *Start, DATE *End, int Dt);
 uchar IsEqualTime(DATE *Day1, DATE *Day2);
 uchar IsLeapYear(int Year);
 uchar IsNewDay(int DayStep);

@@ -1,22 +1,7 @@
-/*
- * SUMMARY:      constants.h - header file with constants for DHSVM
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header file with constants for DHSVM
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: constants.h,v 3.1.1 2012/10/18 ning Exp $     
- */
 
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
-#define CELLFACTOR 3            /* For discretization of forest roads for kinematic wave routing */
 #define CELL_PARTITION 2        /* Number of veg type in a grid cell */
 #define CH_ICE     (2100.0e3)	/* Volumetric heat capacity (J/(m3*C) of ice (0C) */
 #define CH_WATER   (4186.8e3)	/* Volumetric heat capacity (J/(m3*C) of water */
@@ -26,36 +11,25 @@
 #define D0_MULTIPLIER  0.63		/* Multiplier for vegetation height to get displacement height (m) */
 #define DZ_TOP      0.1			/* Thickness of soil surface layer for which heat stoarge change is calculated (m) */
 #define EPS         0.622		/* ratio of molecular weight of water vapor to that for dry air */
-#define FS_CRITERIA 1.0			/* Criteria for determining is a pixel is failed. 
-                                   Pixels with factor of safety's less than this number, are considered failed */
 #define G           9.81		/* gravitational accelleration (m/(s^2)) */
 #define GRAMSPKG    1000.	    /* grams per kilogram */
 #define JOULESPCAL  4.1868	    /* Joules per calorie */
 #define KhH2O       0.58		/* Thermal conductivity of water (W/(mk)) */
-#define LEAF_DRIP_DIA  0.0055   /* Leaf drip diameter (m) */
 #define LF            (333.7e3) /* latent heat of fusion (J/kg) */
 #define MINPDEG        4.		/* minutes per degree longitude */
-#define MMTOM          0.001	/* convert from mm to meter */
-#define MTHRESH        0.85     /* The 'critical' value of M for triggering the mass wasting algorithm. */
-#define PARTDENSITY    2685.    /* Particle density in kg/m3 */
 #undef PI
 #define PI   3.14159265358979323846
 #define RADPHOUR    0.2617994   /* radians per hour: Earth's Rotation (2 PI rad/day) * (1 day/24 h) */
 #define RADPDEG     (PI/180.0)	/* radians per degree */
-#define ROADCROWN   0.02        /* This is the road crown slope, whether insloped,  
-								outsloped or crowned. This value was selected based 
-								on the Road Preconstruction Handbook */
-#define SATPERCENT  0.2         /* Fraction of pixels which must exceed 
-								MTHRESH in order to call the mass wasting algorithm
-								when running in the old mode. */
 #define SOLARCON    1360.	    /* Solar constant (W/m^2) */
 #define STEFAN    (5.6696e-8)	/* Stefan-Boltzmann constant (W/(M^2*C^4) */
 #define VISFRACT    0.5		    /* part of shortwave that is in the visible range of the spectrum */
 #define VON_KARMAN  0.4		    /* Von Karman's constant */
 #define WATER_DENSITY 1000.		/* Density of water in kg/m3 */
 #define Z0_MULTIPLIER 0.13		/* Multiplier for vegetation height to get roughness length (m) */
-#define MinDiff   (1.e-8)
 #define MINSTORAGEK (1e-10)   /* Minimum allowed value of the linear storage parameter for numerical stability */
+#define MTHRESH        0.9   /* Saturation extent is based on the number of pixels with a water table 
+                                that is at least MTHRESH of soil depth. */
 
 /**************** extern constants - see globals.c ****************/
 
@@ -78,7 +52,6 @@ extern float MIN_INTERCEPTION_STORAGE;	/* the amount of snow on the canopy
 extern float MIN_SNOW_RESET_ALBEDO; /* minimum snow (m) required to completely reset snow albedo */
 extern float MIN_RAIN_TEMP;				/* minimum temperature at which rain can occur (C) */
 extern unsigned char OUTSIDEBASIN;		/* Mask value indicating outside the basin */
-extern float PRECIPLAPSE;				/* Precipitation lapse rate in m/timestep / m */
 extern float MINELEV;
 extern float SNOWPAT_WEIGHT; /* Fractional weight between snow pattern and precip pattern for snowfall */
 extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
@@ -92,7 +65,6 @@ extern float SOIL_POROSITY_ADJ; /* Calibration param - multiplicative */
 extern float SOIL_FIELDCAP_ADJ; /* Calibration param - multiplicative */
 extern float VEG_LAI_ADJ; /* Calibration param - multiplicative */
 extern float VEG_FC_ADJ; /* Calibration param - multiplicative */
-extern int NWINDMAPS;					/* Number of wind maps in case the wind source is MODEL */
 extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */
 extern float Zref;						/* Reference height (m) */

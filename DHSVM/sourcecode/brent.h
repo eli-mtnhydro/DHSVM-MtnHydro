@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      brent.h - header file for the brent method
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  header file for the brent method
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: brent.h,v 1.4 2003/07/01 21:26:26 olivier Exp $     
- */
 
 #ifndef BRENT_H
 #define BRENT_H

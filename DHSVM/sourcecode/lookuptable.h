@@ -1,15 +1,3 @@
-/*
- * SUMMARY:      lookuptable.h - header file for LookupTable.c
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Feb 25, 1997
- * DESCRIPTION:  header file for LookupTable.c
- * DESCRIP-END.
- * $Id: lookuptable.h,v 1.4 2003/07/01 21:26:31 olivier Exp $
- */
 
 #ifndef LOOKUP_TABLE_H
 #define LOOKUP_TABLE_H

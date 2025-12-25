@@ -6,34 +6,34 @@
 
 OBJS = AdjustStorage.o Aggregate.o AggregateRadiation.o	CalcAerodynamic.o \
 CalcAvailableWater.o CalcDistance.o CalcEffectiveKh.o CalcKhDry.o   \
-CalcKinViscosity.o CalcSatDensity.o CalcSnowAlbedo.o CalcSolar.o    \
+CalcKinViscosity.o CalcSnowAlbedo.o CalcSolar.o    \
 CalcTotalWater.o CalcTransmissivity.o CalcWeights.o Calendar.o	     \
 CanopyResistance.o ChannelState.o CheckOut.o CutBankGeometry.o	     \
-DHSVMChannel.o Desorption.o Draw.o EvalExponentIntegral.o \
-EvapoTranspiration.o ExecDump.o FileIOBin.o FileIONetCDF.o Files.o   \
+DHSVMChannel.o Desorption.o EvalExponentIntegral.o \
+EvapoTranspiration.o ExecDump.o FileIOBin.o Files.o   \
 FinalMassBalance.o GetInit.o GetMetData.o InArea.o InitAggregated.o  \
 InitArray.o InitConstants.o InitDump.o InitFileIO.o   \
 InitInterpolationWeights.o InitMetMaps.o InitMetSources.o	     \
 InitModelState.o InitNetwork.o InitNewMonth.o InitSnowMap.o \
-InitTables.o InitTerrainMaps.o InitUnitHydrograph.o  InitXGraphics.o \
+InitTables.o InitTerrainMaps.o \
 InterceptionStorage.o IsStationLocation.o LapseT.o LookupTable.o  \
 MainDHSVM.o MakeLocalMetData.o MassBalance.o MassEnergyBalance.o     \
-MassRelease.o MaxRoadInfiltration.o NoEvap.o RadiationBalance.o      \
-ReadMetRecord.o ReadRadarMap.o ReportError.o ResetAggregate.o	     \
+MassRelease.o RadiationBalance.o      \
+ReadMetRecord.o ReportError.o ResetAggregate.o	     \
 RootBrent.o Round.o RouteSubSurface.o RouteSurface.o   \
 SatVaporPressure.o SensibleHeatFlux.o SeparateRadiation.o SizeOfNT.o \
 SlopeAspect.o SnowInterception.o SnowMelt.o SnowPackEnergyBalance.o \
 StabilityCorrection.o StoreModelState.o	SurfaceEnergyBalance.o      \
 SurfaceEvaporation.o UnsaturatedFlow.o VarID.o WaterTableDepth.o  \
 channel.o channel_grid.o equal.o errorhandler.o globals.o tableio.o \
-channel_complt.o RiparianShading.o CanopyGapEnergyBalance.o deg2utm.o \
+CanopyGapEnergyBalance.o \
 CanopyGapRadiation.o Avalanche.o DistributeSatflow.o InitParameterMaps.o\
 SnowStats.o UpdateVegMaps.o
 
 SRCS = $(OBJS:%.o=%.c)
 
 HDRS = Calendar.h DHSVMChannel.h DHSVMerror.h brent.h channel.h     \
-channel_grid.h constants.h data.h errorhandler.h fifoNetCDF.h	     \
+channel_grid.h constants.h data.h errorhandler.h    \
 fifobin.h fileio.h functions.h getinit.h lookuptable.h massenergy.h \
 rad.h settings.h sizeofnt.h slopeaspect.h snow.h soilmoisture.h     \
 tableio.h varid.h
@@ -45,19 +45,19 @@ GET= co
 REL=
 
  
-DEFS =  -DHAVE_X11 
-#possible DEFS -DHAVE_NETCDF -DHAVE_X11 -DSHOW_MET_ONLY -DSNOW_ONLY
-CFLAGS = -flto=auto -Ofast -I/usr/X11R6/include -Wall -I/usr/local/include/  $(DEFS) 
+DEFS =  
+#possible DEFS -DSHOW_MET_ONLY -DSNOW_ONLY
+CFLAGS = -flto=auto -Ofast -Wall -I/usr/local/include/  $(DEFS) 
 
 CC = cc
 FLEX = /usr/bin/flex
-LIBS = -lm -L/usr/X11R6/lib -lX11 -L/sw/lib -L/usr/local/lib 
+LIBS = -lm -L/sw/lib -L/usr/local/lib 
 
 # possible libs:   
-#LIBS = -lm -L/usr/X11R6/lib -lX11 -L/sw/lib -L/usr/local/lib -lnetcdf
+#LIBS = -lm -L/sw/lib -L/usr/local/lib
 
 DHSVM: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.1.4 $(LIBS)
+	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.0 $(LIBS)
 
 clean::
 	rm -f DHSVM
@@ -99,8 +99,6 @@ CalcKhDry.o: CalcKhDry.c settings.h functions.h data.h Calendar.h \
  channel.h DHSVMChannel.h getinit.h channel_grid.h
 CalcKinViscosity.o: CalcKinViscosity.c functions.h data.h settings.h \
  Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h
-CalcSatDensity.o: CalcSatDensity.c settings.h functions.h data.h \
- Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h constants.h
 CalcSnowAlbedo.o: CalcSnowAlbedo.c settings.h constants.h data.h \
  Calendar.h channel.h functions.h DHSVMChannel.h getinit.h channel_grid.h
 CalcSolar.o: CalcSolar.c constants.h settings.h Calendar.h functions.h \
@@ -127,8 +125,6 @@ DHSVMChannel.o: DHSVMChannel.c constants.h getinit.h DHSVMChannel.h \
  functions.h errorhandler.h fileio.h
 Desorption.o: Desorption.c settings.h massenergy.h data.h Calendar.h \
  channel.h DHSVMChannel.h getinit.h channel_grid.h constants.h
-Draw.o: Draw.c constants.h settings.h data.h Calendar.h channel.h \
- functions.h DHSVMChannel.h getinit.h channel_grid.h snow.h
 EvalExponentIntegral.o: EvalExponentIntegral.c settings.h data.h \
  Calendar.h channel.h functions.h DHSVMChannel.h getinit.h channel_grid.h
 EvapoTranspiration.o: EvapoTranspiration.c settings.h data.h Calendar.h \
@@ -139,7 +135,6 @@ ExecDump.o: ExecDump.c settings.h data.h Calendar.h channel.h fileio.h \
  channel_grid.h constants.h
 FileIOBin.o: FileIOBin.c fifobin.h fileio.h data.h settings.h Calendar.h \
  channel.h sizeofnt.h DHSVMerror.h
-FileIONetCDF.o: FileIONetCDF.c
 Files.o: Files.c settings.h data.h Calendar.h channel.h DHSVMerror.h \
  functions.h DHSVMChannel.h getinit.h channel_grid.h constants.h fileio.h
 FinalMassBalance.o: FinalMassBalance.c settings.h data.h Calendar.h \
@@ -163,7 +158,7 @@ InitDump.o: InitDump.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h sizeofnt.h varid.h
 InitFileIO.o: InitFileIO.c fileio.h data.h settings.h Calendar.h \
- channel.h fifobin.h fifoNetCDF.h DHSVMerror.h
+ channel.h fifobin.h DHSVMerror.h
 InitInterpolationWeights.o: InitInterpolationWeights.c settings.h data.h \
  Calendar.h channel.h DHSVMerror.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h
@@ -191,11 +186,6 @@ InitTables.o: InitTables.c settings.h data.h Calendar.h channel.h \
 InitTerrainMaps.o: InitTerrainMaps.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h sizeofnt.h slopeaspect.h varid.h
-InitUnitHydrograph.o: InitUnitHydrograph.c settings.h constants.h data.h \
- Calendar.h channel.h DHSVMerror.h functions.h DHSVMChannel.h getinit.h \
- channel_grid.h fileio.h sizeofnt.h varid.h
-InitXGraphics.o: InitXGraphics.c settings.h data.h Calendar.h channel.h \
- DHSVMerror.h
 InterceptionStorage.o: InterceptionStorage.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h massenergy.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h
@@ -218,19 +208,12 @@ MassEnergyBalance.o: MassEnergyBalance.c settings.h data.h Calendar.h \
  channel_grid.h massenergy.h snow.h constants.h soilmoisture.h
 MassRelease.o: MassRelease.c constants.h settings.h massenergy.h data.h \
  Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h snow.h
-MaxRoadInfiltration.o: MaxRoadInfiltration.c settings.h data.h Calendar.h \
- channel.h DHSVMChannel.h getinit.h channel_grid.h functions.h
-NoEvap.o: NoEvap.c settings.h data.h Calendar.h channel.h massenergy.h \
- DHSVMChannel.h getinit.h channel_grid.h
 RadiationBalance.o: RadiationBalance.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h massenergy.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h
 ReadMetRecord.o: ReadMetRecord.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h functions.h DHSVMChannel.h getinit.h channel_grid.h \
  constants.h
-ReadRadarMap.o: ReadRadarMap.c settings.h data.h Calendar.h channel.h \
- DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h sizeofnt.h
 ReportError.o: ReportError.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h
 ResetAggregate.o: ResetAggregate.c settings.h data.h Calendar.h channel.h \
@@ -292,17 +275,9 @@ equal.o: equal.c functions.h data.h settings.h Calendar.h channel.h \
 errorhandler.o: errorhandler.c errorhandler.h
 globals.o: globals.c
 tableio.o: tableio.c tableio.h errorhandler.h settings.h
-channel_complt.o: channel_complt.c errorhandler.h functions.h data.h \
- settings.h Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h \
- constants.h tableio.h
-RiparianShading.o: RiparianShading.c Calendar.h settings.h errorhandler.h \
- DHSVMerror.h channel.h channel_grid.h data.h functions.h DHSVMChannel.h \
- getinit.h constants.h tableio.h
 CanopyGapEnergyBalance.o: CanopyGapEnergyBalance.c settings.h data.h \
  Calendar.h channel.h DHSVMerror.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h massenergy.h constants.h snow.h
-deg2utm.o: deg2utm.c settings.h functions.h data.h Calendar.h channel.h \
- DHSVMChannel.h getinit.h channel_grid.h constants.h
 CanopyGapRadiation.o: CanopyGapRadiation.c settings.h functions.h data.h \
  Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h \
  DHSVMerror.h massenergy.h constants.h

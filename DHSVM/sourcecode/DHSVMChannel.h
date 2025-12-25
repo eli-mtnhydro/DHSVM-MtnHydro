@@ -1,14 +1,3 @@
-/* -------------------------------------------------------------
-   file: DHSVMChannel.h
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Battelle Memorial Institute
-   Pacific Northwest Laboratory
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Created August 30, 1996 by  William A Perkins
-   $Id: DHSVMChannel.h,v3.1.2 2013/10/03  Ning Exp $
-   ------------------------------------------------------------- */
 
 #ifndef _DHSVMChannel_h_
 #define _DHSVMChannel_h_
@@ -24,24 +13,10 @@
    ------------------------------------------------------------- */
 typedef struct {
   ChannelClass *stream_class;
-  ChannelClass *road_class;
   Channel *streams;
-  Channel *roads;
   ChannelMapPtr **stream_map;
-  ChannelMapPtr **road_map;
   FILE *streamout;
-  FILE *roadout;
   FILE *streamflowout;
-  FILE *roadflowout;
-  /* new output files for John's RBM model */
-  FILE *streaminflow;
-  FILE *streamoutflow;
-  FILE *streamNSW;
-  FILE *streamNLW;
-  FILE *streamVP;
-  FILE *streamWND;
-  FILE *streamATP;
-  FILE *streamMelt;
 } CHANNEL;
 
 /* -------------------------------------------------------------
@@ -50,16 +25,14 @@ typedef struct {
 void InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
 	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
 	    LAKETABLE *LType, TOPOPIX **TopoMap,
-	    int *MaxStreamID, int *MaxRoadID, OPTIONSTRUCT *Options);
+	    int *MaxStreamID, OPTIONSTRUCT *Options);
 void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL *channel, char *DumpPath);
 double ChannelCulvertFlow(int y, int x, CHANNEL *ChannelData);
 void RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 		  TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
-		  OPTIONSTRUCT *Options, ROADSTRUCT **Network, SOILTABLE *SType,
-		  VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap,
-		  PRECIPPIX **PrecipMap, float Tair, float Rh, SNOWPIX **SnowMap, 
-		  LAKETABLE *LType);
-void ChannelCut(int y, int x, CHANNEL *ChannelData, ROADSTRUCT *Network);
+		  OPTIONSTRUCT *Options, NETSTRUCT **Network, SOILTABLE *SType,
+		  VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType);
+void ChannelCut(int y, int x, CHANNEL *ChannelData, NETSTRUCT *Network);
 void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
                        VEGTABLE *VType, VEGPIX *LocalVeg);
 uchar ChannelFraction(TOPOPIX *topo, ChannelMapRec *rds);
