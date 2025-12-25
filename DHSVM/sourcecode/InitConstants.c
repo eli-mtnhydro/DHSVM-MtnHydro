@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      InitConstants.c - Initialize constants for DHSVM
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96 
- * DESCRIPTION:  Initialize constants for DHSVM
- * DESCRIP-END.
- * FUNCTIONS:    InitConstants()
- * COMMENTS:
- * $Id: InitConstants.c,v 1.16 2004/08/18 01:01:28 colleen Exp $     
- */
 
 #include <ctype.h>
 #include <math.h>
@@ -45,11 +31,6 @@
     SOLARGEOMETRY *SolarGeo - Solar geometry information
     TIMESTRUCT *Time        - Begin and end times, model timestep
 
-  Returns      : void
-
-  Modifies     : (see list of required above)
-
-  Comments     :
 *****************************************************************************/
 void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 		   SOLARGEOMETRY *SolarGeo, TIMESTRUCT *Time)
@@ -62,10 +43,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   DATE Start;			/* Start of run */
 
   STRINIENTRY StrEnv[] = {
-    {"OPTIONS", "FORMAT", "", ""},
     {"OPTIONS", "EXTENT", "", ""},
     {"OPTIONS", "GRADIENT", "", ""},
-    {"OPTIONS", "FLOW ROUTING", "", ""},
     {"OPTIONS", "ROUTING NEIGHBORS", "", "8"},
     {"OPTIONS", "MULTIPLE FLOW DIRECTIONS", "", "TRUE"},
     {"OPTIONS", "SENSIBLE HEAT FLUX", "", ""},
@@ -74,20 +53,13 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "VERTICAL KSAT SOURCE", "", "TABLE"},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
-    {"OPTIONS", "MM5", "", ""},
-    {"OPTIONS", "QPF", "", ""},
     {"OPTIONS", "PRISM", "", ""},
     {"OPTIONS", "SNOW PATTERN", "", ""},
-    {"OPTIONS", "GRIDDED MET DATA", "", "" },
     {"OPTIONS", "CANOPY RADIATION ATTENUATION MODE", "", ""},
     {"OPTIONS", "SHADING", "", ""},
-    {"OPTIONS", "SNOTEL", "", ""},
     {"OPTIONS", "OUTSIDE", "", ""},
     {"OPTIONS", "RHOVERRIDE", "", ""},
-    {"OPTIONS", "PRECIPITATION SOURCE", "", ""},
-    {"OPTIONS", "WIND SOURCE", "", ""},
     {"OPTIONS", "TEMPERATURE LAPSE RATE", "", ""},
-    {"OPTIONS", "PRECIPITATION LAPSE RATE", "", ""},
     {"OPTIONS", "CRESSMAN RADIUS", "", ""},
     {"OPTIONS", "CRESSMAN STATIONS", "", ""},
     {"OPTIONS", "PRISM DATA PATH", "", ""},
@@ -96,9 +68,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "SHADING DATA PATH", "", ""},
     {"OPTIONS", "SHADING DATA EXTENSION", "", ""},
     {"OPTIONS", "SKYVIEW DATA PATH", "", ""},
-	  {"OPTIONS", "STREAM TEMPERATURE", "", ""}, 
-	  {"OPTIONS", "RIPARIAN SHADING", "", ""}, 
-    {"OPTIONS", "VARIABLE LIGHT TRANSMITTANCE", "", "" },
+	  {"OPTIONS", "VARIABLE LIGHT TRANSMITTANCE", "", "" },
     {"OPTIONS", "CANOPY GAPPING", "", "" },
     {"OPTIONS", "SNOW SLIDING", "", "" },
     {"OPTIONS", "PRECIPITATION SEPARATION", "", "FALSE" },
@@ -132,7 +102,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "MIN ALBEDO RESET SNOWFALL", "", "" },
     {"CONSTANTS", "OUTSIDE BASIN VALUE", "", ""},
     {"CONSTANTS", "TEMPERATURE LAPSE RATE", "", ""},
-    {"CONSTANTS", "PRECIPITATION LAPSE RATE", "", ""},
     {"CONSTANTS", "MAX SURFACE SNOW LAYER DEPTH", "", "0.125" },
     {"CONSTANTS", "SNOWSLIDE PARAMETER1", "", "" },
     {"CONSTANTS", "SNOWSLIDE PARAMETER2", "", "" },
@@ -157,22 +126,11 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 		  StrEnv[i].VarStr, (unsigned long) BUFSIZE, Input);
 
   /**************** Determine model options ****************/
-
-  /* Determine file format to be used */
-  if (strncmp(StrEnv[format].VarStr, "BIN", 3) == 0)
-    Options->FileFormat = BIN;
-  else if (strncmp(StrEnv[format].VarStr, "NETCDF", 3) == 0)
-    Options->FileFormat = NETCDF;
-  else if (strncmp(StrEnv[format].VarStr, "BYTESWAP", 3) == 0)
-    Options->FileFormat = BYTESWAP;
-  else
-    ReportError(StrEnv[format].KeyName, 51);
-
+  
   /* Determine whether the model should be run in POINT mode or in BASIN mode.
      If in POINT mode also read which pixel to model */
   if (strncmp(StrEnv[extent].VarStr, "POINT", 5) == 0) {
     Options->Extent = POINT;
-    Options->HasNetwork = FALSE;
   }
   else if (strncmp(StrEnv[extent].VarStr, "BASIN", 5) == 0) {
     Options->Extent = BASIN;
@@ -243,19 +201,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 	(&(Options->CressStations), StrEnv[cressman_stations].VarStr, 1))
       ReportError(StrEnv[cressman_stations].KeyName, 51);
   }
-
-  /* Determine whether a road/network is imposed on the model area */
-  if (Options->Extent != POINT) {
-    if (strncmp(StrEnv[flow_routing].VarStr, "NETWORK", 7) == 0)
-      Options->HasNetwork = TRUE;
-    else if (strncmp(StrEnv[flow_routing].VarStr, "UNIT", 4) == 0)
-      Options->HasNetwork = FALSE;
-    else
-      ReportError(StrEnv[flow_routing].KeyName, 51);
-  }
-  else
-    Options->HasNetwork = FALSE;
-
+  
   /* Determine whether a sensible heat flux should be calculated */
   if (strncmp(StrEnv[sensible_heat_flux].VarStr, "TRUE", 4) == 0)
     Options->HeatFlux = TRUE;
@@ -299,23 +245,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   }
   else
     ReportError(StrEnv[infiltration].KeyName, 51);
-    
-  /* Determine whether the mm5 interface should be used */
-  if (strncmp(StrEnv[mm5].VarStr, "TRUE", 4) == 0)
-    Options->MM5 = TRUE;
-  else if (strncmp(StrEnv[mm5].VarStr, "FALSE", 5) == 0)
-    Options->MM5 = FALSE;
-  else
-    ReportError(StrEnv[mm5].KeyName, 51);
-
-  /* Determine whether the QPF override should be used on the MM5 fields */
-  if (strncmp(StrEnv[qpf].VarStr, "TRUE", 4) == 0)
-    Options->QPF = TRUE;
-  else if (strncmp(StrEnv[qpf].VarStr, "FALSE", 5) == 0)
-    Options->QPF = FALSE;
-  else
-    ReportError(StrEnv[qpf].KeyName, 51);
-
+  
   /* Determine if PRISM maps will be used to interpolate precip fields */
   if (strncmp(StrEnv[prism].VarStr, "TRUE", 4) == 0)
     Options->Prism = TRUE;
@@ -336,14 +266,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     printf("\nError: SnowPattern must be FALSE if PRISM is FALSE; Setting SnowPattern = FALSE\n");
   }
   
-  /* Determine whether gridded met forcing should be used */
-  if (strncmp(StrEnv[grid].VarStr, "TRUE", 4) == 0)
-    Options->GRIDMET = TRUE;
-  else if (strncmp(StrEnv[grid].VarStr, "FALSE", 5) == 0)
-    Options->GRIDMET = FALSE;
-  else
-    ReportError(StrEnv[grid].KeyName, 51);
-
   /* Determine the kind of canopy radiation attenuation to be used */
   if (strncmp(StrEnv[canopy_radatt].VarStr, "FIXED", 3) == 0)
     Options->CanopyRadAtt = FIXED;
@@ -359,40 +281,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->Shading = FALSE;
   else
     ReportError(StrEnv[shading].KeyName, 51);
-
-  if (Options->MM5 == TRUE && Options->Prism == TRUE && Options->QPF == FALSE)
-    ReportError(StrEnv[prism].KeyName, 51);
-
-  /* Determine if Snotel test is called for */
-  if (strncmp(StrEnv[snotel].VarStr, "TRUE", 4) == 0)
-    Options->Snotel = TRUE;
-  else if (strncmp(StrEnv[snotel].VarStr, "FALSE", 5) == 0)
-    Options->Snotel = FALSE;
-  else
-    ReportError(StrEnv[snotel].KeyName, 51);
-
-  /* Determine if STREAM TEMP is called for */
-  if (strncmp(StrEnv[stream_temp].VarStr, "TRUE", 4) == 0)
-    Options->StreamTemp = TRUE;
-  else if (strncmp(StrEnv[stream_temp].VarStr, "FALSE", 5) == 0)
-    Options->StreamTemp = FALSE;
-  else
-    ReportError(StrEnv[stream_temp].KeyName, 51);
-
-  /* Determine if CANOPY SHADING is called for */
-  if (strncmp(StrEnv[canopy_shading].VarStr, "TRUE", 4) == 0) {
-	Options->CanopyShading = TRUE;
-	if (Options->StreamTemp == FALSE) {
-	  printf("Stream temp module must be turned on to allow canopy shading options\n");
-	  exit(-1);
-	}
-  }
-  else if (strncmp(StrEnv[canopy_shading].VarStr, "FALSE", 5) == 0)
-	Options->CanopyShading = FALSE;
-  else
-    ReportError(StrEnv[canopy_shading].KeyName, 51);
-
-  /* Determine if then improved radiation scheme will be used */
+  
+  /* Determine if the improved radiation scheme will be used */
   if (strncmp(StrEnv[improv_radiation].VarStr, "TRUE", 4) == 0)
     Options->ImprovRadiation = TRUE;
   else if (strncmp(StrEnv[improv_radiation].VarStr, "FALSE", 5) == 0)
@@ -519,47 +409,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->TempLapse = VARIABLE;
   else
     ReportError(StrEnv[temp_lapse].KeyName, 51);
-
-
-  /* The other met options are only of importance if MM5 is FALSE */
-  if (Options->MM5 == TRUE) {
-    Options->PrecipType = NOT_APPLICABLE;
-    Options->WindSource = NOT_APPLICABLE;
-    Options->PrecipLapse = NOT_APPLICABLE;
-    if (Options->QPF == TRUE)
-      Options->PrecipType = STATION;
-    if (Options->QPF == TRUE && Options->Prism == FALSE)
-      Options->PrecipLapse = CONSTANT;
-  }
-  else {
-    /* Determine the type of precipitation data that the model will use */
-    if (strncmp(StrEnv[precipitation_source].VarStr, "RADAR", 5) == 0)
-      Options->PrecipType = RADAR;
-    else if (strncmp(StrEnv[precipitation_source].VarStr, "STATION", 7) == 0)
-      Options->PrecipType = STATION;
-    else
-      ReportError(StrEnv[precipitation_source].KeyName, 51);
-
-    /* Determine the type of wind data that the model will use */
-    if (strncmp(StrEnv[wind_source].VarStr, "MODEL", 5) == 0)
-      Options->WindSource = MODEL;
-    else if (strncmp(StrEnv[wind_source].VarStr, "STATION", 7) == 0)
-      Options->WindSource = STATION;
-    else
-      ReportError(StrEnv[wind_source].KeyName, 51);
-
-    /* Determine the type of precipitation lapse rate */
-    if (strncmp(StrEnv[precip_lapse].VarStr, "CONSTANT", 8) == 0)
-      Options->PrecipLapse = CONSTANT;
-    else if (strncmp(StrEnv[precip_lapse].VarStr, "MAP", 3) == 0)
-      Options->PrecipLapse = MAP;
-    else if (strncmp(StrEnv[precip_lapse].VarStr, "VARIABLE", 8) == 0)
-      Options->PrecipLapse = VARIABLE;
-    else
-      ReportError(StrEnv[precip_lapse].KeyName, 51);
-
-  }
-
+  
   /**************** Determine areal extent ****************/
 
   if (IsEmptyStr(StrEnv[coordinate_system].VarStr))
@@ -587,9 +437,13 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   if (!CopyInt(&(Map->NY), StrEnv[number_of_rows].VarStr, 1))
     ReportError(StrEnv[number_of_rows].KeyName, 51);
-
+  if (Map->NY < 1 || Map->NY > 1000000)
+    ReportError(StrEnv[number_of_rows].KeyName, 51);
+  
   if (!CopyInt(&(Map->NX), StrEnv[number_of_columns].VarStr, 1))
     ReportError(StrEnv[number_of_columns].KeyName, 51);
+  if (Map->NX < 1 || Map->NX > 1000000)
+    ReportError(StrEnv[number_of_rows].KeyName, 51);
 
   if (!CopyFloat(&(Map->DY), StrEnv[grid_spacing].VarStr, 1))
     ReportError(StrEnv[grid_spacing].KeyName, 51);
@@ -629,7 +483,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!SScanDate(StrEnv[model_end].VarStr, &(End)))
     ReportError(StrEnv[model_end].KeyName, 51);
 
-  InitTime(Time, &Start, &End, NULL, NULL, (int) TimeStep);
+  InitTime(Time, &Start, &End, (int) TimeStep);
 
    /**************** Determine model constants ****************/
 
@@ -669,13 +523,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   else
     TEMPLAPSE = NOT_APPLICABLE;
 
-  if (Options->PrecipLapse == CONSTANT) {
-    if (!CopyFloat(&PRECIPLAPSE, StrEnv[precip_lapse_rate].VarStr, 1))
-      ReportError(StrEnv[precip_lapse_rate].KeyName, 51);
-  }
-  else
-    PRECIPLAPSE = NOT_APPLICABLE;
-  
   if (Options->SnowPattern == TRUE) {
     if (!CopyFloat(&SNOWPAT_WEIGHT, StrEnv[snowpattern_weight].VarStr, 1))
       ReportError(StrEnv[snowpattern_weight].KeyName, 51);

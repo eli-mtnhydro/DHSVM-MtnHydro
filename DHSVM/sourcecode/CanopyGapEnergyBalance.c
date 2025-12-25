@@ -1,16 +1,3 @@
-/*
-* SUMMARY:      CanopyGapEnergyBalance.c
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Ning Sun
-* E-MAIL:       ning.sun@pnnl.gov
-* ORIG-DATE:    Jul-18
-* DESCRIPTION:  Calculate snow balance under an idealized cylindrical canopy
-*               gap/openning
-* DESCRIP-END.
-* FUNCTIONS:    CanopyGapSnow()
-* Reference:
-*/
 
 #include <math.h>
 #include <stdio.h>
@@ -27,8 +14,6 @@
 Function Name: CanopyGapInterception()
 
 Purpose      : Calculate snow/rain interception
-Returns      :
-Comments     :
 ********************************************************************************/
 void CanopyGapInterception(OPTIONSTRUCT *Options, CanopyGapStruct **Gap,
   int HeatFluxOption, int y, int x, int Dt, int NVegLActual,
@@ -51,8 +36,6 @@ void CanopyGapInterception(OPTIONSTRUCT *Options, CanopyGapStruct **Gap,
 Function Name: CanopyGapSnowMelt()
 
 Purpose      : Calculate snow melt
-Returns      :
-Comments     :
 ********************************************************************************/
 void CanopyGapSnowMelt(OPTIONSTRUCT *Options, int y, int x, int Dt,
   CanopyGapStruct **Gap, float DX, float DY, VEGTABLE *VType, VEGPIX *LocalVeg,
@@ -205,7 +188,7 @@ Purpose      : Calculate the ET
 *****************************************************************************/
 void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
   VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil, PIXMET *LocalMet,
-  EVAPPIX *LocalEvap, ROADSTRUCT *LocalNetwork, int Dt, float UpperRa,
+  EVAPPIX *LocalEvap, NETSTRUCT *LocalNetwork, int Dt, float UpperRa,
   float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData)
 {
   float NetRadiation;		/* Total Net long- and shortwave radiation (W/m2) */
@@ -391,7 +374,7 @@ Purpose      :
 *****************************************************************************/
 void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap, 
   SOILTABLE *SType, VEGTABLE *VType, PIXRAD *LocalRad, PIXMET *LocalMet, 
-  SOILPIX *LocalSoil, ROADSTRUCT *LocalNetwork, float UpperRa, float LowerRa,
+  SOILPIX *LocalSoil, NETSTRUCT *LocalNetwork, float UpperRa, float LowerRa,
   VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData)
 
 {

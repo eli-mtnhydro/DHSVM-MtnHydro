@@ -1,11 +1,5 @@
+
 /*
- * SUMMARY:      ChannelState.c - Read and Store the channel state
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Tue Jan  5 16:52:42 1999
  * DESCRIPTION:  Store the state of the channel.  The channel state file
                  contains two columns.  The first column contains the unique
 		 channel ID's, the second the storage in the segment in m3.
@@ -13,11 +7,6 @@
 		   _channel_rec_
 		     SegmentID id
 		     float storage
- * DESCRIP-END.
- * FUNCTIONS:    ReadChannelState()
-                 StoreChannelState()
- * COMMENTS:
- * $Id: ChannelState.c,v 1.5 2006/10/03 22:50:22 nathalie Exp $     
  */
 
 #include <stdlib.h>

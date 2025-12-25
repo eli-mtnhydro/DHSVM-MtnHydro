@@ -1,16 +1,13 @@
+
 /*
-* SUMMARY:      DistrubteSatflow.c - 
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen and Mark Wigmosta (*)
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-1996
-* DESCRIPTION:  Distribute the SatFlow from Previous Timestep
-* DESCRIP-END.
-* FUNCTIONS:    DistrubteSatflow()
-* COMMENTS: (*) Mark Wigmosta, Batelle Pacific Northwest Laboratories,
-*               ms_wigmosta@pnl.gov
+ When calculating lateral outflow, available water was calculated using all 3 root zone layers 
+ and the deep layer underneath but outflow was extracted from the bottom deep soil layer. This 
+ might lead to negative soil moisture in deep soil while the layer above it remains saturated. This tends
+ to happen more often in dry climate. In order to avoid negative deep soil moisture, here I add a loop 
+ to redistribution of water extraction. The outflow starts from the (top) water table layer, extract the 
+ excess water larger than field capacity. While there's no enough water from the current layer, extract 
+ water from one layer below it until it reaches bottom layer.
+ Added 06/09/2016 by Zhuoran Duan(zhuoran.duan@pnnl.gov)
 */
 
 #include <math.h>
@@ -46,15 +43,6 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
   DeepLayerDepth = TotalDepth;
   for (i = 0; i < NSoilLayers; i++)
     DeepLayerDepth -= RootDepth[i];
-
-  /* Added 06/09/2016 by Zhuoran Duan(zhuoran.duan@pnnl.gov) */
-  /* When calculating lateral outflow, available water was calculated using all 3 root zone layers 
-  and the deep layer underneath but outflow was extracted from the bottom deep soil layer. This 
-  might lead to negative soil moisture in deep soil while the layer above it remains saturated. This tends
-  to happen more often in dry climate. In order to avoid negative deep soil moisture, here I add a loop 
-  to redistribution of water extraction. The outflow starts from the (top) water table layer, extract the 
-  excess water larger than field capacity. While there's no enough water from the current layer, extract 
-  water from one layer below it until it reaches bottom layer. */
   
   /*New algorithm for SatFlow, remove water from top layer to bottom layer*/
   if (SatFlow < 0.0) {

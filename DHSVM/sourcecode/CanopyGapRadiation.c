@@ -1,15 +1,5 @@
-/*
-* SUMMARY:      CanopyGapRadiation.c
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Ning Sun
-* E-MAIL:       ning.sun@pnnl.gov
-* ORIG-DATE:    Jul-16
-* DESCRIPTION:  Calculate radiation balance under an idealized cylindrical canopy
-*               gap/openning
-* DESCRIP-END.
-* FUNCTIONS:    CanopyGapRadiation()
-* Reference:
+
+/* Reference:
 
 C.R. Ellis, J.W. Pomeroy, and T.E. Link, Modeling increases in snowmelt
 yield and desynchronization resulting from forest gap-thinning treatments
@@ -41,8 +31,6 @@ Rsd      - downward diffuse radiation
 Extn     - light extinction coeff.
 SunAngle - sine of solar altitude
 
-Returns      :
-Comments     :
 ********************************************************************************/
 void CanopyGapRadiation(CanopyGapStruct **Gap, float SunAngle, float Rs,
   float Rsb, float Rsd, float Ld, float TSurf, float Tcanopy, float SoilAlbedo,
@@ -286,7 +274,3 @@ float CalcGapView(float R, float H, float F) {
 
   return GapView;
 }
-
-
-
-

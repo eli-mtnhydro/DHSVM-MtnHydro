@@ -1,19 +1,3 @@
-/*
- * SUMMARY:      CalcAvailableWater.c - Calculate moisture in soil column
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen and Mark Wigmosta (*)
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  Calculates the amount of soil moisture available for
- *               saturated flow below the groundwater table.
- * DESCRIP-END.
- * FUNCTIONS:    CalcAvailableWater()
- * COMMENTS:     Mark Wigmosta, Batelle Pacific Northwest Laboratories,
- *               ms_wigmosta@pnl.gov
- * $Id: CalcAvailableWater.c,v 3.1.3 2017/10/01 Ning Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,16 +20,12 @@
      float *FCap      - Field capacity of each soil layer
      float TableDepth - Depth of the water table below the surface (m)
      float *Adjust    - Correction for each layer for loss of soil storage
-                        due to channel/road-cut.  Multiplied with RootDepth
+                        due to channel cut.  Multiplied with RootDepth
                         to give the layer thickness for use in calculating
                         soil moisture
 
-
    Returns      : float AvailableWater - Total water available for saturated flow
 
-   Modifies     : void
-
-   Comments     :
  *****************************************************************************/
 float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
   float *Porosity, float *FCap, float *Moist, float TableDepth,  float *Adjust)

@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      InArea.c - Check whether a pixel is in the area
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Check whether a pixel is in the area
- * DESCRIP-END.
- * FUNCTIONS:    InArea()
- * COMMENTS:
- * $Id $     
- */
 
 #include <stdio.h>
 #include <stdlib.h>

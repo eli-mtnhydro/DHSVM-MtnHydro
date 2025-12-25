@@ -1,22 +1,3 @@
-/*
- * SUMMARY:      CalcSolar.c - inline solar calculations
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Mark Wigmosta
- * ORG:          Batelle Pacific Northwest Laboratories
- * E-MAIL:       ms_wigmosta@pnl.gov
- * ORIG-DATE:    Jul-96
- * DESCRIPTION:  These functions make inline solar radiation calculations
- *               that take into slope and aspect of the pixel, but do not
- *               account for shadowing of neighbouring pixels.
- * DESCRIP-END.
- * FUNCTIONS:    SolarDay()
- *               SolarHour()
- *               SolarAngle()
- *               SolarConst()
- * COMMENTS:
- * $Id: CalcSolar.c,v 1.4 2003/07/01 21:26:10 olivier Exp $
- */
 
 #include <math.h>
 #include "constants.h"
@@ -35,8 +16,6 @@
     float Longitude        - site longitude (rad)
     float Latitude         - site latitude (rad)
     float StandardMeridian - longitude of time zone of standard meridian (rad)
-
-   Returns: void
 
    Modifies:
      float *NoonHour       - true solar noon (hr)
@@ -118,8 +97,6 @@ void SolarDay(int DayOfYear, float Longitude, float Latitude,
     float TimeAdjustment	- required adjustment to convert local time
                   to solar time (hr)
     float SunEarthDist          - distance from Sun to Earth
-
-  Returns: void
 
   Modifies:
     float *SineSolarAltitude - sine of sun's SolarAltitude
@@ -240,8 +217,6 @@ void SolarHour(float Latitude, float LocalHour, float Dt, float NoonHour,
      float SolarAzimuth    -  solar azimuth (rads eastward from north)
     float Dt			- length of current timestep (hr)
 
-  Returns      : void
-
   Modifies     :
     float *Direct  - direct beam solar radiation (W/m^2)
     float *Diffuse - diffuse solar radiation (W/m^2)
@@ -329,8 +304,6 @@ void SolarAngle(float Latitude, float Albedo, float Declination,
     float lng_min           - longitude of site in minutes
     float *StandardMeridian - standard meridian for local time zone in
                               degrees
-
-  Returns      : void
 
   Modifies     :
     float *Latitude         - latitude of site in radians

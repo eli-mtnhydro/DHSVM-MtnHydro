@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      CalcAerodynamic.c - Calculate the aerodynamic resistances
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen and Pascal Storck
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu, pstorck@u.washington.edu
- * ORIG-DATE:    Thu Mar 27 18:00:10 1997
- * DESCRIPTION:  Calculate the aerodynamic resistances
- * DESCRIP-END.
- * FUNCTIONS:    CalcAerodynamic()
- * COMMENTS:
- * $Id: CalcAerodynamic.c,v 1.4 2003/07/01 21:26:09 olivier Exp $
- */
 
 #include <math.h>
 #include <stdio.h>
@@ -57,15 +43,12 @@
                       for the lower boundary and the second value is not used.
      float *RaSnow  - Aerodynamic resistance for the snow surface.
 
-   Returns      : void
-
    Modifies     :
      float *U
      float *U2mSnow
      float *Ra
      float *RaSnow
 
-   Comments     :
  *****************************************************************************/
 void CalcAerodynamic(int NVegLayers, unsigned char OverStory,
   float n, float *Height, float Trunk, float *U,
@@ -201,40 +184,3 @@ void CalcAerodynamic(int NVegLayers, unsigned char OverStory,
     }
   }
 }
-
-/*****************************************************************************
-  The following is a small main program that helps in testing the function
-  CalcAerodynamic().
-
-  To compile you also need the files ReportError.c and InitErrorMessage.c, and
-  the appropriate header files.
-
-  To compile the test program (using gcc):
-  gcc -DTEST_MAIN -o test_aero ReportError.c InitErrorMessage.c CalcAerodynamic.c -lm
-
-  then run the program by typing test_aero.
-*****************************************************************************/
-#ifdef TEST_MAIN
-
-int main(void)
-{
-  float Ra[2] = { 0, 0 };
-  int NVegLayers = 1;
-  char OverStory = FALSE;
-  float Zref = 80;
-  float n = .5;
-  float Height[2] = { .3, .2 };
-  float Trunk = 0.3;
-  float RaSnow;
-  float UoverStory = 0.0;
-  float U[2] = { 0, 0 };
-  float U2mSnow = 0.0;
-
-  InitErrorMessage();
-  CalcAerodynamic(NVegLayers, OverStory, Zref, n, Height, Trunk, U, &U2mSnow,
-    Ra, &RaSnow);
-
-  return EXIT_SUCCESS;
-}
-
-#endif

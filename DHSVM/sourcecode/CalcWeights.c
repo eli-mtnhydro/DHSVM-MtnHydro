@@ -1,19 +1,3 @@
-/*
- * SUMMARY:      CalcWeights.c - Calculate interpolation weights
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  calculate the interpolation weights for the meteorological
- *               inputs for each point in the modeling area.  The number of
- *               stations is variable.
- * DESCRIP-END.
- * FUNCTIONS:    CalcWeights()
- * COMMENTS:
- * $Id: CalcWeights.c,v 1.5 2003/10/28 20:02:41 colleen Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,13 +24,10 @@
      uchar ** BasinMask   - BasinMask
      uchar ***WeightArray - 3D array with interpolation weights
 
-   Returns      :  void
-
    Modifies     :
      The values stored at the addresses pointed to by WeightArray (i.e. it
      calculates the weights and stores them)
 
-   Comments     :
  *****************************************************************************/
 void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
   uchar ** BasinMask, uchar **** WeightArray,
@@ -316,18 +297,6 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
     }
   }
   
-  /* debug */
-  /*
-  for (i = 0; i <= NStats; i++)
-    if (stat[i] > 0)
-      printf("%d pixels are linked to %d met stations \n", stat[i],
-        i);
-  for (i = 0; i < NStats; i++)
-    if (stationid[i] > 0)
-      printf("%s station used in interpolation \n", Station[i].Name);
-  */
-  /* Free memory */
-
   free(Weights);
   free(Distance);
   free(InvDist2);

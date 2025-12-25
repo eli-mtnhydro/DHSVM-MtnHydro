@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      CalcEffectiveKh.c - Calculate effective thermal conducitivity
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate the effective thermal conductivity of a soil under
- *               dry conditions
- * DESCRIP-END.
- * FUNCTIONS:    CalcEffectiveKh()
- * COMMENTS:
- * $Id: CalcEffectiveKh.c,v 1.4 2003/07/01 21:26:10 olivier Exp $     
- */
 
 #include <math.h>
 #include <stdio.h>

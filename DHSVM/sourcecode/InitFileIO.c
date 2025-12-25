@@ -1,29 +1,11 @@
-/*
- * SUMMARY:      InitFileIO.c - Initialize the file IO functions
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Initialize the file IO functions depending on the file
- *               format to be used (at this time either binary or HDF v3.3
- * DESCRIP-END.
- * FUNCTIONS:    InitFileIO()
- * COMMENTS:     In order to use the NetCDF, you have to define HAVE_NETCDF 
- *               during the build
- * $Id: InitFileIO.c,v 3.1 2013/02/06 19:12 ning Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "fileio.h"
 #include "fifobin.h"
-#include "fifoNetCDF.h"
 #include "DHSVMerror.h"
 
-/* global function pointers */
 void (*CreateMapFileFmt) (char *FileName, ...);
 int (*Read2DMatrixFmt) (char *FileName, void *Matrix, int NumberType, int NY, int NX, int NDataSet, ...);
 int (*Write2DMatrixFmt) (char *FileName, void *Matrix, int NumberType, int NY, int NX, ...);
@@ -32,14 +14,7 @@ int (*Write2DMatrixFmt) (char *FileName, void *Matrix, int NumberType, int NY, i
   Function name: InitFileIO()
 
   Purpose      : Initialize function pointers for file IO
-
-  Required     :
-    int FileFormat - identifier for the file format to be used
-
-  Returns      : void
-
-  Modifies     : function pointers for file IO
-
+ 
   Comments     :
 
   This function sets the file pointers for file I/O functions to the
@@ -50,14 +25,7 @@ int (*Write2DMatrixFmt) (char *FileName, void *Matrix, int NumberType, int NY, i
   functions for the new file format, and add the additional options to this 
   initialization routine.
 
-  For example: Currently three different file formats are supported, i.e.
-  (plain vanilla) binary, swapped binary, and NetCDF v 3.4. (HDF v. 3.3 support
-  has been discontinued as of Mon Jan 25 1999).  The user can specify which file
-  format is to be used, and then the function pointer for the function
-  Read2DMatrix will be set to Read2DMatrixBin, Read2DMatrixByteSwapBin, or
-  Read2DMatrixNetCDF.  In the remaining part of the program this change is
-  transparent, and the function call used to read a matrix is Read2DMatrix for
-  either case.
+  ONLY SUPPORTS BINARY GOING FORWARD
 
   Information is stored in all files in the following way:
   fastest varying dimension: X (West to East)
@@ -79,76 +47,31 @@ int (*Write2DMatrixFmt) (char *FileName, void *Matrix, int NumberType, int NY, i
        unsigned char, i.e. values in the interval [a, b] are mapped to numbers 
        in the range [0, 255].
 
-   In order to use the NetCDF functions the NetCDF library needs to be 
-   installed on your system.  If this is the case, HAVE_NETCDF needs to be
-   defined at compile time.  If it is not defined the NetCDF functions cannot be
-   used, and DHSVM will not try to access the NetCDF libraries.
 *******************************************************************************/
-void InitFileIO(int FileFormat)
+void InitFileIO(void)
 {
-  const char *Routine = "InitFileIO";
-
   printf("Initializing file IO\n");
 
-  /************************* Binary format **********************/
-  if (FileFormat == BIN) {
-    strcpy(fileext, ".bin");
-    CreateMapFileFmt = CreateMapFileBin;
-    Read2DMatrixFmt = Read2DMatrixBin;
-    Write2DMatrixFmt = Write2DMatrixBin;
-  }
-  else if (FileFormat == BYTESWAP) {
-    strcpy(fileext, ".bin");
-    CreateMapFileFmt = CreateMapFileBin;
-    Read2DMatrixFmt = Read2DMatrixByteSwapBin;
-    Write2DMatrixFmt = Write2DMatrixByteSwapBin;
-  }
-  /************* NetCDF File Format (version 3.4) ****************/
-  else if (FileFormat == NETCDF) {
-#ifdef HAVE_NETCDF
-    strcpy(fileext, ".nc");
-    CreateMapFileFmt = CreateMapFileNetCDF;
-    Read2DMatrixFmt = Read2DMatrixNetCDF;
-    Write2DMatrixFmt = Write2DMatrixNetCDF;
-#else
-    ReportError((char *) Routine, 56);
-#endif
-  }
-  else
-    ReportError((char *) Routine, 38);
+  strcpy(fileext, ".bin");
+  CreateMapFileFmt = CreateMapFileBin;
+  Read2DMatrixFmt = Read2DMatrixBin;
+  Write2DMatrixFmt = Write2DMatrixBin;
 }
 
 /******************************************************************************/
 /*                            CreateMapFile                                   */
 /******************************************************************************/
-void
-CreateMapFile(char *FileName, char *FileLabel, MAPSIZE *Map)
+void CreateMapFile(char *FileName, char *FileLabel, MAPSIZE *Map)
 {
   CreateMapFileFmt(FileName, FileLabel, Map);
 }
 
-
-
 /******************************************************************************/
 /*                              Read2DMatrix                                  */
 /******************************************************************************/
-/** 
- * 
- * 
- * @param FileName name of file to read
- * @param Matrix  @e local 2D array (NX, NY) to be filled
- * @param NumberType 
- * @param NY 
- * @param NX 
- * @param NDataSet 
- * @param VarName 
- * @param index 
- * 
- * @return 
- */
-int 
-Read2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
-             int NDataSet, char *VarName, int index)
+
+int Read2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
+                 int NDataSet, char *VarName, int index)
 {
   int result;
   result = Read2DMatrixFmt(FileName, Matrix, NumberType,
@@ -159,9 +82,8 @@ Read2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
 /******************************************************************************/
 /*                              Write2DMatrix                                  */
 /******************************************************************************/
-int
-Write2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
-              MAPDUMP *DMap, int index)
+int Write2DMatrix(char *FileName, void *Matrix, int NumberType, MAPSIZE *Map,
+                  MAPDUMP *DMap, int index)
 {
   int result;
   result = Write2DMatrixFmt(FileName, Matrix, NumberType, 

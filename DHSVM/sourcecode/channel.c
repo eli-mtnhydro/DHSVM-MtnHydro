@@ -1,14 +1,3 @@
-/* -------------------------------------------------------------
-file: channel.c
-------------------------------------------------------------- */
-/* -------------------------------------------------------------
-Battelle Memorial Institute
-Pacific Northwest Laboratory
-------------------------------------------------------------- */
-/* -------------------------------------------------------------
-Created October 24, 1995 by  William A Perkins
-$Id: channel.c,v3.1.2 2014/1/2 Ning Exp $
-------------------------------------------------------------- */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,10 +11,6 @@ $Id: channel.c,v3.1.2 2014/1/2 Ning Exp $
 #include "constants.h"
 #include "tableio.h"
 #include "settings.h"
-
-/* for test msw */
-#define TEST_MAIN 0
-/* end test */
 
 /* -------------------------------------------------------------
 -------------- ChannelClass Functions -----------------------
@@ -48,8 +33,6 @@ static ChannelClass *alloc_channel_class(void)
   p->width = 0.0;
   p->bank_height = 0.0;
   p->friction = 0.0;
-  p->infiltration = 0.0;
-  p->crown = CHAN_OUTSLOPED;
   p->next = (ChannelClass *) NULL;
 
   return p;
@@ -88,32 +71,19 @@ is returned and any ChannelClass structs are destroyed.
 ChannelClass *channel_read_classes(const char *file, int ChanType)
 {
   ChannelClass *head = NULL, *current = NULL;
-  static const int fields = 6;
+  static const int fields = 4;
   int done;
   int err = 0;
-  static char *crown_words[4] = {
-    "OUTSLOPED", "CROWNED", "INSLOPED", NULL
-  };
 
-  static TableField class_fields[6] = {
+  static TableField class_fields[4] = {
     {"ID", TABLE_INTEGER, TRUE, FALSE, {0}, "", NULL},
     {"Channel Width", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Bank (stream) or Cut Height (road)", TABLE_REAL, TRUE, FALSE, {0.0}, "",
+    {"Bank Cut Height", TABLE_REAL, TRUE, FALSE, {0.0}, "",
     NULL},
     {"Friction Coefficient (Manning's n)", TABLE_REAL, TRUE, FALSE, {0.0}, "",
-    NULL},
-    {"Maximum Road Infiltration Rate (m/s)", TABLE_REAL, FALSE, FALSE, {0.0}, 
-    "", NULL},
-    {"Road Crown Type", TABLE_WORD, FALSE, FALSE, {0}, "", crown_words}
+    NULL}
   };
-
-  // Extra fields are required if we're dealing with a road
-  if (ChanType == road_class) {
-    // max infiltration rate and crown type are required
-    class_fields[4].required = TRUE;
-    class_fields[5].required = TRUE;
-  }
-
+  
   error_handler(ERRHDL_STATUS,
     "channel_read_classes: reading file \"%s\"", file);
 
@@ -177,34 +147,9 @@ ChannelClass *channel_read_classes(const char *file, int ChanType)
           else error_handler(ERRHDL_FATAL,
             "channel_read_classes: %s: friction cannot be 0.0", file);
           break;
-        case 4:
-          current->infiltration = class_fields[i].value.real;
-          break;
-        case 5:
-          switch (class_fields[i].value.integer) {
-          case -1:
-            error_handler(ERRHDL_ERROR,
-              "channel_read_classes: %s: unknown road crown type: %s",
-              file, class_fields[i].field);
-            err++;
-            break;
-          case 0:
-            current->crown = CHAN_OUTSLOPED;
-            break;
-          case 1:
-            current->crown = CHAN_CROWNED;
-            break;
-          case 2:
-            current->crown = CHAN_INSLOPED;
-            break;
-          default:
-            error_handler(ERRHDL_FATAL,
-              "channel_read_classes: this should not happen");
-          }
-          break;
         default:
           error_handler(ERRHDL_FATAL,
-            "channel_read_classes: this should not happen either");
+            "channel_read_classes: this should not happen");
         }
       }
     }
@@ -252,7 +197,6 @@ static Channel *alloc_channel_segment(void)
   seg->slope = 0.0;
   seg->class2 = NULL;
   seg->lateral_inflow = 0.0;
-  seg->melt = 0.0;                  
   seg->last_inflow = 0.0;
   seg->last_outflow = 0.0;
   seg->inflow = 0.0;
@@ -265,20 +209,6 @@ static Channel *alloc_channel_segment(void)
   seg->outlet = NULL;
   seg->next = NULL;
   seg->grid = NULL;
-
-  /* Initialize the variables required by John's RBM model */
-  seg->ISW = 0.;   /* incident shortwave radiation */
-  seg->Beam = 0.;
-  seg->Diffuse = 0.;
-  seg->ILW = 0.;   /* incident longwave radiation */
-  seg->NSW = 0.;   /* net shortwave radiation */
-  seg->NLW = 0.;   /* net longwave radiation */
-  seg->VP = 0.;     /* actual vapor pressure */
-  seg->WND = 0.;
-  seg->ATP = 0.;
-  seg->Ncells = 0; /* not used for now */
-  seg->azimuth = 0;
-  seg->skyview = 0;
 
   return seg;
 }
@@ -733,28 +663,12 @@ int channel_step_initialize_network(Channel *net)
     net->inflow = 0.0;
     net->lake_inflow = 0.0;
     net->lateral_inflow = 0.0;
-    net->melt = 0.0;                 
     net->last_outflow = net->outflow;
     net->last_storage = net->storage;
     net->infiltration = 0.0;
     net->remaining_infil = 0.0;
     net->evaporation = 0.0;
-
-    /* Initialzie variables for John's RBM model */ 
-    net->ILW = 0.; /* incident longwave radiation */
-    net->NLW = 0.; /* net longwave radiation */
-    net->ISW = 0.; /* incident shortwave radiation */
-    net->Beam = 0.;
-    net->Diffuse = 0.;
-    net->NSW = 0.0;            /* net shortwave radiation with both topo and canopy shading */
-
-    net->VP = 0.;              /* actual vapor pressure */
-    net->WND = 0.;
-    net->ATP = 0.;
-    net->azimuth = 0;
-    net->skyview = 0;
-    //net->Ncells = 0; /* not used for now */
-
+    
     channel_step_initialize_network(net->next);
   }
   return (0);
@@ -801,7 +715,7 @@ int
     fprintf(out2, "\n");
   }
 
-  //tsstring = date in the form of 01.01.1915-00:00:00 
+  // tsstring = date in the form of 01.01.1915-00:00:00 
   if (fprintf(out2, "%15s ", tstring) == EOF) {
     error_handler(ERRHDL_ERROR,
       "channel_save_outflow: write error:%s", strerror(errno));
@@ -875,370 +789,3 @@ void channel_free_network(Channel * net)
   free(net);
 }
 
-/* -------------------------------------------------------------
-channel_init
-------------------------------------------------------------- */
-void channel_init(void)
-{
-  /* do nothing */
-  return;
-}
-
-/* -------------------------------------------------------------
-channel_done
-------------------------------------------------------------- */
-void channel_done(void)
-{
-  /* do nothing */
-  return;
-}
-
-#if TEST_MAIN
-
-/* -------------------------------------------------------------
-interpolate
-------------------------------------------------------------- */
-static float interpolate(int n, float *x, float *y, float x0)
-{
-  int i;
-  if (x0 <= x[0]) {
-    return ((x0 - x[0]) / (x[1] - x[0]) * (y[1] - y[0]) + y[0]);
-  }
-  for (i = 0; i < n - 1; i++) {
-    if (x0 < x[i + 1]) {
-      return ((x0 - x[i]) / (x[i + 1] - x[i]) * (y[i + 1] - y[i]) + y[i]);
-    }
-  }
-  return ((x0 - x[i - 1]) / (x[i] - x[i - 1]) * (y[i] - y[i - 1]) + y[i]);
-}
-
-/* -------------------------------------------------------------
-Main Program
-------------------------------------------------------------- */
-int main(int argc, char **argv)
-{
-  static int interval = 3600;	/* timestep in seconds */
-  static int timestep;
-  static int endtime = 144;
-#define TIMES 6
-  static float bndflow[TIMES] = { 0.0, 0.0, 300.0, 300.0, 0.0, 0.0 };
-  static float bndtime[TIMES] = { 0.0, 12.0, 36.0, 48.0, 60.0, 1000.0 };
-
-  float time;
-  ChannelClass *class;
-  Channel *simple = NULL, *current, *tail;
-
-  error_handler_init(argv[0], NULL, ERRHDL_ERROR);
-  channel_init();
-
-  /* read classes */
-
-  if ((class = channel_read_classes("example_classes.dat")) == NULL) {
-    error_handler(ERRHDL_FATAL, "example_classes.dat: trouble reading file");
-  }
-
-  /* read a network */
-
-  if ((simple = channel_read_network("example_network.dat", class)) == NULL) {
-    error_handler(ERRHDL_FATAL, "example_network.dat: trouble reading file");
-  }
-
-  /* initialize flows */
-
-  for (current = simple; current != NULL; current = current->next) {
-    current->inflow = bndflow[0];
-    current->outflow = bndflow[0];
-    current->outlet = current->next;
-    tail = current;
-  }
-
-  /* time loop */
-
-  for (timestep = 0; timestep <= endtime; timestep++) {
-    float inflow = interpolate(TIMES, bndtime, bndflow, timestep) * interval;
-    float outflow;
-
-    channel_step_initialize_network(simple);
-    simple->inflow = inflow;
-    (void) channel_route_network(simple, interval);
-    outflow = tail->outflow / interval;
-    channel_save_outflow(timestep * interval, simple, stdout);
-  }
-
-  channel_free_network(simple);
-  channel_free_classes(class);
-  channel_done();
-  error_handler_done();
-  exit(0);
-}
-#endif
-
-/* -------------------------------------------------------------
-channel_read_rveg_param
-------------------------------------------------------------- */
-int channel_read_rveg_param(Channel *head, const char *file, int *MaxID)
-{
-  Channel *current = NULL;
-  int err = 0;
-  int done;
-  static const int fields = 18;
-  static TableField rveg_fields[18] = {
-    {"ID", TABLE_INTEGER, TRUE, FALSE, {0}, "", NULL},
-    {"Height", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"BufferWidth", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff1", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff2", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff3", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff4", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff5", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff6", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff7", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff8", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff9", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff10", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff11", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"ExtnCoeff12", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Dist", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Overhang", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"StreamWidth", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-  };
-
-  error_handler(ERRHDL_STATUS,
-    "channel_read_rveg_param: reading file \"%s\"", file);
-
-  if (table_open(file) != 0) {
-    error_handler(ERRHDL_ERROR,
-      "channel_read_rveg_param: unable to open file \"%s\": %s",
-      file, strerror(errno));
-    exit(3);
-  }
-
-  *MaxID = 0;
-  done = FALSE;
-  while (!done) {
-    int i;
-    done = (table_get_fields(fields, rveg_fields) < 0);
-    if (done) {
-      for (i = 0; i < fields; i++) {
-        if (rveg_fields[i].read)
-          break;
-      }
-      if (i >= fields)
-        continue;
-    }
-
-    if (current == NULL) {
-      current = head;
-    }
-    else {
-      current = current->next;
-    }
-
-
-    for (i = 0; i < fields; i++) {
-      if (rveg_fields[i].read) {
-        switch (i) {
-        case 0:
-          current->id = rveg_fields[i].value.integer;
-          if (current->id > *MaxID) 
-            *MaxID = current->id;
-          if (current->id <= 0) {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: channel id invalid",
-              file, current->id);
-            err++;
-          }
-          break;
-        case 1:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.TREEHEIGHT = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: tree height (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 2:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.BUFFERWIDTH = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: buffer width (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 3:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[0] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[1] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 4:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[1] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[2] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 5:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[2] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[3] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 6:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[3] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[4] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 7:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[4] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[5] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 8:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[5] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[6] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 9:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[6] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[7] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 10:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[7] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[8] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 11:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[8] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[9] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 12:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[9] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[10] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 13:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[10] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[11] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 14:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.ExtnCoeff[11] = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: extinction coeff in month[12] (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 15:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.CanopyBankDist = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: distance to bank (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 16:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.OvhCoeff = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: overhanging coeff (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 17:
-          if (rveg_fields[i].value.real >= 0) {
-            current->rveg.StreamWidth = rveg_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR, "%s: segment %d: segment width (%f) invalid",
-              file, current->id, rveg_fields[i].value.real);
-            err++;
-          }
-          break;
-        default:
-          error_handler(ERRHDL_FATAL, "channel_read_rveg_param: what is this field %d?", i);
-          break;
-        }
-      }
-    }
-  }
-
-  table_close();
-  table_errors += err;
-
-  error_handler(ERRHDL_STATUS,
-    "channel_read_rveg_param: %s: %d errors, %d warnings",
-    file, table_errors, table_warnings);
-
-  if (table_errors) {
-    error_handler(ERRHDL_ERROR,
-      "channel_read_rveg_param: %s: too many errors", file);
-    channel_free_network(current);
-    current = NULL;
-  }
-
-  return (err);
-}

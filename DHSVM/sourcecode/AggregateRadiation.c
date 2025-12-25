@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      AggregateRadiation.c - calculate basin-wide radiation
- * USAGE:        part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate basin-wide radiation
- * DESCRIP-END.
- * FUNCTIONS:    
- * COMMENTS:
- * $Id: AggregateRadiation.c,v 1.4 2003/07/01 21:26:09 olivier Exp $     
- */
 
 #include <stdio.h>
 #include <stdlib.h>

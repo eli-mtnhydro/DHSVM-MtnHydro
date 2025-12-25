@@ -1,18 +1,4 @@
-/*
- * SUMMARY:      InitModelState.c - Initialize the model state variables
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Initialize the model state variables using initial conditions
- *               or a saved state from an earlier model run
- * DESCRIP-END.
- * FUNCTIONS:    InitModelState()
- *
- * $Id: InitModelState.c, v 3.1.1  2013/1/4   Ning Exp $
- ******************************************************************************/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,12 +20,6 @@
    Purpose      : Initialize the state of the model using initial conditions
                   or a saved state from an earlier model run
 
-   Required     :
-
-   Returns      : void
-
-   Modifies     :
-
    Comments :
      Initialize the model state, by reading the state variables from a series
      of files.  This allows restarts of the model from any timestep for which
@@ -52,13 +32,11 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
   MAPSIZE *Map, OPTIONSTRUCT *Options, PRECIPPIX **PrecipMap,
   SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
   VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path, 
-  TOPOPIX **TopoMap, ROADSTRUCT **Network, UNITHYDRINFO *HydrographInfo,
-  float *Hydrograph, CHANNEL *ChannelData)
+  TOPOPIX **TopoMap, NETSTRUCT **Network, CHANNEL *ChannelData)
 {
   const char *Routine = "InitModelState";
   char Str[NAMESIZE + 1];
   char FileName[NAMESIZE + 20];
-  FILE *HydroStateFile;
   int i, j;		         /* counter */
   int CountGap, Count;
   int x;				 /* counter */
@@ -429,7 +407,7 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
       }
       
       /* Initialize water table depth below stream channels */
-      if (Options->HasNetwork == TRUE)
+      if (Options->Extent != POINT)
         channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
     }
   }
@@ -485,23 +463,13 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
       for (x = 0; x < Map->NX; x++) {
         SoilMap[y][x].SatFlow = 0.0;
         if (INBASIN(TopoMap[y][x].Mask)) {
-          if (Options->HasNetwork == TRUE)
+          if (Options->Extent != POINT)
             channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
         }
       }
     }
   }
   
-  /* If the unit hydrograph is used for flow routing, initialize the unit hydrograph array */
-  if (Options->Extent == BASIN && Options->HasNetwork == FALSE) {
-    sprintf(FileName, "%sHydrograph.State.%s", Path, Str);
-    OpenFile(&HydroStateFile, FileName, "r", FALSE);
-    for (i = 0; i < HydrographInfo->TotalWaveLength; i++) {
-      if (fscanf(HydroStateFile, "%f\n", &(Hydrograph[i])) == EOF)
-        ReportError(FileName, 2);
-    }
-    fclose(HydroStateFile);
-  }
   // Initialize the flood detention storage in each pixel for impervious fraction > 0 situation. 
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
@@ -548,6 +516,3 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
     printf("\n****Canopy Gap****\n%d out of %d cells have a gap structure\n\n", TotNumGap, Count);
   }
 }
-
-
-

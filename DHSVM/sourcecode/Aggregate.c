@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      Aggregate.c - calculate basin-wide values
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate the average values for the different fluxes and
- *               state variables over the basin.
- * DESCRIP-END.
- * FUNCTIONS:    Aggregate()
- * COMMENTS:
- * $Id: Aggregate.c,v 1.17 2018/02/18 ning Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +24,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	       LAYER *Soil, LAYER *Veg, VEGPIX **VegMap, EVAPPIX **Evap,
 	       PRECIPPIX **Precip, PIXRAD **RadMap, SNOWPIX **Snow,
 	       SOILPIX **SoilMap, AGGREGATED *Total, VEGTABLE *VType,
-	       ROADSTRUCT **Network, CHANNEL *ChannelData, float *roadarea,
+	       NETSTRUCT **Network, CHANNEL *ChannelData, 
          int Dt, int NDaySteps)
 {
   int NPixels;		/* Number of pixels in the basin */
@@ -54,8 +39,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 
   NPixels = 0;
   NSnow = 0;
-  *roadarea = 0.;
-
+  
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
@@ -92,18 +76,12 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   }
 
 	/* aggregate radiation data */
-	if (Options->MM5 == TRUE) {
-	  Total->Rad.BeamIn = NOT_APPLICABLE;
-	  Total->Rad.DiffuseIn = NOT_APPLICABLE;
-	}
-	else {
-      Total->Rad.Tair += RadMap[y][x].Tair;
-      Total->Rad.ObsShortIn += RadMap[y][x].ObsShortIn;
-	    Total->Rad.BeamIn += RadMap[y][x].BeamIn;
-	    Total->Rad.DiffuseIn += RadMap[y][x].DiffuseIn;
-      Total->Rad.PixelNetShort += RadMap[y][x].PixelNetShort;
-      Total->NetRad += RadMap[y][x].NetRadiation[0] + RadMap[y][x].NetRadiation[1];
-	}
+	Total->Rad.Tair += RadMap[y][x].Tair;
+  Total->Rad.ObsShortIn += RadMap[y][x].ObsShortIn;
+  Total->Rad.BeamIn += RadMap[y][x].BeamIn;
+  Total->Rad.DiffuseIn += RadMap[y][x].DiffuseIn;
+  Total->Rad.PixelNetShort += RadMap[y][x].PixelNetShort;
+  Total->NetRad += RadMap[y][x].NetRadiation[0] + RadMap[y][x].NetRadiation[1];
 
 	/* aggregate snow data */
 	if (Snow[y][x].HasSnow) {
@@ -124,8 +102,6 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	  Total->Snow.MeltEnergy += Snow[y][x].MeltEnergy;
 	}
   Total->Snow.Swq += Snow[y][x].Swq;
-  Total->Snow.Glacier += Snow[y][x].Glacier;
-  /* Total->Snow.Melt += Snow[y][x].Melt; */
   Total->Snow.Melt += Snow[y][x].Outflow;
   Total->Snow.VaporMassFlux += Snow[y][x].VaporMassFlux;
   Total->Snow.CanopyVaporMassFlux += Snow[y][x].CanopyVaporMassFlux;
@@ -181,15 +157,10 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	Total->ChannelInfiltration += SoilMap[y][x].ChannelInfiltration;
 	SoilMap[y][x].ChannelInt = 0.0;
 	SoilMap[y][x].ChannelInfiltration = 0.0;
-	Total->RoadInt += SoilMap[y][x].RoadInt;
-	SoilMap[y][x].RoadInt = 0.0;
   }
   }
   }
-  /* divide road area by pixel area so it can be used to calculate depths
-     over the road surface in FinalMassBalancs */
-  *roadarea /= Map->DX * Map->DY * NPixels;
-
+  
   /* calculate average values for all quantities except the surface flow */
   
   /* Snow variables calculated for snow area only, except for mass variables */
@@ -286,7 +257,6 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->Soil.Qst /= NPixels;
   Total->Soil.IExcess /= NPixels;
   Total->Soil.DetentionStorage /= NPixels;
-  Total->Road.IExcess /= NPixels;
   
   if (Options->Infiltration == DYNAMIC)
     Total->Soil.InfiltAcc /= NPixels;
@@ -295,7 +265,4 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->Soil.Runoff /= NPixels;
   Total->ChannelInt /= NPixels;
   Total->ChannelInfiltration /= NPixels;
-  Total->RoadInt /= NPixels;
-  Total->CulvertReturnFlow /= NPixels;
-  Total->CulvertToChannel /= NPixels;
 }

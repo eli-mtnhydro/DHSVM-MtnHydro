@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      CanopyResistance.c - Calculate canopy resistance
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate canopy resistance
- * DESCRIP-END.
- * FUNCTIONS:    CanopyResistance()
- * COMMENTS:
- * $Id: CanopyResistance.c,v 1.4 2003/07/01 21:26:11 olivier Exp $
- */
 
 #include <math.h>
 #include <stdio.h>

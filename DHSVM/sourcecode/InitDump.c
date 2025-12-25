@@ -1,21 +1,3 @@
-/*
- * SUMMARY:      InitDump.c - Initialize output settings
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Functions to initialize which variables need to be output when
- * DESCRIP-END.
- * FUNCTIONS:    InitDump()
- *               InitStateDump()
- *               InitImageDump()
- *               InitMapDump()
- *               InitPixDump()
- * COMMENTS:
- * $Id: InitDump.c,v 1.11 2004/08/18 01:01:29 colleen Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,22 +29,14 @@
      TOPOPIX **TopoMap     - Information about terrain characteristics
      DUMPSTRUCT *Dump      - Information on what to output when
 
-   Returns      : void
-
-   Modifies     : Members of Dump
-
-   Comments     :
  *****************************************************************************/
 void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLayers, 
-  int MaxVegLayers, int Dt, TOPOPIX **TopoMap, DUMPSTRUCT *Dump, int *NGraphics,
-  int **which_graphics)
+  int MaxVegLayers, int Dt, TOPOPIX **TopoMap, DUMPSTRUCT *Dump)
 {
   char *Routine = "InitDump";
   int i;
   int x;			/* counter */
   int y;			/* counter */
-  int NImageVars;		/* Number of different variables for which to
-                   dump images */
   int NMapVars;			/* Number of different variables for which to
                    dump maps */
   int temp_count;
@@ -76,8 +50,6 @@ void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLay
     {"OUTPUT", "NUMBER OF OUTPUT PIXELS", "", ""},
     {"OUTPUT", "NUMBER OF MODEL STATES", "", ""},
     {"OUTPUT", "NUMBER OF MAP VARIABLES", "", ""},
-    {"OUTPUT", "NUMBER OF IMAGE VARIABLES", "", ""},
-    {"OUTPUT", "NUMBER OF GRAPHICS", "", ""},
     {NULL, NULL, "", NULL},
   };
 
@@ -116,21 +88,7 @@ void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLay
   else if (!CopyInt(&NMapVars, StrEnv[nmapvars].VarStr, 1) || NMapVars < 0)
     ReportError(StrEnv[nmapvars].KeyName, 51);
 
-  if (IsEmptyStr(StrEnv[nimagevars].VarStr))
-    NImageVars = 0;
-  else if (!CopyInt(&NImageVars, StrEnv[nimagevars].VarStr, 1) ||
-    NImageVars < 0)
-    ReportError(StrEnv[nimagevars].KeyName, 51);
-
-  if (IsEmptyStr(StrEnv[ngraphics].VarStr))
-    *NGraphics = 0;
-  else if (!CopyInt(NGraphics, StrEnv[ngraphics].VarStr, 1) || *NGraphics < 0)
-    ReportError(StrEnv[ngraphics].KeyName, 51);
-
-  if (Options->Extent == POINT)
-    *NGraphics = 0;
-
-  Dump->NMaps = NMapVars + NImageVars;
+  Dump->NMaps = NMapVars;
 
   // Open file for recording aggregated values for entire basin
   sprintf(Dump->Aggregate.FileName, "%sAggregated.Values", Dump->Path);
@@ -181,59 +139,7 @@ void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLay
 
     if (Dump->NMaps > 0)
       InitMapDump(Input, Map, MaxSoilLayers, MaxVegLayers, Dump->Path,
-        Dump->NMaps, NMapVars, &(Dump->DMap));
-    if (NImageVars > 0)
-      InitImageDump(Input, Dt, Map, MaxSoilLayers, MaxVegLayers, Dump->Path,
-        Dump->NMaps, NImageVars, &(Dump->DMap));
-
-    if (*NGraphics > 0)
-      InitGraphicsDump(Input, *NGraphics, &which_graphics);
-
-    /* if no network open unit hydrograph file */
-    if (!(Options->HasNetwork)) {
-      sprintf(Dump->Stream.FileName, "%sStream.Flow", Dump->Path);
-      OpenFile(&(Dump->Stream.FilePtr), Dump->Stream.FileName, "w", TRUE);
-    }
-  }
-}
-
-/*******************************************************************************
-  Function name: InitGraphicsDump()
-
-  Purpose      : Initialize the model state dumps.  This information is in the
-         [OUTPUT] section of the input file
-
-  Required     :
-    LISTPTR Input         - Linked list with input strings
-    int NStates           - Number of graphics to display
-    int *which_graphics        - Array with graphic id's
-
-  Returns      : void
-
-  Modifies     : which_graphics, NStates
-
-  Comments     :
-*****************************************************************************/
-void InitGraphicsDump(LISTPTR Input, int NGraphics, int ***which_graphics)
-{
-  char *Routine = "InitGraphicsDump";
-  int i;			/* counter */
-  char KeyName[BUFSIZE + 1];
-  char *KeyStr = "GRAPHICS ID";
-  char *SectionName = "OUTPUT";
-  char VarStr[BUFSIZE + 1];
-
-  if (((**which_graphics) = (int *)malloc(NGraphics * sizeof(int))) == NULL)
-    ReportError(Routine, 1);
-
-  for (i = 0; i < NGraphics; i++) {
-    sprintf(KeyName, "%s %d", KeyStr, i + 1);
-    GetInitString(SectionName, KeyName, "", VarStr,
-      (unsigned long)BUFSIZE, Input);
-
-    if (!CopyInt(&(**which_graphics)[i], VarStr, 1))
-      ReportError("GRAPHICS ID", 51);
-
+        NMapVars, &(Dump->DMap));
   }
 }
 
@@ -248,11 +154,6 @@ void InitGraphicsDump(LISTPTR Input, int NGraphics, int ***which_graphics)
     int NStates           - Number of model states to dump
     DATE **DState         - Array with dump dates
 
-  Returns      : void
-
-  Modifies     : DState and its members
-
-  Comments     :
 *****************************************************************************/
 void InitStateDump(LISTPTR Input, int NStates, DATE ** DState)
 {
@@ -276,124 +177,6 @@ void InitStateDump(LISTPTR Input, int NStates, DATE ** DState)
 }
 
 /*******************************************************************************
-  Function name: InitImageDump()
-
-  Purpose      : Initialize the image dumps.  This information is in the
-         [OUTPUT] section of the input file
-
-  Required     :
-    LISTPTR Input         - Linked list with input strings
-    int Dt                - Model timestep in seconds
-    MAPSIZE *MapDump      - Information about areal extent
-    int MaxSoilLayers     - Maximum number of soil layers
-    int MaxVegLayers      - Maximum number of vegetation layers
-    char *Path            - Directory to write output to
-    int NMaps             - Number of maps to dump
-    int NImages           - Number of images to dump
-    MAPDUMP **DMap        - Array of maps and images to dump
-
-  Returns      : void
-
-  Modifies     : Members of DMap
-
-  Comments     : InitImageDump must be preceded by a call to InitMapDump, since
-                 the necessary memory is allocated there
-*******************************************************************************/
-void InitImageDump(LISTPTR Input, int Dt, MAPSIZE * Map, int MaxSoilLayers,
-  int MaxVegLayers, char *Path, int NMaps, int NImages,
-  MAPDUMP ** DMap)
-{
-  char *Routine = "InitImageDump";
-  DATE End;			/* End of low resolution map dump period */
-  DATE Start;			/* Start of low resolution map dump period */
-  int i;			/* counter */
-  int j;			/* counter */
-  int Interval;			/* Interval between low resolution map dumps */
-  int MaxLayers;		/* Maximum number of layers allowed for this
-                   variable */
-  char KeyName[image_lower + 1][BUFSIZE + 1];
-  char *KeyStr[] = {
-    "IMAGE VARIABLE",
-    "IMAGE LAYER",
-    "IMAGE START",
-    "IMAGE END",
-    "IMAGE INTERVAL",
-    "IMAGE UPPER LIMIT",
-    "IMAGE LOWER LIMIT"
-  };
-  char *SectionName = "OUTPUT";
-  char VarStr[image_lower + 1][BUFSIZE + 1];
-  float tmpInterval;
-
-  for (i = NMaps - NImages; i < NMaps; i++) {
-
-    /* Read the key-entry pairs from the input file */
-    for (j = 0; j <= image_lower; j++) {
-      sprintf(KeyName[j], "%s %d", KeyStr[j], i - (NMaps - NImages) + 1);
-      GetInitString(SectionName, KeyName[j], "", VarStr[j],
-        (unsigned long)BUFSIZE, Input);
-    }
-
-    /* Assign the entries to the appropriate variables */
-    if (!CopyInt(&((*DMap)[i].ID), VarStr[image_variable], 1))
-      ReportError(KeyName[image_variable], 51);
-
-    if (!IsValidID((*DMap)[i].ID))
-      ReportError("Input Options File", 19);
-
-    if (IsMultiLayer((*DMap)[i].ID)) {
-      MaxLayers = GetVarNLayers((*DMap)[i].ID, MaxSoilLayers, MaxVegLayers);
-      if (!CopyInt(&((*DMap)[i].Layer), VarStr[image_layer], 1))
-        ReportError(KeyName[image_layer], 51);
-      if ((*DMap)[i].Layer < 1 || (*DMap)[i].Layer > MaxLayers)
-        ReportError("Input Options File", 20);
-    }
-    else
-      (*DMap)[i].Layer = 1;
-
-    (*DMap)[i].Resolution = IMAGE_OUTPUT;
-
-    strncpy((*DMap)[i].FileName, Path, BUFSIZE);
-    GetVarAttr(&((*DMap)[i]));
-    (*DMap)[i].NumberType = NC_BYTE;
-    strcpy((*DMap)[i].Format, "%d");
-
-    CreateMapFile((*DMap)[i].FileName, (*DMap)[i].FileLabel, Map);
-
-    if (!SScanDate(VarStr[image_start], &Start))
-      ReportError(KeyName[image_start], 51);
-
-    if (!SScanDate(VarStr[image_end], &End))
-      ReportError(KeyName[image_end], 51);
-
-    if (!CopyFloat(&tmpInterval, VarStr[image_interval], 1))
-      ReportError(KeyName[image_interval], 51);
-    Interval = SECPHOUR * tmpInterval;
-
-    if (Interval % Dt != 0 || Interval <= 0)
-      ReportError("Input Options File", 24);
-
-    if (((*DMap)[i].N = NumberOfSteps(&Start, &End, Interval)) < 1)
-      ReportError("Input Options File", 25);
-
-    if (!((*DMap)[i].DumpDate = (DATE *)calloc((*DMap)[i].N, sizeof(DATE))))
-      ReportError(Routine, 1);
-
-    CopyDate(&((*DMap)[i].DumpDate[0]), &Start);
-
-    for (j = 1; j < (*DMap)[i].N; j++)
-      (*DMap)[i].DumpDate[j] =
-      NextDate(&((*DMap)[i].DumpDate[j - 1]), Interval);
-
-    if (!CopyFloat(&((*DMap)[i].MaxVal), VarStr[image_upper], 1))
-      ReportError(KeyName[image_upper], 51);
-
-    if (!CopyFloat(&((*DMap)[i].MinVal), VarStr[image_lower], 1))
-      ReportError(KeyName[image_lower], 51);
-  }
-}
-
-/*******************************************************************************
   Function name: InitMapDump()
 
   Purpose      : Initialize the map dumps.  This information is in the
@@ -405,18 +188,12 @@ void InitImageDump(LISTPTR Input, int Dt, MAPSIZE * Map, int MaxSoilLayers,
     int MaxSoilLayers     - Maximum number of soil layers
     int MaxVegLayers      - Maximum number of vegetation layers
     char *Path            - Directory to write output to
-    int NTotalMapImages   - Total number of maps and images to dump
     int NMaps             - Number of maps to dump
-    MAPDUMP **DMap        - Array of maps and images to dump
+    MAPDUMP **DMap        - Array of maps to dump
 
-  Returns      : void
-
-  Modifies     : DMap and its members
-
-  Comments     :
 *******************************************************************************/
 void InitMapDump(LISTPTR Input, MAPSIZE * Map, int MaxSoilLayers,
-  int MaxVegLayers, char *Path, int TotalMapImages, int NMaps,
+  int MaxVegLayers, char *Path, int NMaps,
   MAPDUMP ** DMap)
 {
   char *Routine = "InitMapDump";
@@ -433,9 +210,6 @@ void InitMapDump(LISTPTR Input, MAPSIZE * Map, int MaxSoilLayers,
   };
   char *SectionName = "OUTPUT";
   char VarStr[map_date + 1][BUFSIZE + 1];
-
-  if (!(*DMap = (MAPDUMP *)calloc(TotalMapImages, sizeof(MAPDUMP))))
-    ReportError(Routine, 1);
 
   for (i = 0; i < NMaps; i++) {
 
@@ -506,11 +280,6 @@ void InitMapDump(LISTPTR Input, MAPSIZE * Map, int MaxSoilLayers,
     int NPix              - Number of pixels to dump
     PIXDUMP **Pix         - Array of pixels to dump
 
-  Returns      : number of accepted dump pixels (i.e. in the mask, etc)
-
-  Modifies     : NPix and its members
-
-  Comments     :
 *******************************************************************************/
 int InitPixDump(LISTPTR Input, MAPSIZE *Map, uchar **BasinMask, char *Path,
   int NPix, PIXDUMP **Pix, OPTIONSTRUCT *Options)

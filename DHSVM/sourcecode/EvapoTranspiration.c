@@ -1,17 +1,3 @@
-/*
-* SUMMARY:      EvapoTranspiration.c - Calculate evapotranspiration
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-96
-* DESCRIPTION:  Calculate evapotranspiration
-* DESCRIP-END.
-* FUNCTIONS:    EvapoTranspiration()
-* COMMENTS:
-* $Id: EvapoTranspiration.c,v 1.5 2007/03/02 22:02:01 lancuo Exp $
-*/
 
 #include <math.h>
 #include <stdio.h>
@@ -171,12 +157,8 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   for (i = 0, EAct[Layer] = 0; i < VType->NSoilLayers; i++) {
     *ETot += ESoil[Layer][i];
     EAct[Layer] += ESoil[Layer][i];
-   // if (EAct[Layer] < 0)
-   //   printf("veg[%d]+soil[%d]: EAct=%f; ESoil=%f\n", Layer, i, EAct[Layer], ESoil[Layer][i]);
   }
-
-
-  /* clean up */
+  
   free(Rc);
 }
 

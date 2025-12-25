@@ -1,15 +1,4 @@
-/*
- * SUMMARY:      Avalanche.c - Downslope movement of snow on steep slopes
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Chris Frans
- * ORG:          University of Washington
- * E-MAIL:       chrisf2@uw.edu
- * ORIG-DATE:    Feb-15
- * DESCRIPTION:  Represent Snow Redistribution
- * DESCRIP-END.
- * FUNCTIONS:    Avalanche()
- */
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,9 +23,9 @@
    surface. The slope is not currently calculated based on surface elevation of
    the snowpack.
 
-   Set the gradient with pixels that are outside tha basin to zero.  This
+   Set the gradient with pixels that are outside the basin to zero.  This
    ensures that there is no flux of water across the basin boundary.
-
+  
    WORK IN PROGRESS:
    Calculate slope based on Ice and Snow on top of topography.
    Transfer Cold Content of Snowpack with Mass.
@@ -103,13 +92,6 @@ void Avalanche(MAPSIZE *Map, TOPOPIX **TopoMap, TIMESTRUCT *Time, OPTIONSTRUCT *
         /* only redistribute snow if Swq is above holding capacity */
         if (slope_deg[y][x] > 30. && Snow[y][x].Swq > Shd) {
 
-          /*If avalanche occurs on glacier surface, Leave a 10mm of snow behind so that glacier 
-          surface is not prematurely exposed */
-          /* if (Snow[y][x].Iwq > 1.0) {
-            Snowout = Snow[y][x].Swq - 0.01;
-            Snow[y][x].Swq = 0.01;
-          } */
-          
           Snowout = Snow[y][x].Swq;
           Snow[y][x].Swq = 0.0;
           

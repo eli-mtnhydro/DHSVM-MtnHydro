@@ -1,21 +1,3 @@
-/*
- * SUMMARY:      InitMetMaps.c - Initialize meteorological maps
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Initialize meteorological maps
- * DESCRIP-END.
- * FUNCTIONS:    InitMetMaps()
- *               InitEvapMap()
- *               InitPrecipMap()
- *               InitRadarMap()
- *               InitRadMap()
- * COMMENTS:
- * $Id: InitMetMaps.c,v 1.6 2006/10/03 22:50:22 nathalie Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,15 +15,14 @@
  /*****************************************************************************
    InitMetMaps()
  *****************************************************************************/
-void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, MAPSIZE *Radar,
-  OPTIONSTRUCT *Options, char *WindPath, char *PrecipLapseFile,
-  float ***PrecipLapseMap, float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
+void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, 
+  OPTIONSTRUCT *Options,
+  float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
   unsigned char ****ShadowMap, float ***SkyViewMap,
   EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
-  RADARPIX ***RadarMap, PIXRAD ***RadMap,
+  PIXRAD ***RadMap,
   SOILPIX **SoilMap, LAYER *Soil, VEGPIX **VegMap,
-  LAYER *Veg, TOPOPIX **TopoMap, float ****MM5Input,
-  float ****WindModel)
+  LAYER *Veg, TOPOPIX **TopoMap)
 {
   int y, x;
 
@@ -51,46 +32,26 @@ void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, MAPSIZE *Radar,
   InitPrecipMap(Map, PrecipMap, VegMap, Veg, TopoMap);
   InitPptMultiplierMap(Options, Map, PptMultiplierMap);                                                            
 
-  if (Options->MM5 == TRUE) {
-    InitMM5Maps(Soil->MaxLayers, Map->NY, Map->NX, MM5Input, RadMap, Options);
-    /* If called for, use the precip lapse map for MM5 precip
-       distribution, avoiding lots of function interfaces changes */
-    if (strlen(PrecipLapseFile) > 0) {
-      InitPrecipLapseMap(PrecipLapseFile, Map, PrecipLapseMap);
-    }
-    if (Options->Shading == TRUE)
-      InitShadeMap(Options, NDaySteps, Map, ShadowMap, SkyViewMap);
-  }
-  else {
-    if (Options->PrecipType == RADAR)
-      InitRadarMap(Radar, RadarMap);
-    if (Options->PrecipLapse == MAP)
-      InitPrecipLapseMap(PrecipLapseFile, Map, PrecipLapseMap);
-    if (Options->Prism == TRUE)
-      InitPrismMap(Map->NY, Map->NX, PrismMap);
-    if (Options->SnowPattern == TRUE)
-      InitSnowPatternMap(SnowPatternMap, SnowPatternMapBase, Map, Options);
-    if (Options->Shading == TRUE)
-      InitShadeMap(Options, NDaySteps, Map, ShadowMap, SkyViewMap);
-
-    if (!((*SkyViewMap) = (float **)calloc(Map->NY, sizeof(float *))))
-      ReportError("InitMetMaps()", 1);
-    for (y = 0; y < Map->NY; y++) {
-      if (!((*SkyViewMap)[y] = (float *)calloc(Map->NX, sizeof(float))))
-        ReportError("InitMetMaps()", 1);
-    }
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        (*SkyViewMap)[y][x] = 1.0;
-      }
-    }
-    if (Options->WindSource == MODEL)
-      InitWindModelMaps(WindPath, Map, WindModel);
-
-    InitRadMap(Map, RadMap);
-  }
-  if (Options->MM5 == TRUE && Options->QPF == TRUE && Options->Prism == TRUE)
+  if (Options->Prism == TRUE)
     InitPrismMap(Map->NY, Map->NX, PrismMap);
+  if (Options->SnowPattern == TRUE)
+    InitSnowPatternMap(SnowPatternMap, SnowPatternMapBase, Map, Options);
+  if (Options->Shading == TRUE)
+    InitShadeMap(Options, NDaySteps, Map, ShadowMap, SkyViewMap);
+  
+  if (!((*SkyViewMap) = (float **)calloc(Map->NY, sizeof(float *))))
+    ReportError("InitMetMaps()", 1);
+  for (y = 0; y < Map->NY; y++) {
+    if (!((*SkyViewMap)[y] = (float *)calloc(Map->NX, sizeof(float))))
+      ReportError("InitMetMaps()", 1);
+  }
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      (*SkyViewMap)[y][x] = 1.0;
+    }
+  }
+  
+  InitRadMap(Map, RadMap);
 }
 
 
@@ -204,105 +165,6 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
   }
 }
 
-/*******************************************************************************
-  InitMM5Maps()
-*******************************************************************************/
-void InitMM5Maps(int NSoilLayers, int NY, int NX, float ****MM5Input,
-  PIXRAD ***RadMap, OPTIONSTRUCT *Options)
-{
-  char *Routine = "InitMM5Maps";
-  int NTotalMaps = NSoilLayers + N_MM5_MAPS;
-  int n;
-  int y;
-
-  if (Options->HeatFlux == FALSE)
-    NTotalMaps -= NSoilLayers;
-
-  if (!((*MM5Input) = (float ***)calloc(NTotalMaps, sizeof(float **))))
-    ReportError(Routine, 1);
-
-  for (n = 0; n < NTotalMaps; n++) {
-    if (!((*MM5Input)[n] = (float **)calloc(NY, sizeof(float *))))
-      ReportError(Routine, 1);
-    for (y = 0; y < NY; y++) {
-      if (!((*MM5Input)[n][y] = (float *)calloc(NX, sizeof(float))))
-        ReportError(Routine, 1);
-    }
-  }
-
-  /* Initiate radiation map */
-  if (!(*RadMap = (PIXRAD **)calloc(NY, sizeof(PIXRAD *))))
-    ReportError((char *)Routine, 1);
-  for (y = 0; y < NY; y++) {
-    if (!((*RadMap)[y] = (PIXRAD *)calloc(NX, sizeof(PIXRAD))))
-      ReportError((char *)Routine, 1);
-  }
-}
-
-/*******************************************************************************
-  InitWindModelMaps()
-*******************************************************************************/
-void InitWindModelMaps(char *WindPath, MAPSIZE *Map, float ****WindModel)
-{
-  char *Routine = "InitWindModelMaps";
-  char InFileName[NAMESIZE + 1];
-  char Str[NAMESIZE + 1];
-  int NumberType;
-  int n;
-  int x;
-  int y;
-  float *Array = NULL;
-
-  if (!((*WindModel) = (float ***)calloc(NWINDMAPS, sizeof(float **))))
-    ReportError(Routine, 1);
-
-  for (n = 0; n < NWINDMAPS; n++) {
-    if (!((*WindModel)[n] = (float **)calloc(Map->NY, sizeof(float *))))
-      ReportError(Routine, 1);
-    for (y = 0; y < Map->NY; y++) {
-      if (!((*WindModel)[n][y] = (float *)calloc(Map->NX, sizeof(float))))
-        ReportError(Routine, 1);
-    }
-  }
-
-  if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
-    ReportError((char *)Routine, 1);
-  NumberType = NC_FLOAT;
-
-  /* Read the wind model maps */
-  for (n = 0; n < NWINDMAPS; n++) {
-    sprintf(Str, "%02d", n + 1);
-    sprintf(InFileName, "%s%s%s", WindPath, Str, fileext);
-    Read2DMatrix(InFileName, Array, NumberType, Map, 0, "", 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        (*WindModel)[n][y][x] = Array[y * Map->NX + x];
-      }
-    }
-  }
-  free(Array);
-}
-
-/*******************************************************************************
-  InitRadarMap()
-*******************************************************************************/
-void InitRadarMap(MAPSIZE *Radar, RADARPIX ***RadarMap)
-{
-  const char *Routine = "InitRadarMap";
-  int y;			/* counter */
-
-  if (DEBUG)
-    printf("Initializing radar precipitation map\n");
-
-  if (!(*RadarMap = (RADARPIX **)calloc(Radar->NY, sizeof(RADARPIX *))))
-    ReportError((char *)Routine, 1);
-
-  for (y = 0; y < Radar->NY; y++) {
-    if (!((*RadarMap)[y] = (RADARPIX *)calloc(Radar->NX, sizeof(RADARPIX))))
-      ReportError((char *)Routine, 1);
-  }
-}
-
 /******************************************************************************
   InitRadMap()
 ******************************************************************************/
@@ -321,39 +183,6 @@ void InitRadMap(MAPSIZE *Map, PIXRAD ***RadMap)
     if (!((*RadMap)[y] = (PIXRAD *)calloc(Map->NX, sizeof(PIXRAD))))
       ReportError((char *)Routine, 1);
   }
-}
-
-/******************************************************************************/
-/*			       InitPrecipLapseMap                             */
-/******************************************************************************/
-void InitPrecipLapseMap(char *PrecipLapseFile, MAPSIZE *Map, float ***PrecipLapseMap)
-{
-  const char *Routine = "InitPrecipLapseMap";
-  int NumberType;
-  int x;			/* counter */
-  int y;			/* counter */
-  float *Array = NULL;
-
-  if (!((*PrecipLapseMap) = (float **)calloc(Map->NY, sizeof(float *))))
-    ReportError((char *)Routine, 1);
-
-  for (y = 0; y < Map->NY; y++) {
-    if (!((*PrecipLapseMap)[y] = (float *)calloc(Map->NX, sizeof(float))))
-      ReportError((char *)Routine, 1);
-  }
-
-  if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
-    ReportError((char *)Routine, 1);
-  NumberType = NC_FLOAT;
-
-  Read2DMatrix(PrecipLapseFile, Array, NumberType, Map, 0, "", 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      (*PrecipLapseMap)[y][x] = Array[y * Map->NX + x];
-    }
-  }
-
-  free(Array);
 }
 
 /******************************************************************************/
@@ -395,7 +224,6 @@ void InitSnowPatternMap(float ***SnowPatternMap, float ***SnowPatternMapBase,
   char VarName[BUFSIZE + 1];
   int NumberType;
   float *Array = NULL;
-  int flag;
   
   if (!((*SnowPatternMap) = (float **)calloc(Map->NY, sizeof(float *))))
     ReportError((char *)Routine, 1);
@@ -417,19 +245,11 @@ void InitSnowPatternMap(float ***SnowPatternMap, float ***SnowPatternMapBase,
   GetVarNumberType(207, &NumberType);
   if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
     ReportError((char *)Routine, 1);
-  flag = Read2DMatrix(FileName, Array, NumberType, Map, 0, VarName, 0);
+  Read2DMatrix(FileName, Array, NumberType, Map, 0, VarName, 0);
   
-  if ((Options->FileFormat == NETCDF && flag == 0) || (Options->FileFormat == BIN)) {
-    for (y = 0, i = 0; y < Map->NY; y++)
-      for (x = 0; x < Map->NX; x++, i++)
-        (*SnowPatternMapBase)[y][x] = Array[i];
-  }
-  else if (Options->FileFormat == NETCDF && flag == 1) {
-    for (y = Map->NY - 1, i = 0; y >= 0; y--)
-      for (x = 0; x < Map->NX; x++, i++)
-        (*SnowPatternMapBase)[y][x] = Array[i];
-  }
-  else ReportError((char *)Routine, 57);
+  for (y = 0, i = 0; y < Map->NY; y++)
+    for (x = 0; x < Map->NX; x++, i++)
+      (*SnowPatternMapBase)[y][x] = Array[i];
   
   free(Array);
 }

@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      CalcSnowAlbedo.c - Calculate snow albedo
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate the snow albedo as a function of snow age
- * DESCRIP-END.
- * FUNCTIONS:    CalcSnowAlbedo()
- * COMMENTS:
- * $Id: CalcSnowAlbedo.c,v 1.4 2003/07/01 21:26:10 olivier Exp $     
- */
 
 #include <math.h>
 #include <stdio.h>
@@ -33,12 +19,14 @@
   Snow albedo is calculated as a function of the number of days since the
   last observed snow fall. There are separete albedo curves for the freeze
   and thaw conditions.
+ 
+  Laramie and Schaake (1972)
+  Updated based on Storck (2000)
+  Updated by Eli Boardman 2024 to fix issues and introduce reset threshold
 *****************************************************************************/
 float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay)
 {
-  /* Laramie and Schaake (1972) */
-  /* Updated based on Storck (2000) */
-  /* Updated by Eli Boardman 2024 to fix various issues */
+  
   float Last, Albedo;
   
   Last = LocalSnow->LastSnow / (float) StepsPerDay;

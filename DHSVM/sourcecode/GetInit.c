@@ -1,11 +1,5 @@
+
 /*
- * SUMMARY:      GetInit.c - Get initialization data from file
- * USAGE:        Not a stand-alone program
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:     6-May-97 at 09:10:10
  * DESCRIPTION:  Functions are designed to behave more or less the same as the
  *               GetPrivateProfileString and GetPrivateProfileInt functions 
  *               that are part of MFC (the functions here are a little less 
@@ -19,33 +13,6 @@
  *               # comment
  *               [section]
  *               key=value          # comment
- *                  .
- *                  .
- *                  .
- *
- * DESCRIP-END.
- * FUNCTIONS:    GetInitString()
- *               GetInitLong()
- *               GetInitDouble()
- *               LocateKey()
- *               LocateSection()
- *               Strip()
- *               CopyDouble()
- *               CopyFloat()
- *               CopyInt()
- *               CopyLong()
- *               CopyShort()
- *               CopyUChar()
- *               IsEmptyStr()
- *               ReadInitFile()
- *               CreateNode()
- *               DeleteList()
- *               CountLines()
-
- * Modification:
- * $Id: GetInit.c, v 4.0  2012/10/31   Ning Exp $
- * Comments: 
- *
  */
 #define _CRT_SECURE_NO_DEPRECATE
 #include <ctype.h>

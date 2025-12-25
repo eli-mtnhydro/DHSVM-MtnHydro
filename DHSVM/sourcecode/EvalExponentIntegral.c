@@ -1,17 +1,5 @@
-/*
- * SUMMARY:      EvalExponentIntegral.c
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Pascal Storck
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       pstorck@u.washington.edu
- * ORIG-DATE:    2001
- * DESCRIPTION:  
- * DESCRIP-END.
- * FUNCTIONS:   
- * COMMENTS:
- * $Id: EvalExponentIntegral.c,v 1.5 2006/10/03 22:50:22 nathalie Exp $     
- */
+
+/* Apparently used by one of the fancier vegetation radiation schemes */
 
 #include <math.h>
 #include <stdlib.h>

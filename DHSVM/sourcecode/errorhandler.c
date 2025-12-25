@@ -1,14 +1,3 @@
-/* -------------------------------------------------------------
-   file: errorhandler.c
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Battelle Memorial Institute
-   Pacific Northwest Laboratory
-   ------------------------------------------------------------- */
-/* -------------------------------------------------------------
-   Created January 15, 1996 by  William A Perkins
-   $Id: errorhandler.c,v 1.4 2003/07/01 21:26:29 olivier Exp $
-   ------------------------------------------------------------- */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -104,28 +93,3 @@ int error_handler_done(void)
   LOG = NULL;
   return (0);
 }
-
-#ifdef TEST_EH_MAIN
-/* -------------------------------------------------------------
-   Main Program
-   ------------------------------------------------------------- */
-int main(int argc, char **argv)
-{
-  (void) error_handler_init(argv[0], NULL, ERRHDL_MESSAGE);
-  error_handler(ERRHDL_DEBUG, "This is a DEBUG message: %s, line %d",
-		__FILE__, __LINE__);
-  error_handler(ERRHDL_STATUS, "This is a STATUS message: %s, line %d",
-		__FILE__, __LINE__);
-  error_handler(ERRHDL_MESSAGE, "This is a MESSAGE message: %s, line %d",
-		__FILE__, __LINE__);
-  error_handler(ERRHDL_WARNING, "This is a WARNING message: %s, line %d",
-		__FILE__, __LINE__);
-  error_handler(ERRHDL_ERROR, "This is a ERROR message: %s, line %d",
-		__FILE__, __LINE__);
-  error_handler(ERRHDL_FATAL, "This is a FATAL message: %s, line %d\nBye!",
-		__FILE__, __LINE__);
-  error_handler_done();
-  exit(0);
-}
-
-#endif

@@ -1,18 +1,5 @@
-/*
- * SUMMARY:      CalcKinViscosity - Calculate the kinematic viscosity
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Jordan Lanini
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       dhsvm@hydro.washington.edu
- * ORIG-DATE:    
- * DESCRIPTION:  estimate kinematic viscosity through interpolation
- *               based on dewpoint temperature
- * DESCRIP-END.
- * FUNCTIONS:    viscosity()
- * COMMENTS:
- * $Id: CalcKinViscosity.c,v 1.3 2004/08/18 01:01:26 colleen Exp $     
- */
+
+/* Used by kinematic wave routing in RouteSurface.c */
 
 #include <stdio.h>
 #include <math.h>

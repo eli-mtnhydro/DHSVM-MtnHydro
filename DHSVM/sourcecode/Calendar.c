@@ -1,33 +1,3 @@
-/*
- * SUMMARY:      Calendar.c - Generic functions to manipulate times and dates
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Generic functions to manipulate times and dates
- * DESCRIP-END.
- * FUNCTIONS:    DayOfYear() 
- *               IsLeapYear() 
- *               IsEqualTime() 
- *               ScanDate()
- *               NumberOfSteps() 
- *               NextDate() 
- *               CopyDate() 
- *               PrintDate() 
- *               IsNewMonth()
- *               IsNewDay()
- *               Before() 
- *               After()
- *               IncreaseTime()
- *               InitTime()
- *               GregorianToJulianDay()
- *               JulianDayToGregorian()
- *               DayOfWeek()
- * COMMENTS:
- * $Id: Calendar.c,v 1.5 2004/02/17 20:40:58 jlanini Exp $     
- */
 
 #include <ctype.h>
 #include <math.h>
@@ -222,25 +192,6 @@ void PrintDate(DATE * Day, FILE * OutFile)
 	  Day->Year, Day->Hour, Day->Min, Day->Sec);
 }
 
-/*****************************************************************************
-  PrintRBMStartDate()
-*****************************************************************************/
-void PrintRBMStartDate(int Dt, DATE *Day, FILE * OutFile)
-{
-  double rbmday;
-  double sec;
-  DATE *RBM_DAY;
-
-  RBM_DAY = (DATE *) calloc(1, sizeof(DATE));
-
-  rbmday = Day->Julian + 1;
-  JulianDayToGregorian(rbmday, &(RBM_DAY->Year), &(RBM_DAY->Month), &(RBM_DAY->Day),
-		       &(RBM_DAY->Hour), &(RBM_DAY->Min), &sec);
-  RBM_DAY->Sec = (int)sec;
-
-  fprintf(OutFile, "%02d/%02d/%4d-00:%02d:%02d", RBM_DAY->Month, RBM_DAY->Day,
-	  RBM_DAY->Year, RBM_DAY->Min, RBM_DAY->Sec);
-}
 /* -------------------------------------------------------------
    SPrintDate
    Formats a DATE to a string
@@ -374,8 +325,7 @@ void IncreaseVariableTime(TIMESTRUCT *Time, float VariableDT, TIMESTRUCT *NextTi
 /******************************************************************************/
 /*				   InitTime()                                 */
 /******************************************************************************/
-int InitTime(TIMESTRUCT * Time, DATE * Start, DATE * End, DATE * StartRadar,
-	     DATE * StartMM5, int Dt)
+int InitTime(TIMESTRUCT * Time, DATE * Start, DATE * End, int Dt)
 {
   const char *Routine = "InitTime";
   int tmpsecond;
@@ -401,25 +351,6 @@ int InitTime(TIMESTRUCT * Time, DATE * Start, DATE * End, DATE * StartRadar,
     Time->End.Julian = GregorianToJulianDay(Time->End.Year, Time->End.Month,
 					    Time->End.Day, Time->End.Hour,
 					    Time->End.Min, Time->End.Sec);
-  }
-  if (StartRadar != NULL) {
-    CopyDate(&(Time->StartRadar), StartRadar);
-    Time->StartRadar.JDay =
-      DayOfYear(Time->StartRadar.Year, Time->StartRadar.Month,
-		Time->StartRadar.Day);
-    Time->StartRadar.Julian =
-      GregorianToJulianDay(Time->StartRadar.Year, Time->StartRadar.Month,
-			   Time->StartRadar.Day, Time->StartRadar.Hour,
-			   Time->StartRadar.Min, Time->StartRadar.Sec);
-  }
-  if (StartMM5 != NULL) {
-    CopyDate(&(Time->StartMM5), StartMM5);
-    Time->StartMM5.JDay =
-      DayOfYear(Time->StartMM5.Year, Time->StartMM5.Month, Time->StartMM5.Day);
-    Time->StartMM5.Julian =
-      GregorianToJulianDay(Time->StartMM5.Year, Time->StartMM5.Month,
-			   Time->StartMM5.Day, Time->StartMM5.Hour,
-			   Time->StartMM5.Min, Time->StartMM5.Sec);
   }
 
   if (Start != NULL && End != NULL) {
@@ -560,94 +491,6 @@ int DayOfWeek(double j)
   return (int) (j + 1) % 7;
 }
 
-/*******************************************************************************
-  Test main. Compile by typing:
-  gcc -Wall -g -o test_calendar -DTEST_CALENDAR Calendar.c equal.c ReportError.c
-  -lm
-  then run the program by typing test_calendar
-*******************************************************************************/
-#ifdef TEST_CALENDAR
-int main(int argc, char **argv)
-{
-  int Dt;
-  DATE Start;
-  DATE End;
-  TIMESTRUCT Time;
-
-  if (argc == 1) {
-    printf("\nGive a timestep in seconds on the commend-line\n\n");
-    exit(EXIT_FAILURE);
-  }
-  /* test program so no fancy I/O checking */
-  Dt = atoi(argv[1]);
-
-  SScanDate("2/3/1999", &Start);
-  PrintDate(&Start, stdout);
-  printf("\n");
-  SScanDate("2/3/1999-0", &Start);
-  PrintDate(&Start, stdout);
-  printf("\n");
-  SScanDate("2/3/1999-0:0", &Start);
-  PrintDate(&Start, stdout);
-  printf("\n");
-  SScanDate("2/3/1999-0:0:0", &Start);
-  PrintDate(&Start, stdout);
-  printf("\n");
-  SScanDate("3/4/2000", &End);
-  PrintDate(&End, stdout);
-  printf("\n");
-  SScanDate("3/4/2000-16", &End);
-  PrintDate(&End, stdout);
-  printf("\n");
-  SScanDate("3/4/2000-16:30", &End);
-  PrintDate(&End, stdout);
-  printf("\n");
-  SScanDate("3/4/2000-16:30:0", &End);
-  PrintDate(&End, stdout);
-  printf("\n");
-
-  if (!After(&End, &Start))
-    printf("Error in After() function\n");
-  if (!Before(&Start, &End))
-    printf("Error in Before() function\n");
-
-  printf("\nInitializing time structure\nStart: ");
-  InitTime(&Time, &Start, &End, NULL, NULL, Dt);
-  PrintDate(&(Time.Start), stdout);
-  printf("\nEnd: ");
-  PrintDate(&(Time.End), stdout);
-  printf("\n");
-  printf("Timestep: %d seconds\n", Time.Dt);
-  printf("Number of timesteps per day: %d\n", Time.NDaySteps);
-  printf("Number of timesteps in model run: %d\n", Time.NTotalSteps);
-
-  while (Time.Step < Time.NTotalSteps) {
-    if (IsNewMonth(&(Time.Current), Time.Dt))
-      printf("Start of new month\n");
-    if (IsNewDay(Time.DayStep))
-      printf("Start of new day\n");
-    PrintDate(&(Time.Current), stdout);
-    printf("\n");
-    IncreaseTime(&Time);
-  }
-
-  printf("\nInitializing time structure\nStart: ");
-  SScanDate("2-27-2000-18:30:00", &Start);
-  InitTime(&Time, &Start, &End, NULL, NULL, Dt);
-  PrintDate(&(Time.Start), stdout);
-  printf("\nEnd: ");
-  PrintDate(&(Time.End), stdout);
-  printf("\n");
-  printf("Timestep: %d seconds\n", Time.Dt);
-  printf("Number of timesteps per day: %d\n", Time.NDaySteps);
-  printf("Number of timesteps in model run: %d\n", Time.NTotalSteps);
-
-  printf("End of tests\n");
-
-  return EXIT_SUCCESS;
-}
-
-#endif
 /*****************************************************************************
   SScanMonthDay()
 *****************************************************************************/
@@ -719,4 +562,3 @@ int SScanMonthDay(char *DateStr, DATE * Day)
 
   return TRUE;
 }
-

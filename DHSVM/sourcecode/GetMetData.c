@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      GetMetData.c - Read new station meteorological data
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Read new station meteorological data
- * DESCRIP-END.
- * FUNCTIONS:    GetMetData()
- * COMMENTS:
- * $Id: GetMetData.c,v 1.4 2003/07/01 21:26:15 olivier Exp $
- */
 
 #include <stdio.h>
 #include <string.h>
@@ -27,8 +13,7 @@
    GetMetData()
  *****************************************************************************/
 void GetMetData(OPTIONSTRUCT *Options, TIMESTRUCT *Time, int NSoilLayers,
-  int NStats, float SunMax, METLOCATION *Stat, MAPSIZE *Radar,
-  RADARPIX **RadarMap, char *RadarFileName)
+  int NStats, float SunMax, METLOCATION *Stat)
 {
   int i;			/* counter */
 
@@ -36,12 +21,7 @@ void GetMetData(OPTIONSTRUCT *Options, TIMESTRUCT *Time, int NSoilLayers,
     printf("Reading all met data for current timestep\n");
 
   for (i = 0; i < NStats; i++)
-    ReadMetRecord(Options, &(Time->Current), NSoilLayers, &(Stat[i].MetFile),
-      Stat[i].IsWindModelLocation, &(Stat[i].Data));
-
-  if (Options->PrecipType == RADAR)
-    ReadRadarMap(&(Time->Current), &(Time->StartRadar), Time->Dt, Radar,
-      RadarMap, RadarFileName);
+    ReadMetRecord(Options, &(Time->Current), NSoilLayers, &(Stat[i].MetFile), &(Stat[i].Data));
 
   for (i = 0; i < NStats; i++) {
     if (SunMax > 0.0) {

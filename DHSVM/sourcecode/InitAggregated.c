@@ -1,17 +1,3 @@
-/*
-* SUMMARY:      InitAggregated.c - Initialize basin-wide values
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-96
-* DESCRIPTION:  Initialize basin-wide values
-* DESCRIP-END.
-* FUNCTIONS:    InitAggregated()
-* COMMENTS:
-* $Id: InitAggregated.c,v 1.4 2003/07/01 21:26:15 olivier Exp $
-*/
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      CheckOut.c
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Pascal Storck
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       pstorck@u.washington.edu
- * ORIG-DATE:    May-2000
- * DESCRIPTION:  Check stuff out for DHSVM
- * DESCRIP-END.
- * FUNCTIONS:   CheckOut()
- * COMMENTS:
- * $Id: CheckOut.c,v3.1.2 2013/11/13 Ning Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,13 +1,3 @@
-/*
- * SUMMARY:      globals.c - global constants for DHSVM
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    29-May-97 at 20:27:40
- * $Id: globals.c,v 1.4 2003/07/01 21:26:30 olivier Exp $
- */
 
 int NDIRS;  /* How many neighbors are used in surface/subsurface routing */
 /* These indices are so neighbors can be looked up quickly */
@@ -29,9 +19,7 @@ float MIN_INTERCEPTION_STORAGE;	/* the amount of snow on the canopy that can
 				                   only be melted off. (m) */
 float MIN_SNOW_RESET_ALBEDO; /* minimum snow (m) required to completely reset snow albedo */
 float MIN_RAIN_TEMP;		    /* minimum temperature at which rain can occur (C) */
-int NWINDMAPS;			        /* Number of wind maps in case the wind source is model */
 unsigned char OUTSIDEBASIN;	    /* Mask value indicating outside the basin */
-float PRECIPLAPSE;		        /* Precipitation lapse rate in m/timestep / m */
 float MINELEV;          /* Smallest elevation of all grid cells (m) */
 float SNOWPAT_WEIGHT; /* Fractional weight between snow pattern and precip pattern for snowfall */
 float TEMPLAPSE;		/* Temperature lapse rate in C/m */

@@ -1,23 +1,3 @@
-/*
- * SUMMARY:      Files.c - File functions
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  File and I/O functions
- * DESCRIP-END.
- * FUNCTIONS:    OpenFile() 
- *               ScanInts() 
- *               ScanFloats() 
- *               SkipLines()             
- *               SkipHeader() 
- *               ScanDoubles() 
- *               ScanUChars() 
- * COMMENTS:
- * $Id: Files.c,v3.1.2 2013/07/01 Ning Exp $     
- */
 
 #include <stdarg.h>
 #include <stdio.h>
