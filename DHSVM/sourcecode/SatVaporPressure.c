@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      SatVaporPressure.c - Calculate saturated vapor pressure
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:              nijssen@u.washington.edu
- * ORIG-DATE:     4-Oct-1996 at 09:34:43
- * DESCRIPTION:  Calculates the saturated vapor pressure in Pa for a certain
- *               temperature 
- * DESCRIP-END.
- * FUNCTIONS:    SatVaporPressure()
- * COMMENTS:
- * $Id: SatVaporPressure.c,v 1.4 2003/07/01 21:26:23 olivier Exp $     
- */
 
 #include <stdlib.h>
 #include <math.h>
@@ -29,12 +14,6 @@ static FLOATTABLE svp;		/* Table that contains saturated vapor
   Purpose      : Initialize lookup table for saturated vapor pressure as a 
                  function of temperature in degrees C.
 
-  Required     : void
-
-  Returns      : void
-
-  Modifies     : none
-  
   Comments     :  Table runs from -100 C to 100 C with an interval of 0.02 C
 *****************************************************************************/
 void InitSatVaporTable(void)
@@ -47,16 +26,11 @@ void InitSatVaporTable(void)
 
   Purpose      : Calculates the saturated vapor pressure in Pa for a certain
                  temperature in degrees C 
-
   Required     : 
     float T    - Temperature (C)
-
   Returns      :
     float      - Saturated vapor pressure (Pa) 
 
-  Modifies     : none
-  
-  Comments     :
     References: Shuttleworth, W.J., Evaporation,  In: Maidment, D. R. (ed.),
                   Handbook of hydrology,  1993, McGraw-Hill, New York, etc..
                 Bras, R. A., Hydrology, an introduction to hydrologic
@@ -83,16 +57,6 @@ float CalcVaporPressure(float T)
 
   Purpose      : Looks up the saturated vapor pressure in Pa for a certain
                  temperature in a table
-
-  Required     : 
-    float T    - Temperature (C)
-
-  Returns      :
-    float      - Saturated vapor pressure (Pa) 
-
-  Modifies     : none
-  
-  Comments     : Uses lookup table
 *****************************************************************************/
 float SatVaporPressure(float T)
 {

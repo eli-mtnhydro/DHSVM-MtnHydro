@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      Round.c - Round a double to the nearest int
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Round a double to the nearest int
- * DESCRIP-END.
- * FUNCTIONS:    Round()
- * COMMENTS:
- * $Id: Round.c,v 1.4 2003/07/01 21:26:23 olivier Exp $     
- */
 
 #include <limits.h>
 #include <math.h>

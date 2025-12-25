@@ -1,20 +1,3 @@
-/*
- * SUMMARY:      UpdateVegMaps() - Update Vegetation Maps at selected date
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Zhuoran Duan
- * ORG:          Pacific Northwest National Laboratory, Hydrology Group
- * E-MAIL:       zhuoran.duan@pnnl.gov
- * ORIG-DATE:    Mar-2020
- * DESCRIPTION:  Update vegetation map for type, fractional cover, LAI, and height
- * DESCRIP-END.
- * FUNCTIONS:    UpdateVegMaps()
- *               InitTopoMap()
- *               InitSoilMap()
- *               InitVegMap()
- * COMMENTS:
- * 
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,11 +26,6 @@
     int NUpdate           - Number of vegetation layers to update
     DATE **DUpdate        - Array with update dates
 
-  Returns      : void
-
-  Modifies     : DUpdates and its members
-
-  Comments     :
 *****************************************************************************/
 void InitVegUpdate(LISTPTR Input, int NUpdate, DATE ** DUpdate)
 {
@@ -96,11 +74,6 @@ uchar IsVegDate(DATE *Current, DYNAVEG *DVeg){
     VEGPIX *** VegMap       - Updates vegetation information
     DYNAVEG *DVeg           - Dynamic Vegetaion, with input path and dates 
 
-  Returns      : void
-
-  Modifies     : (see list of required above)
-
-  Comments     :
 *****************************************************************************/
 void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
                 LAYER *Veg, VEGPIX *** VegMap, VEGTABLE *VType, DYNAVEG *DVeg)
@@ -113,7 +86,6 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
   int i;			/* counter */
   int x;			/* counter */
   int y;			/* counter */
-  int flag;
   int NumberType;		/* number type */
   unsigned char *Type;		/* Vegetation type */
   float *FC = NULL;		/* Vegetation Fractional Coverage */
@@ -143,22 +115,11 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
     if (!(Type = (unsigned char *)calloc(Map->NX * Map->NY,
       SizeOfNumberType(NumberType))))
       ReportError((char *)Routine, 1);
-    flag = Read2DMatrix(FileName, Type, NumberType, Map, 0, VarName, 0);
+    Read2DMatrix(FileName, Type, NumberType, Map, 0, VarName, 0);
     
-    if ((Options->FileFormat == NETCDF && flag == 0)
-      || (Options->FileFormat == BIN))
-    {
-      for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          (*VegMap)[y][x].Veg = Type[i];
-        }
-      }
-    }
-    else if (Options->FileFormat == NETCDF && flag == 1) {
-      for (y = Map->NY - 1, i = 0; y >= 0; y--) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          (*VegMap)[y][x].Veg = Type[i];
-        }
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        (*VegMap)[y][x].Veg = Type[i];
       }
     }
     free(Type);
@@ -180,52 +141,26 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
     if (!(FC = (float *)calloc(Map->NX * Map->NY,
       SizeOfNumberType(NumberType))))
       ReportError((char *)Routine, 1);
-    flag = Read2DMatrix(FileName, FC, NumberType, Map, 0, VarName, 0);
+    Read2DMatrix(FileName, FC, NumberType, Map, 0, VarName, 0);
 
-    if ((Options->FileFormat == NETCDF && flag == 0)
-      || (Options->FileFormat == BIN))
-    {
-      for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-            if (FC[i] > 0.0)
-              (*VegMap)[y][x].Fract[0] = FC[i];
-            else
-              (*VegMap)[y][x].Fract[0] = VType[(*VegMap)[y][x].Veg - 1].Fract[0];
-           
-            /*If understory exists, set default understory FC=1.0*/
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Fract[1] = 1.0;
-          }
-          else{
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Fract[0] = 1.0;
-          }
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+          if (FC[i] > 0.0)
+            (*VegMap)[y][x].Fract[0] = FC[i];
+          else
+            (*VegMap)[y][x].Fract[0] = VType[(*VegMap)[y][x].Veg - 1].Fract[0];
+          
+          /*If understory exists, set default understory FC=1.0*/
+          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
+            (*VegMap)[y][x].Fract[1] = 1.0;
+        }
+        else{
+          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
+            (*VegMap)[y][x].Fract[0] = 1.0;
         }
       }
     }
-    else if (Options->FileFormat == NETCDF && flag == 1) {
-      for (y = Map->NY - 1, i = 0; y >= 0; y--) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          /*Allocate memory*/
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {  
-            if (FC[i] > 0.0)
-              (*VegMap)[y][x].Fract[0] = FC[i];
-            else
-              (*VegMap)[y][x].Fract[0] = VType[(*VegMap)[y][x].Veg - 1].Fract[0];
-           
-            /*If understory exists, set default understory FC=1.0*/
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Fract[1] = 1.0;
-          }
-          else{
-            if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Fract[0] = 1.0;	   
-          }
-        }
-      }
-    }
-    else ReportError((char *)Routine, 57);
     free(FC);
   }
   else printf("Vegetation FC was not updated!\n");
@@ -253,48 +188,23 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
       if (!(LAIMonthly = (float *)calloc(Map->NX * Map->NY,
         SizeOfNumberType(NumberType))))
         ReportError((char *)Routine, 1);
-      flag = Read2DMatrix(FileName, LAIMonthly, NumberType, Map, NSet, VarName, 0);
-          
-      if ((Options->FileFormat == NETCDF && flag == 0)
-        || (Options->FileFormat == BIN))
-      {
-        for (y = 0, i = 0; y < Map->NY; y++) {
-          for (x = 0; x < Map->NX; x++, i++) {
-            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+      Read2DMatrix(FileName, LAIMonthly, NumberType, Map, NSet, VarName, 0);
+      
+      for (y = 0, i = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
             if (LAIMonthly[i] > 0.0)
-                (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
+              (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
             else
               (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
             
             if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory  == TRUE )
               (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
-            }
-            else if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
           }
+          else if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
+            (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
         }
       }
-      else if (Options->FileFormat == NETCDF && flag == 1) {
-        for (y = Map->NY - 1, i = 0; y >= 0; y--) {
-          for (x = 0; x < Map->NX; x++, i++) {
-          
-            if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-              if (LAIMonthly[i] > 0.0)
-                (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
-              else
-              (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-        
-              if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-                (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
-            }
-            else{
-              if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-                (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-            }
-          }
-        }
-      }
-      else ReportError((char *)Routine, 57);  
 
       free(LAIMonthly);     
     }   
@@ -314,31 +224,16 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
       if (!(Height = (float *)calloc(Map->NX * Map->NY, SizeOfNumberType(NumberType))))
         ReportError((char *)Routine, 1);
       
-      flag = Read2DMatrix(FileName, Height, NumberType, Map, NSet, VarName, 0);
+      Read2DMatrix(FileName, Height, NumberType, Map, NSet, VarName, 0);
 
-      if ((Options->FileFormat == NETCDF && flag == 0)
-        || (Options->FileFormat == BIN))
-      {
-        for (y = 0, i = 0; y < Map->NY; y++) {
-          for (x = 0; x < Map->NX; x++, i++) {
-              if (Height[i] > 0.0)
-                (*VegMap)[y][x].Height[NSet] = Height[i];
-              else
-                (*VegMap)[y][x].Height[NSet] = VType[(*VegMap)[y][x].Veg - 1].Height[NSet];
-          }
+      for (y = 0, i = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          if (Height[i] > 0.0)
+            (*VegMap)[y][x].Height[NSet] = Height[i];
+          else
+            (*VegMap)[y][x].Height[NSet] = VType[(*VegMap)[y][x].Veg - 1].Height[NSet];
         }
       }
-      else if (Options->FileFormat == NETCDF && flag == 1) {
-        for (y = Map->NY - 1, i = 0; y >= 0; y--) {
-          for (x = 0; x < Map->NX; x++, i++) {
-              if (Height[i] > 0.0)
-                (*VegMap)[y][x].Height[NSet] = Height[i];
-              else
-                (*VegMap)[y][x].Height[NSet] = VType[(*VegMap)[y][x].Veg - 1].Height[NSet];
-          }
-        }
-      }
-      else ReportError((char *)Routine, 57);
       free(Height);
     } 
   }
@@ -357,34 +252,15 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
       if (!(Gap = (float *)calloc(Map->NX * Map->NY,
         SizeOfNumberType(NumberType))))
         ReportError((char *)Routine, 1);
-      flag = Read2DMatrix(FileName, Gap, NumberType, Map, 0, VarName, 0);
-      /* if NetCDF, may need to reverse the matrix */
-      if ((Options->FileFormat == NETCDF && flag == 0)
-        || (Options->FileFormat == BIN))
-      {
-        for (y = 0, i = 0; y < Map->NY; y++) {
-          for (x = 0; x < Map->NX; x++, i++) {
-            (*VegMap)[y][x].Gapping = Gap[i];
-            /* set gapping to false for cells with no overstory */
-            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == FALSE)
-              (*VegMap)[y][x].Gapping = 0.0;
-          }
+      Read2DMatrix(FileName, Gap, NumberType, Map, 0, VarName, 0);
+      
+      for (y = 0, i = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++, i++) {
+          (*VegMap)[y][x].Gapping = Gap[i];
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory == FALSE)
+            (*VegMap)[y][x].Gapping = 0.0;
         }
       }
-      else if (Options->FileFormat == NETCDF && flag == 1) {
-        for (y = Map->NY - 1, i = 0; y >= 0; y--) {
-          for (x = 0; x < Map->NX; x++, i++) {
-            (*VegMap)[y][x].Gapping = Gap[i];
-            /* set gapping to false for cells with no overstory */
-            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == FALSE)
-              (*VegMap)[y][x].Gapping = 0.0;
-            /* set gapping to false given glacier cell */
-            if (VType[(*VegMap)[y][x].Veg - 1].Index == GLACIER)
-              (*VegMap)[y][x].Gapping = 0.0;
-          }
-        }
-      }
-      else ReportError((char *)Routine, 57);
       free(Gap);
     }
     else printf("Spatial gap file not provided, gap values not updated!\n");

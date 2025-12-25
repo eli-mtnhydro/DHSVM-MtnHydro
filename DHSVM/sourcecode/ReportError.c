@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      ReportError.c - Report error and exit
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Display a context-dependent error message and exit
- * DESCRIP-END.
- * FUNCTIONS:    ReportError()
- *               ReportWarning()
- * COMMENTS:
- * $Id: ReportError.c,v 1.6 2004/08/24 23:21:48 tbohn Exp $     
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,22 +36,22 @@ static char *ErrorMessage[] = {
   "Date in met file does not correspond to current model time:",	/* 28 */
   "Too many vegetation layers: ",	/* 29 */
   "Incorrect flag (valid flags: T, F): ",	/* 30 */
-  "Radar or MM5 does not cover entire model area:",	/* 31 */
+  "",	/* 31 */
   "Unknown soil type in file:",	/* 32 */
   "Maximum number of iterations exceeded in RootBrent():",	/* 33 */
   "Root not bracketed in RootBrent():",	/* 34 */
   "Soil moisture profile is supersaturated: ",	/* 35 */
   "Grid NOT square, resulting in problems with flow width calculation:",	/* 36 */
-  "Radar precipitation file starts later than start of run:",	/* 37 */
+  "",	/* 37 */
   "Invalid file format specifier:",	/* 38 */
   "Error setting file pointer:",	/* 39 */
   "Unknown number type:",	/* 40 */
   "Error writing to file:",	/* 41 */
   "Bad met interpolation combination",	/* 42 */
   "Invalid radiation type specifier:",	/* 43 */
-  "Invalid channel/road network specifier:",	/* 44 */
+  "Invalid channel network specifier:",	/* 44 */
   "Invalid flow gradient specifier:",	/* 45 */
-  "Incorrect travel times in hydrograph file:",	/* 46 */
+  "",	/* 46 */
   "Table index out of bounds: ",	/* 47 */
   "Wind profile error:",	/* 48 */
   "Current version does not support more than two vegetation layers:",	/* 49 */
@@ -76,19 +61,19 @@ static char *ErrorMessage[] = {
   "Invalid station number:",	/* 53 */
   "Cannot use precipitation lapse rate map if there is more than one met station:",	/* 54 */
   "Invalid Channel ID:",	/* 55 */
-  "HAVE_NETCDF undefined during build, cannot read NetCDF format:",	/* 56 */
-  "NETCDF error:",		/* 57 */
-  "NETCDF Warning:",		/* 58 */
+  "",	/* 56 */
+  "",		/* 57 */
+  "",		/* 58 */
   "Wrong Y dimension:",		/* 59 */
   "Wrong X dimension:",		/* 60 */
   "Can't byteswap that elements size:",	/*61 */
-  "No GLACIER land use class defined:", /*62*/
+  "", /*62*/
   "Ran out of data in surface routing file:", /* 63 */
   "Row column mismatch in surface routing file:", /* 64 */
   "Current version does not support this setup:", /* 65 */
   "Invalid Map->Resolution value for dumping map or image of variable ID:", /* 66 */
   "The options set in the input file do not support plotting variable ID:", /* 67 */
-  "Riparian parameter < 0:", /* 68 */
+  "", /* 68 */
   "No gridded met file is found within the basin boundary", /* 69 */
   "Unknown keyword: ",                                      /* 70 */
   NULL
@@ -105,32 +90,3 @@ void ReportWarning(char *ErrorString, int ErrorCode)
   fprintf(stderr, "%s %s\n", ErrorMessage[ErrorCode - 1], ErrorString);
 }
 
-/*******************************************************************************
-  Test main. Compile by typing:
-  gcc -DTEST_REPORTERROR -o test_error ReportError.c
-  then run the program by typing test_error
-*******************************************************************************/
-
-#ifdef TEST_REPORTERROR
-
-int main(void)
-{
-  char str[BUFSIZ + 1];
-  int ErrorCode;
-
-  ErrorCode = 1;
-  while (ErrorMessage[ErrorCode - 1] != NULL) {
-    sprintf(str, "Test -- Code %d", ErrorCode);
-    ReportWarning(str, ErrorCode);
-    ++ErrorCode;
-  }
-  fprintf(stderr, "\n");
-  ReportWarning("", 3);
-  fprintf(stderr,
-	  "\nThe test is SUCCESSFUL if the next line is the same as the line "
-	  "above:\n\n");
-  ReportError("", 3);
-
-  return EXIT_SUCCESS;
-}
-#endif

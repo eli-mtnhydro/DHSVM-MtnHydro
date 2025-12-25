@@ -1,19 +1,5 @@
-/*
- * SUMMARY:      MassEnergyBalance.c - Calculate mass and energy balance
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate mass and energy balance at each pixel
- * DESCRIP-END.
- * FUNCTIONS:    MassEnergyBalance()
- * COMMENTS:
- * $Id: MassEnergyBalance.c,v3.1.2 2013/08/18 ning Exp $
- */
+
 #ifdef SNOW_ONLY
-  //#define NO_ET
   #define NO_SOIL
 #endif
 
@@ -33,16 +19,6 @@
  /*****************************************************************************
    Function name: MassEnergyBalance()
 
-   Purpose      : Calculate mass and energy balance
-
-   Required     :
-
-   Returns      : void
-
-   Modifies     :
-
-   Comments     :
-
    Reference    :
      Epema, G.F. and H.T. Riezbos, 1983, Fall Velocity of waterdrops at different
  heights as a factor influencing erosivity of simulated rain. Rainfall simulation,
@@ -56,16 +32,13 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   float SineSolarAltitude, float DX, float DY,
   int Dt, int HeatFluxOption, int CanopyRadAttOption,
   int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
-  ROADSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip,
+  NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip,
   VEGTABLE *VType, VEGPIX *LocalVeg, SOILTABLE *SType,
   SOILPIX *LocalSoil, SNOWPIX *LocalSnow, PIXRAD *LocalRad,
   EVAPPIX *LocalEvap, PIXRAD *TotalRad, CHANNEL *ChannelData,
   float **skyview)
 {
   float SurfaceWater;		/* Pixel average depth of water before infiltration is calculated (m) */
-  float RoadWater;          /* Average depth of water on the road surface
-                               (normalized by grid cell area)
-                               before infiltration is calculated (m) */
   float ChannelWater;       /* Precip that hits the channel */
   float Infiltration;		/* Infiltration into the top soil layer (m) */
   float Infiltrability;     /* Dynamic infiltration capacity (m/s)*/
@@ -73,12 +46,10 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
                                in dynamic infiltration calculation*/
   float LowerRa;		    /* Aerodynamic resistance for lower layer (s/m) */
   float MaxInfiltration;	/* Maximum infiltration into the top soil layer (m) */
-  float MaxRoadbedInfiltration;	/* Maximum infiltration through the road bed soil layer (m) */
   float NetRadiation;		/* Total Net long- and shortwave radiation for each veg layer (W/m2) */
   float PercArea;           /* Surface area of percolation corrected for
-                               channel and road area, divided by the grid cell area (0-1)  */
+                               channel area, divided by the grid cell area (0-1)  */
   float Reference;			/* Reference height for sensible heat calculation (m) */
-  float RoadbedInfiltration;/* Infiltration through the road bed (m) */
   float Roughness;			/* Roughness length (m) */
   float Rp;					/* radiation flux in visible part of the spectrum (W/m^2) */
   float UpperRa;		    /* Aerodynamic resistance for upper layer (s/m) */
@@ -304,15 +275,6 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   else
     LocalSnow->HasSnow = FALSE;
 
-  /*do the glacier add */
-  if (LocalSnow->Swq < 1.0 && VType->Index == GLACIER) {
-    printf("resetting glacier swe of %f to 5.0 meters\n", LocalSnow->Swq);
-    LocalSnow->Glacier += (5.0 - LocalSnow->Swq);
-    LocalSnow->Swq = 5.0;
-    LocalSnow->TPack = 0.0;
-    LocalSnow->TSurf = 0.0;
-  }
-
   /************ if canopy gap is present *************/
   if (LocalVeg->Gapping > 0.0) {
 
@@ -506,46 +468,27 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 #ifndef NO_SOIL
 
   /* This has been modified so that PercArea for infiltration is calculated
-     locally to account for the fact that some cells have roads and streams.
+     locally to account for the fact that some cells have streams.
      I am not sure if the old PercArea (which does not account for the fact
-     that some cells have roads and streams) needs to remain the same.
+     that some cells have streams) needs to remain the same.
      Currently, the old PercArea is passed to UnsaturatedFlow */
 
-  MaxRoadbedInfiltration = 0.;
   MaxInfiltration = 0.;
   ChannelWater = 0.;
-  RoadWater = 0.;
   SurfaceWater = 0.;
   PercArea = 1.;
-  RoadbedInfiltration = 0.;
-
+  
   /* ChannelWater is precipitation falling on the channel */
-  /* (if there is no road, LocalNetwork->RoadArea = 0) */
   if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
-    PercArea = 1. - (LocalNetwork->Area + LocalNetwork->RoadArea) / (DX*DY);
-    ChannelWater = LocalNetwork->Area / (DX*DY) * LocalPrecip->RainFall;
-  }
-  /* If there is a road and no channel, the PercArea is
-     based on the road only */
-  else if (channel_grid_has_channel(ChannelData->road_map, x, y)) {
-    PercArea = 1. - (LocalNetwork->RoadArea) / (DX*DY);
-    MaxRoadbedInfiltration = (1. - PercArea) *
-      LocalNetwork->MaxInfiltrationRate * Dt;
+    PercArea = 1. - LocalNetwork->Area / (DX*DY);
+    ChannelWater = (LocalNetwork->Area / (DX*DY)) * LocalPrecip->RainFall;
   }
 
   /* SurfaceWater is rain falling on the hillslope +
      snowmelt on the hillslope (there is no snowmelt on the channel) +
      existing IExcess */
-  SurfaceWater = (PercArea * LocalPrecip->RainFall) +
-    ((1. - (LocalNetwork->RoadArea) / (DX*DY)) * LocalSnow->Outflow) +
-    LocalSoil->IExcess;
-
-  /* RoadWater is rain falling on the road surface +
-     snowmelt on the road surface + existing Road IExcess
-     (Existing road IExcess = 0). WORK IN PROGRESS*/
-  RoadWater = (LocalNetwork->RoadArea / (DX*DY) *
-    (LocalPrecip->RainFall + LocalSnow->Outflow)) + LocalNetwork->IExcess;
-
+  SurfaceWater = (PercArea * LocalPrecip->RainFall) + LocalSnow->Outflow + LocalSoil->IExcess;
+  
   if (InfiltOption == STATIC)
     MaxInfiltration = (1. - VType->ImpervFrac) * PercArea * LocalSoil->MaxInfiltrationRate * Dt;
   else { /* InfiltOption == DYNAMIC
@@ -580,12 +523,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
   if (Infiltration > MaxInfiltration)
     Infiltration = MaxInfiltration;
-
-  RoadbedInfiltration = RoadWater;
-  if (RoadbedInfiltration > MaxRoadbedInfiltration)
-    RoadbedInfiltration = MaxRoadbedInfiltration;
-  LocalSoil->IExcess = SurfaceWater - Infiltration +
-    RoadWater - RoadbedInfiltration;
+  
+  LocalSoil->IExcess = SurfaceWater - Infiltration;
 
   /*Add water that hits the channel network to the channel network */
   if (ChannelWater > 0.) {
@@ -594,7 +533,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   }
 
   /* Calculate unsaturated soil water movement, and adjust soil water table depth */
-  UnsaturatedFlow(Dt, DX, DY, Infiltration, RoadbedInfiltration,
+  UnsaturatedFlow(Dt, DX, DY, Infiltration,
     LocalSoil->SatFlow, SType->NLayers, LocalSoil->Depth,
     LocalNetwork->Area, VType->RootDepth, LocalSoil->KsVert,
     SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,
@@ -633,10 +572,5 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* add the components of the radiation balance for the current pixel to
      the total */
   AggregateRadiation(MaxVegLayers, VType->NVegLayers, LocalRad, TotalRad);
-
-  /* For RBM model, save the energy fluxes for outputs */
-  if (Options->StreamTemp) {
-    if (channel_grid_has_channel(ChannelData->stream_map, x, y))
-      channel_grid_inc_other(ChannelData->stream_map, x, y, LocalRad, LocalMet, skyview[y][x]);
-  }
+  
 }

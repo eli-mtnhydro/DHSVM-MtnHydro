@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      SeparateRadiation.c - Separate radiation
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Separate observed downward solar radiation into diffuse and 
- *               direct beam radiation based on the clearness index (kt)
- * DESCRIP-END.
- * FUNCTIONS:    SeparateRadiation()
- * COMMENTS:
- * $Id: SeparateRadiation.c,v 1.4 2003/07/01 21:26:24 olivier Exp $     
- */
 
 #include <math.h>
 #include "settings.h"
@@ -27,12 +12,6 @@
   Required     :
     float TotalSolar - Total amount of solar (shortwave) radiation (W/m2)
     float ClearIndex - Clearness index
-    float *Beam      - Direct beam radiation (W/m2)
-    float *Diffuse   - Diffuse radiation (W/m2)
-
-  Returns      : void
-
-  Modifies     :
     float *Beam      - Direct beam radiation (W/m2)
     float *Diffuse   - Diffuse radiation (W/m2)
 

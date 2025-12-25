@@ -1,23 +1,13 @@
+
 /*
- * SUMMARY:      VarID.c - Provide Info about variables
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * ORIG-DATE:    Tue Jan 26 18:26:15 1999
- * E-MAIL:       nijssen@u.washington.edu
  * DESCRIPTION:  Maintains a structure that acts as a database with info on each
  *               variable, and provides functions to query this database
- * DESCRIP-END.
- * FUNCTIONS:    MakeVarAttr()
- *               IsValidDumpID()
- *               IsMultiLayer()
+ 
  * COMMENTS:     If the number of IDs increases it might be worthwhile to use a
  *               better, faster search.  This is not done here, because in the 
  *               overall scheme of DHSVM it is not worth the programming effort
  *               right now.
- * $Id: VarID.c,v 1.7 2004/05/04 19:39:00 colleen Exp $     
- */
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,11 +18,7 @@
 #include "sizeofnt.h"
 #include "varid.h"
 
-#ifdef TEST_VARID
-char *fileext = ".test";
-#else
 extern char fileext[];
-#endif
 
 struct {
   int ID;
@@ -244,26 +230,9 @@ struct {
       "Infiltration Accumulation", "%.4g",
       "m", "Accumulated water in top layer",
       NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
-  601, "WindModel",
-      "Wind Direction Multiplier", "%.5f",
-      "", "Wind Direction Multiplier", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
   602, "Precip.Lapse",
       "Precipitation Lapse Rate", "%.5f",
       "", "Precipitation Lapse Rate", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
-  605, "RadarMap.Precip",
-      "Radar Precipitation", "%.4f",
-      "m/timestep", "Radar precipitation", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
-  701, "MetMap.accum_precip",
-      "Accumulated Precipitation", "%.5f",
-      "m", "Accumulated Precipitation", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
-  702, "MetMap.air_temp",
-      "Air Temperature", "%.2f",
-      "C", "Air Temperature", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
-  703, "MetMap.windspeed",
-      "Windspeed", "%.2f",
-      "m/s", "Windspeed", NC_INT, FALSE, FALSE, FALSE, 0}, {
-  704, "MetMap.humidity",
-      "Humidity", "%.2f", "", "Humidity", NC_INT, FALSE, FALSE, FALSE, 0}, {
   800, "Ts",
       "Snow Temperature Threshold", "%.4f", "", "Snow Temperature Threshold", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
   801, "Tr",
@@ -293,7 +262,6 @@ void GetVarAttr(MAPDUMP * DMap)
 {
   GetVarName(DMap->ID, DMap->Layer, DMap->Name);
   GetVarLongName(DMap->ID, DMap->Layer, DMap->LongName);
-  GetVarFormat(DMap->ID, DMap->Format);
   GetVarUnits(DMap->ID, DMap->Units);
   GetVarFileName(DMap->ID, DMap->Layer, DMap->Resolution, DMap->FileName);
   GetVarFileLabel(DMap->ID, DMap->FileLabel);
@@ -345,25 +313,6 @@ void GetVarLongName(int ID, int Layer, char *LongName)
 }
 
 /******************************************************************************/
-/*				  GetVarFormat()                              */
-/******************************************************************************/
-void GetVarFormat(int ID, char *Format)
-{
-  char *Routine = "GetVarFormat";
-  int i;
-
-  i = 0;
-  while (varinfo[i].ID != ENDOFLIST) {
-    if (varinfo[i].ID == ID) {
-      strcpy(Format, varinfo[i].Format);
-      return;
-    }
-    i++;
-  }
-  ReportError((char *) Routine, 26);
-}
-
-/******************************************************************************/
 /*				  GetVarUnits()                               */
 /******************************************************************************/
 void GetVarUnits(int ID, char *Units)
@@ -398,9 +347,6 @@ void GetVarFileName(int ID, int Layer, unsigned char Resolution, char *FileName)
       GetVarName(ID, Layer, Name);
       if (Resolution == MAP_OUTPUT) {
 	sprintf(Str, "%sMap.%s%s", FileName, Name, fileext);
-      }
-      else if (Resolution == IMAGE_OUTPUT) {
-	sprintf(Str, "%sImage.%s%s", FileName, Name, fileext);
       }
       else
 	ReportError((char *) Routine, 21);
@@ -509,53 +455,3 @@ int GetVarNLayers(int ID, int MaxSoilLayers, int MaxVegLayers)
   ReportError((char *) Routine, 26);
   return NLayers;
 }
-
-/******************************************************************************/
-/* Test main.  Compile by typing:                                             */
-/* gcc -Wall -g -o test_varid -DTEST_VARID VarID.c ReportError.c              */
-/* Then test by typing test_varid                                             */
-/******************************************************************************/
-#ifdef TEST_VARID
-
-int main(void)
-{
-  MAPDUMP DMap;
-  int i = 0;
-
-  DMap.Layer = 2;
-  while (varinfo[i].ID != ENDOFLIST) {
-    strcpy(DMap.FileName, "<path>/");
-    DMap.Resolution = i % 2;
-    if (DMap.Resolution == 0)
-      DMap.Resolution += 2;
-    DMap.ID = varinfo[i].ID;
-    if (IsValidID(DMap.ID)) {	/* only added to test IsvalidID */
-      GetVarAttr(&DMap);
-      printf("************************************************************\n");
-      printf("ID        : %d\n", DMap.ID);
-      printf("Name      : %s\n", DMap.Name);
-      printf("LongName  : %s\n", DMap.LongName);
-      printf("FileName  : %s\n", DMap.FileName);
-      printf("FileLabel : %s\n", DMap.FileLabel);
-      printf("Format    : %s\n", DMap.Format);
-      printf("Units     : %s\n", DMap.Units);
-      printf("NumberType: %d\n", DMap.NumberType);
-      printf("NLayers   : %d\n", GetVarNLayers(DMap.ID, 2, 3));
-      printf("FileName  : %s\n", DMap.FileName);
-      printf("************************************************************\n");
-      i++;
-    }
-  }
-  DMap.ID = -1;
-  if (IsValidID(DMap.ID)) {	/* only added to test IsvalidID */
-    GetVarAttr(&DMap);
-  }
-  else
-    return EXIT_SUCCESS;
-
-  printf("Error: the test program should not have reached this line\n");
-
-  return EXIT_FAILURE;
-}
-
-#endif

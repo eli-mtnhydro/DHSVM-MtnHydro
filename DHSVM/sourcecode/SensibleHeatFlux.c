@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      SensibleHeatFlux.c - Calculate sensible heat flux
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate sensible heat flux
- * DESCRIP-END.
- * FUNCTIONS:    SensibleHeatFlux()
- *               NoSensibleHeatFlux()
- * COMMENTS:
- * $Id: SensibleHeatFlux.c,v 1.4 2003/07/01 21:26:24 olivier Exp $     
- */
 
 #include <math.h>
 #include <stdarg.h>
@@ -64,9 +49,7 @@ void SensibleHeatFlux(int y, int x, int Dt, float Ra, float ZRef,
   KhEff = CalcEffectiveKh(NSoilLayers, DZ_TOP, FluxDepth, SoilDepth,
 			  SoilType->KhDry, SoilType->KhSol, LocalSoil->Moist,
 			  LocalSoil->Porosity, LocalSoil->Temp);
-
-  /*   KhEff = 1; */
-
+  
   /* Calculate the effective surface temperature that makes sure that the 
      sum of the terms of the energy balance equals 0 */
 
@@ -117,22 +100,7 @@ void SensibleHeatFlux(int y, int x, int Dt, float Ra, float ZRef,
 
 /*****************************************************************************
   Function name: NoSensibleHeatFlux()
-
-  Purpose      : Calculate latent heat flux in W/m2
-
-  Required     : 
-    int Dt             - Model timestep (seconds)
-    PIXMET LocalMet    - Met data for the current pixel 
-    float ETot         - Total vapor flux (mm/timestep) 
-    SOILPIX *LocalSoil - Structure with soil moisture data and energy data
-                         for the current pixel
-
-  Returns      :
-    void
-
-  Modifies     :
-    members of LocalSoil
-
+ 
   Comments     : This function sets all the energy fluxes at the pixel level 
                  to 0.0, but calculates the evapotranspiration in W/m2
 *****************************************************************************/

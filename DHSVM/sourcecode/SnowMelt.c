@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      SnowMelt.c - Calculate snow accumulation and melt
- * USAGE:
- *
- * AUTHOR:       Mark Wigmosta and Pascal Storck
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:     8-Oct-1996 at 08:50:06
- * DESCRIPTION:  Calculate snow accumulation and melt using an energy balance
- *               approach for a two layer snow model
- * DESCRIP-END.
- * FUNCTIONS:    SnowMelt()
- * COMMENTS:
- * $Id: SnowMelt.c,v 1.4 2003/07/01 21:26:25 olivier Exp $
- */
 
 #include <math.h>
 #include <stdarg.h>
@@ -76,8 +61,6 @@ static float CalcSnowPackEnergyBalance(float Tsurf, ...);
     float *TSurf           - Temperature of snow pack surface layer (C)
     float *MeltEnergy      - Energy used for melting and heating of snow pack
                              (W/m2)
-
-  Comments     :
 *****************************************************************************/
 float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
   float BaseRa, float AirDens, float EactAir, float Lv, float ShortRad, 
@@ -361,8 +344,6 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
 
   Returns      :
     float Qnet - Net energy exchange at the SnowPack snow surface (W/m^2)
-
-  Modifies     : none
 
   Comments     : function is local to this module
 *****************************************************************************/

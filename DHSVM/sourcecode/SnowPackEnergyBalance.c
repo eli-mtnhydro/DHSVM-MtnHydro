@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      SnowPackEnergyBalance.c - Calculate snow pack energy balance
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:              nijssen@u.washington.edu
- * ORIG-DATE:     8-Oct-1996 at 09:09:29
- * DESCRIPTION:  Calculate snow pack energy balance
- * DESCRIP-END.
- * FUNCTIONS:    SnowPackEnergyBalance()
- * COMMENTS:
- * $Id: SnowPackEnergyBalance.c,v 1.4 2003/07/01 21:26:25 olivier Exp $     
- */
 
 #include <math.h>
 #include <stdarg.h>
@@ -32,7 +18,6 @@
     va_list ap            - Argument list initialized by va_start().  For
                             elements of list and order, see beginning of
                             routine
-
   Returns      :
     float RestTerm        - Rest term in the energy balance
 
@@ -40,7 +25,6 @@
     float *RefreezeEnergy - Refreeze energy (W/m2) 
     float *VaporMassFlux  - Mass flux of water vapor to or from the
                             intercepted snow 
-
   Comments     :
     Reference:  Bras, R. A., Hydrology, an introduction to hydrologic
                 science, Addisson Wesley, Inc., Reading, etc., 1990.

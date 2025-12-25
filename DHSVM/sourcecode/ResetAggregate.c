@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      ResetAggregate.c - Reset basin-wide values to zero
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Reset basin-wide values to zero
- * DESCRIP-END.
- * FUNCTIONS:    ResetAggregate.()
- * COMMENTS:
- * $Id: ResetAggregate.c,v 1.12 2004/05/03 03:28:46 colleen Exp $     
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,8 +14,8 @@
 void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
                     OPTIONSTRUCT *Options)
 {
-  int i;			/* counter */
-  int j;			/* counter */
+  int i;
+  int j;
 
   if (DEBUG)
     printf("Resetting the aggregate values\n");
@@ -110,7 +96,6 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
   Total->Soil.Qg = 0.0;
   Total->Soil.Qst = 0.0;
   Total->Soil.IExcess = 0.0;
-  Total->Road.IExcess = 0.0;
   Total->Soil.DetentionStorage = 0.0;
 
   if (Options->Infiltration == DYNAMIC)
@@ -120,11 +105,8 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
   Total->Runoff = 0.0;
   Total->ChannelInt = 0.0;
   Total->ChannelInfiltration = 0.0;
-  Total->RoadInt = 0.0;
   Total->Saturated = 0;
-  Total->CulvertReturnFlow = 0;
-  Total->CulvertToChannel = 0;
-
+  
   if (Options->CanopyGapping && TotNumGap > 0) {
 	for (i = 0; i < CELL_PARTITION; i++) {
 	  Total->Veg.Type[i].Qsw = 0;

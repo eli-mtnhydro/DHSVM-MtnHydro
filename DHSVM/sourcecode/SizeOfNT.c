@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      SizeOfNT() - Determine size of number type in bytes
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Determine size of number type in bytes
- * DESCRIP-END.
- * FUNCTIONS:    SizeOfNumberType()
- * COMMENTS:
- * $Id: SizeOfNT.c,v 1.4 2003/07/01 21:26:24 olivier Exp $     
- */
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -27,10 +13,6 @@
   Required     :
     NumberType - descriptor of number type (for more info see comments in 
                  InitFileIO.c)
-
-  Returns      : size of number type
-
-  Modifies     : NA
 
   Comments     :
    Information about the number type has to be passed to the functions that

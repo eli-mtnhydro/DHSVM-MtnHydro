@@ -1,17 +1,6 @@
+
 /*
- * SUMMARY:      RadiationBalance.c - Calculate radiation balance
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Calculate radiation balance at each pixel
- * DESCRIP-END.
- * FUNCTIONS:    RadiationBalance()
- *               LongwaveBalance()
- *               ShortwaveBalance()
- * Reference:
+Reference:
 
    Wigmosta, M. S., L. W. Vail, and D. P. Lettenmaier, A distributed
    hydrology-vegetation model for complex terrain, Water Resour. Res.,
@@ -59,11 +48,6 @@
      VEGTABLE VType     - Information about number of veg layers
      SNOWPIX LocalSnow  - Information about snow conditions at current pixel
      PIXRAD *LocalRad   - Components of radiation balance for current pixel
-
-   Returns      : void
-
-   Modifies     :
-     PIXRAD *LocalRad  - Components of radiation balance for current pixel
 
    Comments     :
      This routine is implemented according to Wigmosta et al. (1994), with a
@@ -174,8 +158,7 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
 
   /* Calculate longwave radiation balance */
   LongwaveBalance(Options, OverStory, F, LocalVeg->Vf, Ld, Tcanopy, Tsurf, LocalRad);
-
-  /* For John's RBM input */
+  
   LocalRad->PixelLongIn = Ld;
 
   // Input raw (downward) shortwave radiation without topo shading 
@@ -197,12 +180,6 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
     float Tcanopy    - Canopy temperature (C)
     float Tsurf      - Surface temperature (C)
     PIXRAD &LocalRad - Components of radiation balance for current pixel
-
-  Returns      :
-    void
-
-  Modifies     :
-    Elements of LocalRad
 
   Comments     : This function is used to update the longwave radiation
                  balance when new surface temperatures are calculated
@@ -247,18 +224,6 @@ void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
     LocalRad->LongIn[1] = 0.;
   }
 
-  /* Calculate the net longwave for the entire pixel */
-  /* added by Ning */
-  if (Options->StreamTemp) {
-    if (OverStory == TRUE) {
-      LocalRad->RBMNetLong =
-        Ld * (1 - F) + LocalRad->LongOut[0] * F;
-    }
-    else {
-      LocalRad->RBMNetLong = Ld;
-    }
-  }
-
   /* Calculate the radiative components for the entire pixel.  Use the
      snow/soil surface temperature as an estimate for the pixel temperature.
      LocalRad->PixelLongOut is calculated in the sensible heat flux routine,
@@ -288,12 +253,6 @@ void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
     float Tau        - Canopy transmittance coefficient for overstory
     float *Albedo    - Albedo of each layer
     PIXRAD *LocalRad - Components of radiation balance for current pixel
-
-  Returns      :
-    void
-
-  Modifies     :
-    Elements of LocalRad
 
   Comments     :
     This function needs to be called only once for each pixel for each
@@ -332,27 +291,5 @@ void ShortwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
   }
   else
     LocalRad->PixelNetShort = LocalRad->NetShort[0];
-
-  /* Calculate the incoming shortwave reaching the water surface */
-  /* When the canopy shading option is off, the model still takes into account the shading
-  created by the local vegetation defined by the input vegetation map */
-  if (Options->StreamTemp && !Options->CanopyShading) {
-    if (OverStory == TRUE) {
-      LocalRad->RBMNetShort = Rs*(1-F) + Rs*Tau*F;
-      LocalRad->PixelBeam = Rsb*(1-F) + Rsb*Tau*F;    // direct beam radiation 
-      LocalRad->PixelDiffuse = LocalRad->RBMNetShort - LocalRad->PixelBeam; // diffuse radiation 
-    }
-    else {
-      LocalRad->RBMNetShort = Rs;
-      LocalRad->PixelBeam = Rsb;
-      LocalRad->PixelDiffuse = Rsd;
-    }
-  }
-  /* When turning on the canopy shading top, only riparian veg characterized by the height, width and
-  other parameters are used for calculations. The VEG type defined by the vegetation map is dismissed. */
-  else if (Options->StreamTemp && Options->CanopyShading) {
-    LocalRad->RBMNetShort = Rs;
-    LocalRad->PixelBeam = Rsb;
-    LocalRad->PixelDiffuse = Rsd;
-  }
+  
 }

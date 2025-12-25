@@ -1,16 +1,3 @@
-/*
- * SUMMARY:      ReadMetRecord.c - Read station meteorological data
- * USAGE:        Part of DHSVM
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Read station meteorological data
- * DESCRIP-END.
- * FUNCTIONS:    ReadMetRecord()
- * COMMENTS:
- * $Id: ReadMetRecord.c,v 1.4 2003/07/01 21:26:22 olivier Exp $     
- */
 
 #include <stdio.h>
 #include <string.h>
@@ -28,34 +15,28 @@
   ReadMetRecord()
 *****************************************************************************/
 void ReadMetRecord(OPTIONSTRUCT *Options, DATE *Current, int NSoilLayers,
-		   FILES *InFile, unsigned char IsWindModelLocation,
-		   MET *MetRecord)
+		   FILES *InFile, MET *MetRecord)
 {
   DATE MetDate;			/* Date of meteorological record */
   float Array[MAXMETVARS];	/* Temporary storage of met variables */
   int i;
   int NMetVars;			/* Number of meteorological variables to read */
-  NMetVars = 5;
+  NMetVars = 6;
   /* these are - in order: 
      air temp,
      wind,
      humidity
      shortwave (total i.e. direct+diffuse)
-     longwave */
+     longwave
+     precipitation */
 
   if (Options->HeatFlux == TRUE)
     NMetVars += NSoilLayers;
   /* expect to see temperature for each soil layer */
-  if (Options->PrecipType == STATION)
-    NMetVars++;
   /* separate input of rain and snow following precipitation */
   if (Options->PrecipSepr)
     NMetVars += 2;
-  if (Options->PrecipLapse == VARIABLE)
-    NMetVars++;
   if (Options->TempLapse == VARIABLE)
-    NMetVars++;
-  if (IsWindModelLocation)
     NMetVars++;
 
   if (!ScanDate(InFile->FilePtr, &MetDate))
@@ -111,42 +92,24 @@ void ReadMetRecord(OPTIONSTRUCT *Options, DATE *Current, int NSoilLayers,
     for (i = 0; i < NSoilLayers; i++)
       MetRecord->Tsoil[i] = Array[5 + i];
 
-  if (Options->PrecipType == STATION) {
-    MetRecord->Precip = Array[5 + i];
-    if (MetRecord->Precip < 0) {
-      printf("Warning: negative precip %s \n", InFile->FileName);
-      MetRecord->Precip = 0.0;
-    }
-    i++;
-    if (Options->PrecipSepr) {
-      MetRecord->Rain = Array[5 + i];
-      i++;
-      MetRecord->Snow = Array[5 + i];
-      i++;
-    }
-  }
-  else
+  MetRecord->Precip = Array[5 + i];
+  if (MetRecord->Precip < 0) {
+    printf("Warning: negative precip %s \n", InFile->FileName);
     MetRecord->Precip = 0.0;
-
-  if (Options->PrecipLapse == VARIABLE) {
-    MetRecord->PrecipLapse = Array[5 + i];
+  }
+  i++;
+  if (Options->PrecipSepr) {
+    MetRecord->Rain = Array[5 + i];
+    i++;
+    MetRecord->Snow = Array[5 + i];
     i++;
   }
-  else
-    MetRecord->PrecipLapse = PRECIPLAPSE;
-
+  
   if (Options->TempLapse == VARIABLE) {
     MetRecord->TempLapse = Array[5 + i];
     i++;
   }
   else
     MetRecord->TempLapse = TEMPLAPSE;
-
-  if (IsWindModelLocation) {
-    MetRecord->WindDirection = (int) Array[5 + i];
-    i++;
-  }
-  else
-    MetRecord->WindDirection = NOT_APPLICABLE;
 
 }

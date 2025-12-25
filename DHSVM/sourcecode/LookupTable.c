@@ -1,19 +1,7 @@
+
 /*
- * SUMMARY:      LookupTable.c
- * USAGE:        Part of DHSVM - initializes and allows lookup for tables with
- *               regularly spaced indices
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    18-Feb-97 at 17:46:13
- * DESCRIPTION:  initializes and allows lookup for tables with
- *               regularly spaced indices
- * DESCRIP-END.
- * FUNCTIONS:    init_float_table()
- *               float float_lookup(float x, FLOATTABLE *table)
- * COMMENTS:
- * $Id: LookupTable.c,v 1.4 2003/07/01 21:26:19 olivier Exp $     
- */
+ Initializes and allows lookup for tables with regularly spaced indices
+*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,11 +20,6 @@
     float (*Function)(float)  - Function used to fill the table entries
     FLOATTABLE *Table         - pointer to structure that holds the table
 
-  Returns      : void
-
-  Modifies     : FLOATTABLE *table
-
-  Comments     :
 *****************************************************************************/
 void InitFloatTable(unsigned long Size, float Offset, float Delta,
 		    float (*Function) (float), FLOATTABLE * Table)
@@ -66,11 +49,6 @@ void InitFloatTable(unsigned long Size, float Offset, float Delta,
     float x           - key to be looked up
     FLOATTABLE *Table - Table structure that contains the entries
 
-  Returns      : float
-
-  Modifies     : None
-
-  Comments     :
 *****************************************************************************/
 float FloatLookup(float x, FLOATTABLE * Table)
 {

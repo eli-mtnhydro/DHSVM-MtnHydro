@@ -1,18 +1,3 @@
-/*
-* SUMMARY:      SnowInterception.c - simulates snow interception and release
-* USAGE:
-*
-* AUTHOR:       Pascal Storck
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       pstorck@u.washington.edu
-* ORIG-DATE:    29-Aug-1996 at 13:42:17
-* DESCRIPTION:  Calculates the interception and subsequent release of
-*               by the forest canopy using an energy balance approach
-* DESCRIP-END.
-* FUNCTIONS:    SnowInterception()
-* COMMENTS:
-* $Id: SnowInterception.c,v 1.5 2003/11/12 20:01:52 colleen Exp $
-*/
 
 #include <math.h>
 #include <stdarg.h>

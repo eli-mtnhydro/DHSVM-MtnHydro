@@ -1,17 +1,3 @@
-/*
-* SUMMARY:      InterceptionStorage.c - Calculate interception storage
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-96
-* DESCRIPTION:  Calculate interception storage
-* DESCRIP-END.
-* FUNCTIONS:    InterceptionStorage()
-* COMMENTS:
-* $Id: InterceptionStorage.c,v 1.5 2003/11/12 20:01:51 colleen Exp $
-*/
 
 #include <math.h>
 #include <stdio.h>

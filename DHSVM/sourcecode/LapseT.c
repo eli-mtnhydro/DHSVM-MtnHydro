@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      LapseT.c - Lapse temperature with elevation
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Lapse temperature with elevation
- * DESCRIP-END.
- * FUNCTIONS:    LapseT()
- * COMMENTS:
- * $Id: LapseT.c,v 1.4 2003/07/01 21:26:19 olivier Exp $     
- */
 
 #include <stdio.h>
 #include <string.h>
@@ -35,9 +21,6 @@
   Returns      :
     float LapsedTemp - Air temperature at ToElev elevation (C)
 
-  Modifies     : None
-
-  Comments     :
 *****************************************************************************/
 float LapseT(float Temp, float FromElev, float ToElev, float LapseRate)
 {
@@ -48,34 +31,3 @@ float LapseT(float Temp, float FromElev, float ToElev, float LapseRate)
   return LapsedTemp;
 }
 
-/*****************************************************************************
-  Function name: LapsePrecip
-
-  Purpose      : Lapse precipitation with elevation
-
-  Required     : 
-    float Precip       - Precipitation at FromElev (m/timestep)
-    float FromElev     - Elevation to lapse from (m)
-    float ToElev       - Elevation to lapse to (m)
-
-  Returns      :
-    float LapsedPrecip - Precipitation at ToElev (m/timestep)
-
-  Modifies     : None
-
-  Comments     : Used to lapse precip with elevation.
-*****************************************************************************/
-float LapsePrecip(float Precip, float FromElev, float ToElev, 
-  float PrecipLapse, float precipMultiplier)
-{
-  float LapsedPrecip;		/* Precipitation at ToElev (m/timestep) */
-
-  LapsedPrecip = Precip * (1.0 + PrecipLapse * (ToElev - FromElev)) * precipMultiplier;
-
-  if (LapsedPrecip < 0.0)
-    LapsedPrecip = 0.0;
-
-  return LapsedPrecip;
-
-
-}

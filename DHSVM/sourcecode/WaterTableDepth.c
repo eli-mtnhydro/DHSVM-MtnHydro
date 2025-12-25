@@ -1,18 +1,3 @@
-/*
-* SUMMARY:      WaterTableDepth.c - Calculate the depth of the water table
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-1996
-* DESCRIPTION:  Calculate the depth of the water table below the ground
-*               surface corrected for road and channel effects
-* DESCRIP-END.
-* FUNCTIONS:    WaterTableDepth()
-* COMMENTS:
-* $Id: WaterTableDepth.c,v 3.2 2018/2/2 Ning Exp $     
-*/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +18,7 @@ float *RootDepth - Depth of each of the soil layers (m)
 float *Porosity  - Porosity of each soil layer
 float *FCap      - Field capacity of each soil layer
 float *Adjust    - Correction for each layer for loss of soil storage
-due to channel/road-cut.  Multiplied with RootDepth
+due to channel cut.  Multiplied with RootDepth
 to give the layer thickness for use in calculating
 soil moisture
 
@@ -52,7 +37,7 @@ deepest root layer can never fall below field capacity.  The water
 immediately above the water table is assumed to be at field capacity.
 
 Changes have been made to account for the potential loss of soil storage
-in a grid cell due to a road-cut or channel.
+in a grid cell due to a channel.
 *****************************************************************************/
 float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
   float *Porosity, float *FCap, float *Adjust, float *Moist)

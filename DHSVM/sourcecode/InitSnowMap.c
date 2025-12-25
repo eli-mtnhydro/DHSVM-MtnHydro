@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      InitSnowMap.c - Initialize snow coverage
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Initialize snow coverage
- * DESCRIP-END.
- * FUNCTIONS:    InitSnowMap()
- * COMMENTS:
- * $Id: InitSnowMap.c,v 1.4 2003/07/01 21:26:17 olivier Exp $     
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,12 +16,6 @@
     MAPSIZE Map        - Size and location of the model area
     SNOWPIX ***SnowMap - Address of array with snow information 
 
-  Returns      : void
-
-  Modifies     :
-    Values stored at the locations pointed to by SnowMap
-
-  Comments     :
 *****************************************************************************/
 void InitSnowMap(MAPSIZE *Map, SNOWPIX ***SnowMap, TIMESTRUCT *Time)
 {

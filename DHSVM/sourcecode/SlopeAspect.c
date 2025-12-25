@@ -1,36 +1,3 @@
-/*
- * SUMMARY:      SlopeAspect.c - Calculate slope and aspect of each pixel
- * USAGE:        Part of DHSVM/MWM
- *
- * AUTHOR:       William A Perkins
- * ORG:          Battelle Memorial Institute Pacific Northwest Laboratory
- * E-MAIL:       perk@clio.muse.pnl.gov
- * ORIG-DATE:    21-May-96
- * DESCRIPTION:  This module contains two routines to compute "slope" and
- *               "aspect"  (direction of slope): one which uses only terrain
- *               elevations and another which uses water table elevations.
- * DESCRIP-END.
- * FUNCTIONS:    valid_cell()
- *               valid_cell_fine()
- *               slope_aspect()
- *               flow_fractions()
- *               ElevationSlopeAspect()
- *               HeadSlopeAspect()
- *               ElevationSlope()
- *               ElevationSlopeAspectfine()
- * COMMENTS:
-                 This program is considerably changed to fix the problems including:
-				 1) runoff from some basins cell is rounted to the neighnoring cells 
-				    that are outside of basin boundary
-				 2) unfilled sinks due to the D8 and D4 algorithm difference between 
-				    ArcGIS and DHSVM.
- 
-        Updated by Eli Boardman May 2024: add multi-flow direction 8-neighbor option
-  
-				 Main changes are made to slope_aspect(), flow_fractions() &
-				 ElevationSlopeAspect()
- * $Id: SlopeAspect.c, v 4.0  2013/1/2   Ning Exp $ 
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -158,7 +125,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
   
  switch (NDIRS) {
  case 4:
-   
+   ;
    float cosine = cos(aspect);
    float sine = sin(aspect);
    float *cos, *sin;
@@ -216,7 +183,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
  case 8:
     /* For the 8-neighbor case, there is a new option to route flow to 
        all downhill pixels based on slope, or just the single steepest */
-    
+    ;
     float total_drop;
   
     if (MultiFlowDir) {
@@ -304,7 +271,6 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
           total_width = dx; 
       }
       else{
-        // printf("one grid cell has minor sink, set flow width to cell size\n");
         total_width = dx; 
       }
       *grad = slope * total_width;
@@ -526,23 +492,3 @@ void SnowSlopeAspect(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **Snow,
   }
   return;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      StoreModelState.c - Store the state of the model
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
- * DESCRIPTION:  Store the state of the model.  This allows restarts of the
- *               model with the correct initial conditions
- * DESCRIP-END.
- * FUNCTIONS:    StoreModelState()
- * COMMENTS:
- * $Id: StoreModelState.c,v 1.8 2004/08/16 18:26:38 colleen Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -54,16 +39,14 @@
 void StoreModelState(char *Path, DATE * Current, MAPSIZE * Map,
   OPTIONSTRUCT * Options, TOPOPIX ** TopoMap,
   PRECIPPIX ** PrecipMap, SNOWPIX ** SnowMap,
-  MET_MAP_PIX ** MetMap, VEGPIX ** VegMap, 
+  VEGPIX ** VegMap, 
   LAYER * Veg, SOILPIX ** SoilMap, LAYER * Soil, 
-  ROADSTRUCT ** Network, UNITHYDRINFO * HydrographInfo, 
-  float *Hydrograph, CHANNEL * ChannelData)
+  NETSTRUCT ** Network, CHANNEL * ChannelData)
 {
   const char *Routine = "StoreModelState";
   char Str[NAMESIZE + 1];
   char FileLabel[MAXSTRING + 1];
   char FileName[NAMESIZE + 20];
-  FILE *HydroStateFile;
   int i;			/* counter */
   int x;			/* counter */
   int y;			/* counter */
@@ -71,105 +54,11 @@ void StoreModelState(char *Path, DATE * Current, MAPSIZE * Map,
   int NVeg;			/* Number of veg layers for current pixel */
   MAPDUMP DMap;			/* Dump Info */
   void *Array;
-  float RoadIExcess = 0.0;
-
-  /* print a message to stdout that state is being stored */
-
+  
   printf("Storing model state\n");
   PrintDate(Current, stdout);
   printf("\n");
-
-  if (MetMap != NULL) {
-
-    sprintf(Str, "%02d.%02d.%04d.%02d.%02d.%02d", Current->Month, Current->Day,
-      Current->Year, Current->Hour, Current->Min, Current->Sec);
-    sprintf(FileName, "%sMet.State.%s%s", Path, Str, fileext);
-    strcpy(FileLabel, "Basic Meteorology at time step");
-
-    CreateMapFile(FileName, FileLabel, Map);
-
-    if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
-      ReportError((char *)Routine, 1);
-
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-
-          ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].Precip;
-
-        }
-        else
-          ((float *)Array)[y * Map->NX + x] = NA;
-      }
-    }
-    DMap.ID = 201;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Write2DMatrix(FileName, Array, DMap.NumberType, Map, &DMap, 0);
-
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          ((float *)Array)[y * Map->NX + x] = MetMap[y][x].accum_precip;
-        }
-        else
-          ((float *)Array)[y * Map->NX + x] = NA;
-      }
-    }
-    DMap.ID = 701;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Write2DMatrix(FileName, Array, DMap.NumberType, Map, &DMap, 0);
-
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          ((float *)Array)[y * Map->NX + x] = MetMap[y][x].air_temp;
-        }
-        else
-          ((float *)Array)[y * Map->NX + x] = NA;
-      }
-    }
-    DMap.ID = 702;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Write2DMatrix(FileName, Array, DMap.NumberType, Map, &DMap, 0);
-
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          ((float *)Array)[y * Map->NX + x] = MetMap[y][x].wind_speed;
-        }
-        else
-          ((float *)Array)[y * Map->NX + x] = NA;
-      }
-    }
-    DMap.ID = 703;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Write2DMatrix(FileName, Array, DMap.NumberType, Map, &DMap, 0);
-
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          ((float *)Array)[y * Map->NX + x] = MetMap[y][x].humidity;
-        }
-        else
-          ((float *)Array)[y * Map->NX + x] = NA;
-      }
-    }
-    DMap.ID = 704;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Write2DMatrix(FileName, Array, DMap.NumberType, Map, &DMap, 0);
-
-    free(Array);
-  }
+  
   /* Store the canopy interception */
 
   sprintf(Str, "%02d.%02d.%04d.%02d.%02d.%02d", Current->Month, Current->Day,
@@ -451,8 +340,7 @@ void StoreModelState(char *Path, DATE * Current, MAPSIZE * Map,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        RoadIExcess = 0.0;
-        ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].IExcess + RoadIExcess;
+        ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].IExcess;
       }
       else
         ((float *)Array)[y * Map->NX + x] = NA;
@@ -465,15 +353,4 @@ void StoreModelState(char *Path, DATE * Current, MAPSIZE * Map,
   Write2DMatrix(FileName, Array, DMap.NumberType, Map, &DMap, 0);
 
   free(Array);
-
-  /* If the unit hydrograph is used for flow routing, store the unit
-     hydrograph array */
-
-  if (Options->Extent == BASIN && Options->HasNetwork == FALSE) {
-    sprintf(FileName, "%sHydrograph.State.%s", Path, Str);
-    OpenFile(&HydroStateFile, FileName, "w", FALSE);
-    for (i = 0; i < HydrographInfo->TotalWaveLength; i++)
-      fprintf(HydroStateFile, "%f\n", Hydrograph[i]);
-    fclose(HydroStateFile);
-  }
 }

@@ -1,19 +1,3 @@
-/*
- * SUMMARY:      MassBalance.c - calculate basin-wide mass balance
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Mark Wigmosta
- * ORG:          Battelle - Pacific Northwest National Laboratory
- * E-MAIL:       ms_wigmosta@pnl.gov
- * ORIG-DATE:    Oct-96
- * DESCRIPTION:  Calculate water mass balance errors
- *               
- * DESCRIP-END.
- * FUNCTIONS:    MassBalance()
- * COMMENTS:
- * Modification made on 2012/12/31
- * $Id: MassBalance.c, v 4.0 Ning Exp $
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,14 +48,12 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
   else
      NetWaterIn2 = Total->Precip.Precip - Total->Precip.SnowFall;
  
-  NewWaterStorage = Total->Soil.IExcess + Total->Road.IExcess + 
+  NewWaterStorage = Total->Soil.IExcess +
     Total->CanopyWater + Total->SoilWater +
     Total->Snow.Swq + Total->Soil.SatFlow + Total->Soil.DetentionStorage;
 
-  Output = (Total->ChannelInt - Total->ChannelInfiltration - Total->Evap.EvapChannel) +
-    Total->RoadInt + Total->Evap.ETot;
-  Input = Total->Precip.Precip + Total->Snow.VaporMassFlux +
-    Total->Snow.CanopyVaporMassFlux + Total->CulvertReturnFlow;
+  Output = (Total->ChannelInt - Total->ChannelInfiltration - Total->Evap.EvapChannel) + Total->Evap.ETot;
+  Input = Total->Precip.Precip + Total->Snow.VaporMassFlux + Total->Snow.CanopyVaporMassFlux;
 
   MassError = (NewWaterStorage - Mass->OldWaterStorage) + Output - Input;
   
@@ -87,12 +69,9 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
   Mass->CumChannelInt += Total->ChannelInt;
   Mass->CumChannelInfiltration += Total->ChannelInfiltration;
   Mass->CumChannelEvap += Total->Evap.EvapChannel;
-  Mass->CumRoadInt += Total->RoadInt;
   Mass->CumET += Total->Evap.ETot;
   Mass->CumSnowVaporFlux += Total->Snow.VaporMassFlux +
     Total->Snow.CanopyVaporMassFlux;
-  Mass->CumCulvertReturnFlow += Total->CulvertReturnFlow;
-  Mass->CumCulvertToChannel += Total->CulvertToChannel;
   
   if (IsEqualTime(Current, Start)) {
     fprintf(Out->FilePtr, "Date");
@@ -107,17 +86,17 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
     fprintf(Out->FilePtr, " TotSoilMoist");
     fprintf(Out->FilePtr, " SatFlow");
     fprintf(Out->FilePtr, " SnowVaporFlux CanopySnowVaporFlux");
-    fprintf(Out->FilePtr, " ChannelInt RoadInt CulvertInt ChannelInfiltration ChannelEvap"),
+    fprintf(Out->FilePtr, " ChannelInt ChannelInfiltration ChannelEvap"),
     fprintf(Out->FilePtr, " PixelShortIn PixelNetShort NetShort.Layer1 NetShort.Layer2 PixelNetRadiation Tair Error");
     fprintf(Out->FilePtr, "\n");
   }
   PrintDate(Current, Out->FilePtr);
   fprintf(Out->FilePtr, " %g %g %g %g %g %g %g %g %g %g %g %g \
-      %g %g %g %g %g %g %g %g %g %g %g %g %g\n", NetWaterIn1*1000, NetWaterIn2*1000, 
+      %g %g %g %g %g %g %g %g %g %g %g\n", NetWaterIn1*1000, NetWaterIn2*1000, 
       Total->Precip.Precip, Total->Precip.SnowFall, Total->Soil.IExcess,
       Total->Snow.Swq, Total->Snow.Melt, Total->Evap.ETot, 
       Total->CanopyWater, Total->SoilWater, Total->Soil.SatFlow, Total->Snow.VaporMassFlux,
-      Total->Snow.CanopyVaporMassFlux, Total->ChannelInt,  Total->RoadInt, Total->CulvertToChannel,
+      Total->Snow.CanopyVaporMassFlux, Total->ChannelInt,
       Total->ChannelInfiltration, Total->Evap.EvapChannel,
       Total->Rad.BeamIn+Total->Rad.DiffuseIn, Total->Rad.PixelNetShort, 
       Total->Rad.NetShort[0], Total->Rad.NetShort[1], Total->NetRad, Total->Rad.Tair, MassError);

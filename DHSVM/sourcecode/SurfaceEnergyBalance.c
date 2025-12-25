@@ -1,18 +1,8 @@
+
 /*
- * SUMMARY:      SurfaceEnergyBalance.c - Calculate surface energy balance
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-1996
  * DESCRIPTION:  Calculate surface energy balance.  This group of functions
  *               is used by the iterative Brent method to determine the
  *               surface temperature 
- * DESCRIP-END.
- * FUNCTIONS:    SurfaceEnergyBalance()
- * COMMENTS:
- * $Id: SurfaceEnergyBalance.c,v 1.4 2003/07/01 21:26:26 olivier Exp $     
  */
 
 #include <math.h>
@@ -33,13 +23,8 @@
     va_list ap            - Argument list initialized by va_start().  For
                             elements of list and order, see beginning of
                             routine
-
   Returns      :
     float RestTerm        - Rest term in the energy balance
-
-  Modifies     : none
-
-  Comments     :
 *****************************************************************************/
 float SurfaceEnergyBalance(float TSurf, va_list ap)
 {

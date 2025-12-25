@@ -1,18 +1,3 @@
-/*
- * SUMMARY:      RootBrent.c - Determine surface temperature iteratively
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bart Nijssen
- * ORG:          University of Washington, Department of Civil Engineering
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Determine surface temperature iteratively using the Brent
- *               method.  
- * DESCRIP-END.
- * FUNCTIONS:    RootBrent()
- * COMMENTS:
- * $Id: RootBrent.c,v 1.4 2003/07/01 21:26:23 olivier Exp $     
- */
 
 #include <math.h>
 #include <stdarg.h>
@@ -74,12 +59,6 @@
                             See the appropriate Function for the correct
                             arguments. 
 
-  Returns      :
-    float b               - Effective surface temperature (C)
-
-  Modifies     : none
-
-  Comments     :
 *****************************************************************************/
 float RootBrent(int y, int x, float LowerBound, float UpperBound,
 		float current, float (*Function) (float Estimate, va_list ap), ...)

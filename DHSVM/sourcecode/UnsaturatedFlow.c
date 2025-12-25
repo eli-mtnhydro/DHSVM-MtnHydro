@@ -1,20 +1,3 @@
-/*
-* SUMMARY:      UnsaturatedFlow.c - Calculate the unsaturated flow
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen and Mark Wigmosta (*)
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-1996
-* DESCRIPTION:  Calculate the unsaturated flow in the soil column (vertical
-
-*               flow)
-* DESCRIP-END.
-* FUNCTIONS:    UnsaturatedFlow()
-* COMMENTS: (*) Mark Wigmosta, Batelle Pacific Northwest Laboratories,
-*               ms_wigmosta@pnl.gov
-* $Id: UnsaturatedFlow.c,v 1.12 2017/10/1 Ning Exp $   
-*/
 
 #include <math.h>
 #include <stdio.h>
@@ -36,12 +19,11 @@ float DX           - Grid cell width (m)
 float DY           - Grid cell width (m)
 float Infiltration - Amount of infiltration entering the top of the soil
 column (m)
-float RoadbedInfiltration - Amount of infiltration through the roadbed(m)
 float SatFlow      - Amount of saturated flow entering the soil column
 from neighbouring pixels (m)
 int NSoilLayers    - Number of soil layers
 float TotalDepth   - Total depth of the soil profile (m)
-float Area         - Area of channel or road surface (m)
+float Area         - Area of channel surface (m)
 float *RootDepth   - Depth of each of the soil layers (m)
 float *Ks          - Vertical saturated hydraulic conductivity in each
 soil layer (m/s)
@@ -53,7 +35,7 @@ the layer below (m)
 float *PercArea    - Area of the bottom of each soil layer as a fraction
 of the gridcell area DX*DY
 float *Adjust      - Correction for each layer for loss of soil storage
-due to channel/road-cut.  Multiplied with RootDepth
+due to channel cut.  Multiplied with RootDepth
 to give the layer thickness for use in calculating
 
 
@@ -61,10 +43,7 @@ soil moisture
 int CutBankZone    - Number of the soil layer containing the bottom of
 
 the cut-bank
-float BankHeight   - Distance from ground surface to channel bed or
-bottom of road-cut (m)
-
-Returns      : void
+float BankHeight   - Distance from ground surface to channel bed (m)
 
 Modifies     :
 float *TableDepth - Depth of the water table below the ground surface (m)
@@ -104,16 +83,14 @@ If the amount of soil moisture in a layer after drainage still
 exceeds the porosity for that layer, this additional amount of water is
 added to the drainage to the next layer.
 
-
 CHANGES:
 
-
 Changes have been made to account for the potental loss of soil storage
-in a grid cell due to a road-cut or channel.  Correction coefficents are
+in a grid cell due to a channel.  Correction coefficents are
 calculated in AdjustStorage() and CutBankGeometry()
 *****************************************************************************/
 void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
-  float RoadbedInfiltration, float SatFlow, int NSoilLayers,
+  float SatFlow, int NSoilLayers,
   float TotalDepth, float Area, float *RootDepth, float *Ks,
   float *PoreDist, float *Porosity, float *FCap,
   float *Perc, float *PercArea, float *Adjust,
@@ -135,22 +112,6 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   for (i = 0; i < NSoilLayers; i++)
     DeepLayerDepth -= RootDepth[i];
 
-  /* first take care of infiltration through the roadbed/channel, then through the
-  remaining surface */
-  if (*TableDepth <= BankHeight) { /* watertable above road/channel surface */
-    *IExcess += RoadbedInfiltration;
-  }
-
-  else {
-    if (CutBankZone == NSoilLayers) {
-      Moist[NSoilLayers] += RoadbedInfiltration /
-        (DeepLayerDepth * Adjust[NSoilLayers]);
-    }
-    else if (CutBankZone >= 0) {
-      Moist[CutBankZone] += RoadbedInfiltration /
-        (RootDepth[CutBankZone] * Adjust[CutBankZone]);
-    }
-  }
   if (*TableDepth <= 0) { /* watertable above surface */
     *IExcess += Infiltration;
     if (InfiltOption == DYNAMIC) 

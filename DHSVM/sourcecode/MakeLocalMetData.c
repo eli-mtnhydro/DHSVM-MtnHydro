@@ -1,17 +1,3 @@
-/*
-* SUMMARY:      MakeLocalMetData.c - Generates meteorological conditions
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-96
-* DESCRIPTION:  Generates meteorological conditions for each individual cell
-* DESCRIP-END.
-* FUNCTIONS:    MakeLocalMetData()
-* COMMENTS:
-* $Id: MakeLocalMetData.c,v3.2 2018/03/30 ning Exp $     
-*/
 
 #include <math.h>
 #include <stdio.h>
@@ -34,20 +20,12 @@ int y
 int x
 MAPSIZE Map
 int DayStep
-unsigned char PrecipType
 int NStats
 METLOCATION *Stat
 uchar *MetWeights
 float LocalElev
 RADCLASSPIX *RadMap 
 PRECIPPIX *PrecipMap
-MAPSIZE Radar
-RADARPIX **RadarMap
-
-Returns      :
-PIXMET LocalMet
-
-Modifies     :
 
 Comments     :
 Reference: Shuttleworth, W.J., Evaporation,  In: Maidment, D. R. (ed.),
@@ -57,25 +35,17 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
                         OPTIONSTRUCT *Options, int NStats,
                         METLOCATION *Stat, uchar *MetWeights,
                         float LocalElev, PIXRAD *RadMap,
-                        PRECIPPIX *PrecipMap, MAPSIZE *Radar,
-                        RADARPIX **RadarMap, float **PrismMap, float **SnowPatternMap,
+                        PRECIPPIX *PrecipMap, float **PrismMap, float **SnowPatternMap,
                         SNOWPIX *LocalSnow, CanopyGapStruct **Gap, VEGPIX *VegMap,
-                        float ***MM5Input, float ***WindModel,
-                        float **PrecipLapseMap, MET_MAP_PIX ***MetMap,
-                        float precipMultiplier, int NGraphics, int Month, float skyview,
+                        float precipMultiplier, int Month, float skyview,
                         unsigned char shadow, float SunMax,
                         float SineSolarAltitude)
 {
   float CurrentWeight;		/* weight for current station */
-  float ScaleWind = 1;		/* Wind to be scaled by model factors if 
-                            WindSource == MODEL */
   float Temp;			/* Temporary variable */
   float WeightSum = 0.0;		/* sum of the weights */
   int i,j;			/* counter */
-  int RadarX;			/* X coordinate of radar map coordinate */
-  int RadarY;			/* Y coordinate of radar map coordinate */
   float TempLapseRate;
-  int WindDirection = 0;	/* Direction of model wind */
   PIXMET LocalMet;		/* local met data */
   float ContribPrecip, ContribSnow, ContribRain;
 
@@ -88,93 +58,43 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   LocalMet.Lin = 0.0;
   TempLapseRate = 0.0;
 
-  if (Options->MM5 == TRUE && Options->QPF == TRUE) {
-    WeightSum = 0.0;
-    for (i = 0; i < NStats; i++)
-      WeightSum += (float) MetWeights[i];
+  WeightSum = 0.0;
+  for (i = 0; i < NStats; i++) {
+    WeightSum += (float) MetWeights[i];
   }
-
-  if (Options->MM5 == TRUE) {
-    LocalMet.Tair = MM5Input[MM5_temperature - 1][y][x] +
-      (LocalElev - MM5Input[MM5_terrain - 1][y][x]) * 
-      MM5Input[MM5_lapse - 1][y][x];
-    LocalMet.Rh = MM5Input[MM5_humidity - 1][y][x];
-    LocalMet.Wind = MM5Input[MM5_wind - 1][y][x];
-    LocalMet.Sin = MM5Input[MM5_shortwave - 1][y][x];
-
-    if (Options->Shading == TRUE) {
-      if (SunMax > 0.0) {
-        SeparateRadiation(LocalMet.Sin, LocalMet.Sin / SunMax,
-          &(LocalMet.SinBeam), &(LocalMet.SinDiffuse)); 
-      }
-      else {
-        /* if sun is below horizon, the force all shortwave to zero */
-        LocalMet.Sin = 0.0;
-        LocalMet.SinBeam = 0.0;
-        LocalMet.SinDiffuse = 0.0; 
-      }
-    }
-    LocalMet.Lin = MM5Input[MM5_longwave - 1][y][x];
-    LocalMet.Press = 101300.0;
-    PrecipMap->Precip = MM5Input[MM5_precip - 1][y][x];
-    if (PrecipLapseMap != NULL) {
-      PrecipMap->Precip *= PrecipLapseMap[y][x];
-    }
+  for (i = 0; i < NStats; i++) {
+    CurrentWeight = ((float) MetWeights[i]) / WeightSum;
+    LocalMet.Tair += CurrentWeight *
+      LapseT(Stat[i].Data.Tair, Stat[i].Elev, LocalElev,
+             Stat[i].Data.TempLapse);
+    LocalMet.Rh += CurrentWeight * Stat[i].Data.Rh;
+    LocalMet.Wind += CurrentWeight * Stat[i].Data.Wind;
+    LocalMet.Lin += CurrentWeight * Stat[i].Data.Lin;
+    LocalMet.Sin += CurrentWeight * Stat[i].Data.Sin;
+    
+    LocalMet.SinBeam += CurrentWeight * Stat[i].Data.SinBeamObs;
+    LocalMet.SinDiffuse += CurrentWeight * Stat[i].Data.SinDiffuseObs;
+    
+    TempLapseRate += CurrentWeight * Stat[i].Data.TempLapse;
   }
-  else {			/* MM5 is false and we need to interpolate the basic met records */
-    WeightSum = 0.0;
-    for (i = 0; i < NStats; i++) {
-      WeightSum += (float) MetWeights[i];
-      if (Options->WindSource == MODEL && Stat[i].IsWindModelLocation) {
-        ScaleWind = Stat[i].Data.Wind;
-        WindDirection = Stat[i].Data.WindDirection;
-      }
-    }
-    for (i = 0; i < NStats; i++) {
-      CurrentWeight = ((float) MetWeights[i]) / WeightSum;
-      LocalMet.Tair += CurrentWeight *
-        LapseT(Stat[i].Data.Tair, Stat[i].Elev, LocalElev,
-        Stat[i].Data.TempLapse);
-      LocalMet.Rh += CurrentWeight * Stat[i].Data.Rh;
-      if (Options->WindSource == STATION)
-        LocalMet.Wind += CurrentWeight * Stat[i].Data.Wind;
-      LocalMet.Lin += CurrentWeight * Stat[i].Data.Lin;
-      LocalMet.Sin += CurrentWeight * Stat[i].Data.Sin;
-      
-      LocalMet.SinBeam += CurrentWeight * Stat[i].Data.SinBeamObs;
-      LocalMet.SinDiffuse += CurrentWeight * Stat[i].Data.SinDiffuseObs;
-      
-      TempLapseRate += CurrentWeight * Stat[i].Data.TempLapse;
-    }
-    LocalMet.Tair += TEMPERATURE_OFFSET;
-    
-    /* Optional additional elevation-dependent bias */
-    LocalMet.Tair += LAPSE_RATE_BIAS * (LocalElev - LAPSE_BIAS_ELEV);
-    
-    if (Options->WindSource == MODEL)
-      LocalMet.Wind = ScaleWind * WindModel[WindDirection - 1][y][x];
-
-    if (Options->PrecipType == RADAR) {
-      RadarY = (int) ((y + Radar->OffsetY) * Map->DY / Radar->DY);
-      RadarX = (int) ((x - Radar->OffsetX) * Map->DX / Radar->DX);
-      PrecipMap->Precip = RadarMap[RadarY][RadarX].Precip;
-    }
-    /* WORK IN PROGRESS, taken from old DHSVM version */
-    /* Air pressure */
-    /* In rare cases - i.e. when the lapse rate has a different sign for 
-    different met stations - you can end up with a TemplapseRate of 0.0
-    This will result in a crash, so a check was put in (Jul 28, 1997 - Bart
-    Nijssen).  It is somewhat awkward to interpolate lapse rates anyway, so
-    a better way of doing this would be welcome */
-    if (TempLapseRate != 0.0) {
-      Temp = 9.8067 / (TempLapseRate * 287.0);
-      LocalMet.Press = 101300. * pow(((288.0 - TempLapseRate * LocalElev) / 288.0), Temp);
-    }
-    else
-      LocalMet.Press = 101300.;
-
-  }				/* end of else MM5==TRUE, i.e. all basic met, except for precip */
-  /* has been interpolated */
+  LocalMet.Tair += TEMPERATURE_OFFSET;
+  
+  /* Optional additional elevation-dependent bias */
+  LocalMet.Tair += LAPSE_RATE_BIAS * (LocalElev - LAPSE_BIAS_ELEV);
+  
+  /* WORK IN PROGRESS, taken from old DHSVM version */
+  /* Air pressure */
+  /* In rare cases - i.e. when the lapse rate has a different sign for 
+   different met stations - you can end up with a TemplapseRate of 0.0
+   This will result in a crash, so a check was put in (Jul 28, 1997 - Bart
+   Nijssen).  It is somewhat awkward to interpolate lapse rates anyway, so
+   a better way of doing this would be welcome */
+  if (TempLapseRate != 0.0) {
+    Temp = 9.8067 / (TempLapseRate * 287.0);
+    LocalMet.Press = 101300. * pow(((288.0 - TempLapseRate * LocalElev) / 288.0), Temp);
+  }
+  else
+    LocalMet.Press = 101300.;
 
   /* Here is how the following section works */
   /* Arc-Info (through use of the hillshade command) will give */
@@ -212,12 +132,8 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     arcinfo */
     LocalMet.SinBeam *= (float) shadow / 22.23191;
 
-    /* if canopy shading is computed, then the skyview factor will be compared with
-    riparian canopy openess */
-    if (Options->CanopyShading && Options->StreamTemp)
-      LocalMet.SinDiffuse *= 1;
-    else
-      LocalMet.SinDiffuse *= skyview;
+    LocalMet.SinDiffuse *= skyview;
+    
     if (LocalMet.SinBeam + LocalMet.SinDiffuse > SOLARCON)
       LocalMet.SinBeam = SOLARCON - LocalMet.SinDiffuse;
   }
@@ -232,75 +148,63 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   /* the incoming shortwave radiation adjusted for shading */
   LocalMet.Sin = RadMap->BeamIn + RadMap->DiffuseIn;
 
-  if (Options->QPF == TRUE || Options->MM5 == FALSE) {
-    if (Options->PrecipType == STATION && Options->Prism == FALSE) {
-      PrecipMap->Precip = 0.0;
-      PrecipMap->SnowFall = 0.0;
-	  PrecipMap->RainFall = 0.0;
-      for (i = 0; i < NStats; i++) {
-        CurrentWeight = ((float) MetWeights[i]) / WeightSum;
-        if (Options->PrecipLapse == MAP)
-          PrecipMap->Precip += CurrentWeight *
-          LapsePrecip(Stat[i].Data.Precip, 0, 1, PrecipLapseMap[y][x], precipMultiplier);
-        else {
-          PrecipMap->Precip += CurrentWeight *
-          LapsePrecip(Stat[i].Data.Precip, Stat[i].Elev, LocalElev,
-              Stat[i].Data.PrecipLapse, precipMultiplier);
-          if (Options->PrecipSepr) {
-            PrecipMap->SnowFall += CurrentWeight *
-              LapsePrecip(Stat[i].Data.Snow, Stat[i].Elev, LocalElev, Stat[i].Data.PrecipLapse, precipMultiplier);
-            PrecipMap->RainFall += CurrentWeight *
-              LapsePrecip(Stat[i].Data.Rain, Stat[i].Elev, LocalElev, Stat[i].Data.PrecipLapse, precipMultiplier);
-          }
-        }
+  if (Options->Prism == FALSE) {
+    PrecipMap->Precip = 0.0;
+    PrecipMap->SnowFall = 0.0;
+    PrecipMap->RainFall = 0.0;
+    for (i = 0; i < NStats; i++) {
+      CurrentWeight = ((float) MetWeights[i]) / WeightSum;
+      PrecipMap->Precip += CurrentWeight * Stat[i].Data.Precip * precipMultiplier;
+      if (Options->PrecipSepr) {
+        PrecipMap->SnowFall += CurrentWeight * Stat[i].Data.Snow * precipMultiplier;
+        PrecipMap->RainFall += CurrentWeight * Stat[i].Data.Rain * precipMultiplier;
       }
     }
-    else if (Options->PrecipType == STATION && Options->Prism == TRUE) {
-      PrecipMap->Precip = 0.0;
-      PrecipMap->SnowFall = 0.0;
-      PrecipMap->RainFall = 0.0;
-      for (i = 0; i < NStats; i++) {
-        CurrentWeight = ((float) MetWeights[i]) / WeightSum;
-        /* note that X = position from left  boundary, ie # of columns */
-        /* note that Y = position from upper boundary, ie # of rows   */
-        if (Options->SnowPattern == TRUE) {
-          /* Separate weighting of snow and rain */
-          ContribPrecip = CurrentWeight * Stat[i].Data.Precip;
-          /* First need to partition rain vs. snow */
-          if (ContribPrecip > 0.0 && LocalMet.Tair < LocalSnow->Ts) {
-            if (LocalMet.Tair > LocalSnow->Tr)
-              ContribSnow = ContribPrecip * (LocalSnow->Ts - LocalMet.Tair) / (LocalSnow->Ts - LocalSnow->Tr);
-            else
-              ContribSnow = ContribPrecip;
-          } else {
-            ContribSnow = 0.0;
-          }
-          ContribRain = ContribPrecip - ContribSnow;
-          
-          /* Apply snow pattern weighting */
-          ContribSnow *= (SnowPatternMap[y][x] / Stat[i].SnowPattern);
-          PrecipMap->SnowFall += ContribSnow;
-          
-          /* Apply rain pattern weighting (here PRISM == rain pattern) */
-          ContribRain *= (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
-          PrecipMap->RainFall += ContribRain;
-          
-          PrecipMap->Precip += (ContribSnow + ContribRain);
-        } /* End of snow pattern weighting */
+  }
+  else if (Options->Prism == TRUE) {
+    PrecipMap->Precip = 0.0;
+    PrecipMap->SnowFall = 0.0;
+    PrecipMap->RainFall = 0.0;
+    for (i = 0; i < NStats; i++) {
+      CurrentWeight = ((float) MetWeights[i]) / WeightSum;
+      /* note that X = position from left  boundary, ie # of columns */
+      /* note that Y = position from upper boundary, ie # of rows   */
+      if (Options->SnowPattern == TRUE) {
+        /* Separate weighting of snow and rain */
+        ContribPrecip = CurrentWeight * Stat[i].Data.Precip;
+        /* First need to partition rain vs. snow */
+        if (ContribPrecip > 0.0 && LocalMet.Tair < LocalSnow->Ts) {
+          if (LocalMet.Tair > LocalSnow->Tr)
+            ContribSnow = ContribPrecip * (LocalSnow->Ts - LocalMet.Tair) / (LocalSnow->Ts - LocalSnow->Tr);
+          else
+            ContribSnow = ContribPrecip;
+        } else {
+          ContribSnow = 0.0;
+        }
+        ContribRain = ContribPrecip - ContribSnow;
+        
+        /* Apply snow pattern weighting */
+        ContribSnow *= (SnowPatternMap[y][x] / Stat[i].SnowPattern);
+        PrecipMap->SnowFall += ContribSnow;
+        
+        /* Apply rain pattern weighting (here PRISM == rain pattern) */
+        ContribRain *= (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
+        PrecipMap->RainFall += ContribRain;
+        
+        PrecipMap->Precip += (ContribSnow + ContribRain);
+      } /* End of snow pattern weighting */
         else if (Options->Outside == FALSE)
           PrecipMap->Precip += (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
         else
           PrecipMap->Precip += (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
-      }
-      PrecipMap->Precip *= precipMultiplier;
-      PrecipMap->SnowFall *= precipMultiplier;
-      PrecipMap->RainFall *= precipMultiplier;
     }
+    PrecipMap->Precip *= precipMultiplier;
+    PrecipMap->SnowFall *= precipMultiplier;
+    PrecipMap->RainFall *= precipMultiplier;
   }
 
   /* due to the nature of the interpolation scheme in DHSVM and the */
   /* interpolation scheme to handle the mess of different formats of met stations */
-  /* in the PRISM project */
   /* relative humidities can be quite low when precip is occuring */
   /* at times this will results in PET being greater than precip */
   /* allow an option in DHSVM to override RH if Precip is occuring */
@@ -379,14 +283,6 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
         (*Gap)[j].Albedo = CalcSnowAlbedo(LocalSnow, NDaySteps);
     }
   }
-
-  if (NGraphics > 0) {
-    (*MetMap)[y][x].accum_precip =
-      (*MetMap)[y][x].accum_precip + PrecipMap->Precip;
-    (*MetMap)[y][x].air_temp = LocalMet.Tair;
-    (*MetMap)[y][x].wind_speed = LocalMet.Wind;
-    (*MetMap)[y][x].humidity = LocalMet.Rh;
-  }
-
+  
   return LocalMet;
 }

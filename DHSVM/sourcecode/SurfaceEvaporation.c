@@ -1,18 +1,8 @@
+
 /*
- * SUMMARY:      SurfaceEvaporation.c - Calculate evaporation from various surfaces
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Eli Boardman (adapted from SoilEvaporation.c by Bart Nijssen)
- * ORG:          Mountain Hydrology LLC / University of Washington
- * E-MAIL:       eli.boardman@mountainhydrology.com / nijssen@u.washington.edu
- * ORIG-DATE:    Jun-2024 (replaces SoilEvaporation.c orig. Apr-1996)
- * DESCRIPTION:  Evaporation from surface ponding, stream channel, or bare soil
- * DESCRIP-END.
- * FUNCTIONS:    PondEvaporation()
- *               ChannelEvaporation()
- *               SoilEvaporation()
- * COMMENTS:
- * $Id:
+ SUMMARY:      SurfaceEvaporation.c - Calculate evaporation from various surfaces
+ 
+ Note this is adapted (by Eli) from SoilEvaporation.c originally by Bart Nijssen
  */
 
 #include <stdio.h>

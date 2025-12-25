@@ -1,17 +1,3 @@
-/*
- * SUMMARY:      RouteSubSurface.c - Route subsurface flow
- * USAGE:        Part of DHSVM
- *
- * AUTHOR:       Bill Perkins
- * ORG:          PNNL
- * E-MAIL:       nijssen@u.washington.edu
- * ORIG-DATE:    Apr-96
- * DESCRIPTION:  Route subsurface flow
- * DESCRIP-END.
- * FUNCTIONS:    RouteSubSurface()
- * COMMENTS:
- * $Id: RouteSubSurface.c,v3.1.2 2013/08/18 ning Exp $     
- */
 
 #include <math.h>
 #include <stdio.h>
@@ -93,11 +79,10 @@
   lateral subsurface flow beneath stream channels. This version is considerably
   updated to enable hyporheic exchange and subsurface flow below channels.
  
-  WORK IN PROGRESS
 *****************************************************************************/
 void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 		     VEGTABLE *VType, VEGPIX **VegMap,
-		     ROADSTRUCT **Network, SOILTABLE *SType,
+		     NETSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, CHANNEL *ChannelData,
 		     TIMESTRUCT *Time, OPTIONSTRUCT *Options, 
 		     char *DumpPath)
@@ -116,11 +101,10 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   float DeltaWaterLevel;
   float Depth;
   float OutFlow;
-  float water_out_road;
   float water_out_stream;
   float water_in_stream;
   float Transmissivity;
-  float TotalAvailableWater = 0.0; /* Including water that flows laterally and to channels/roads */
+  float TotalAvailableWater = 0.0; /* Including water that flows laterally and to channels */
   float AvailableWater;
   float AdjTableDepth, AdjTableDepthK, AdjWaterLevel, AdjWaterLevelK;
   float PotentialSatFlow, ActualSatFlow, LayerContribWater, LayerStorageCap, DeltaTableDepth;
@@ -172,7 +156,6 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     x = Map->OrderedCells[q].x;
     
     SoilMap[y][x].SatFlow = 0.0;
-    SoilMap[y][x].RoadInt = 0.0;
     
     SoilMap[y][x].WaterLevel = TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
     
@@ -222,7 +205,6 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                  SoilMap[y][x].Depth : Network[y][x].BankHeight;
     Adjust = Network[y][x].Adjust;
     fract_used = 0.0f;
-    water_out_road = 0.0;
     water_out_stream = 0.0;
     water_in_stream = 0.0;
     
@@ -263,37 +245,6 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     else
       OutFlow = 0.0f;
     
-    /* Compute road interception if water table is above road cut */
-    if (AdjTableDepth < BankHeight &&
-    channel_grid_has_channel(ChannelData->road_map, x, y)) {
-      if (SubTotalDir[y][x] > 0)
-        fract_used = ((float) Network[y][x].fraction /
-          (float)SubTotalDir[y][x]);
-      else
-        fract_used = 0.;
-      Transmissivity =
-        CalcTransmissivity(BankHeight, AdjTableDepth,
-                           SoilMap[y][x].KsLat,
-                           SoilMap[y][x].KsLatExp,
-                           SType[SoilMap[y][x].Soil - 1].DepthThresh);
-      
-      water_out_road = (Transmissivity * fract_used * SubFlowGrad[y][x] * Dt) / (Map->DX * Map->DY);
-      
-      AvailableWater =
-        CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-                           BankHeight, VType[VegMap[y][x].Veg - 1].RootDepth,
-                           SoilMap[y][x].Porosity,
-                           SoilMap[y][x].FCap, SoilMap[y][x].Moist,
-                           AdjTableDepth, Adjust);
-      
-      water_out_road = (water_out_road > AvailableWater) ? AvailableWater : water_out_road;
-      
-      /* Increase lateral inflow to road channel */
-      SoilMap[y][x].RoadInt = water_out_road;
-      channel_grid_inc_inflow(ChannelData->road_map, x, y,
-                              water_out_road * Map->DX * Map->DY);
-    }
-    
     /* Compute stream lateral inflow/outflow if water table is above channel cut */
     if (AdjTableDepth < BankHeight &&
     channel_grid_has_channel(ChannelData->stream_map, x, y) && TopoMap[y][x].LakeID == 0) {
@@ -317,7 +268,6 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                              SoilMap[y][x].Porosity,
                              SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                              AdjTableDepth, Adjust);
-        AvailableWater = AvailableWater - water_out_road;
         
         /* New method: contribute lateral inflow to each channel segment individually */
         water_out_stream = channel_grid_calc_satflow(ChannelData->stream_map, x, y,
@@ -378,9 +328,9 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     
     /* Subsurface Component - decrease water change only by as much
      as possible (up to transmissivity) to not violate TotalAvailableWater */
-    AvailableWater = TotalAvailableWater - water_out_road - water_out_stream;
+    AvailableWater = TotalAvailableWater - water_out_stream;
     OutFlow = (OutFlow > AvailableWater) ? AvailableWater : OutFlow; 
-    SoilMap[y][x].SatFlow -= (water_out_road + water_out_stream);
+    SoilMap[y][x].SatFlow -= water_out_stream;
     
     /* Assign the water to appropriate surrounding pixels */
     if (SubTotalDir[y][x] > 0)
@@ -605,7 +555,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 
 void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 		     VEGTABLE *VType, VEGPIX **VegMap,
-		     ROADSTRUCT **Network, SOILTABLE *SType,
+		     NETSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, OPTIONSTRUCT *Options,
 		     float **SubFlowGrad, unsigned char ***SubDir, unsigned int **SubTotalDir)
 {
@@ -719,5 +669,4 @@ void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                                                Network[y][x].Adjust, SoilMap[y][x].Moist);
       
   }
-  
 }

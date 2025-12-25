@@ -1,21 +1,3 @@
-/*
-* SUMMARY:      InitTables.c - Initialize lookup tables
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-96
-* DESCRIPTION:  Initialize lookup tables
-* DESCRIP-END.
-* FUNCTIONS:    InitTables()
-*               InitSoilTable()
-*               InitVegTable()
-*               InitSnowTable()
-* COMMENTS:
-* $Id: InitTables.c,v3.1.2 2013/12/11 ning Exp $
-*/
-
 
 #include <ctype.h>
 #include <math.h>
@@ -33,7 +15,6 @@
 
 /*******************************************************************************/
 /*				  InitTables()                                 */
-
 /*******************************************************************************/
 void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options, 
   MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType, LAYER *Veg,
@@ -359,11 +340,7 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
     MakeKeyString(VarStr[veg_description]);	/* basically makes the string all
                                             uppercase and removed spaces so
                                             it is easier to compare */
-    if (strncmp(VarStr[veg_description], "GLACIER", strlen("GLACIER")) == 0) {
-      (*VType)[i].Index = GLACIER;
-    }
-    else
-      (*VType)[i].Index = i;
+    (*VType)[i].Index = i;
 
     (*VType)[i].NVegLayers = 0;
 

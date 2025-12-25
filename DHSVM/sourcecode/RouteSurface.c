@@ -1,21 +1,4 @@
-/*
-* SUMMARY:      RouteSurface.c - Route surface flow
-* USAGE:        Part of DHSVM
-*
-* AUTHOR:       Bart Nijssen
-* ORG:          University of Washington, Department of Civil Engineering
-* E-MAIL:       nijssen@u.washington.edu
-* ORIG-DATE:    Apr-96
-* DESCRIPTION:  Route surface flow
-* DESCRIP-END.
-* FUNCTIONS:    RouteSurface()
-* Modification: Changes are made to exclude the impervious channel cell (with
-a non-zero impervious fraction) from surface routing. In the original
-code, some impervious channel cells are routed to themselves causing
-overestimated runoff in those cells (Ning, 2013).
 
-* $Id: RouteSurface.c, v3.1.2  2013/3/21   Ning Exp $
-*/
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -42,21 +25,14 @@ the Saint-Venant equations.
 *****************************************************************************/
 void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
   SOILPIX ** SoilMap, OPTIONSTRUCT *Options,
-  UNITHYDR ** UnitHydrograph, UNITHYDRINFO * HydrographInfo, float *Hydrograph,
   DUMPSTRUCT *Dump, VEGPIX ** VegMap, VEGTABLE * VType, LAKETABLE *LType,
   SOILTABLE *SType, CHANNEL *ChannelData, float Tair, float Rh)
 {
   const char *Routine = "RouteSurface";
-  int Lag;			/* Lag time for hydrograph */
-  int Step;
-  float StreamFlow;
-  int TravelTime;
-  int WaveLength;
   TIMESTRUCT NextTime;
   TIMESTRUCT VariableTime;
-  int i, j, x, y, n, k;         /* Counters */
+  int i, x, y, n, k;         /* Counters */
   float **Runon; /* (m3/s) */
-  float LakeDepth;
   
   /* Kinematic wave routing */
   float knviscosity;           /* kinematic viscosity JSL */  
@@ -68,7 +44,7 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
                                /* outflow is not entirely true for channel cells */
   float VariableDT;            /* Maximum stable time step (s) */
   
-  if (Options->HasNetwork) {
+  if (Options->Extent != POINT) {
     
     /* Option->Routing = false when routing = conventional */
     if(!Options->Routing) {
@@ -172,6 +148,7 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
       VariableDT = FindDT(SoilMap, Map, Time, TopoMap, SType);
       
       /* Allocate memory for Runon Matrix */
+      if (Map->NY < 1) return; // Need this to get rid of compiler warning
       if ((Runon = (float **) calloc(Map->NY, sizeof(float *))) == NULL) 
         ReportError((char *) Routine, 1);
       for (y = 0; y < Map->NY; y++) {
@@ -241,11 +218,8 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
             /* Instead, IExcess is updated based on Runon in the same manner as the original DHSVM */
             SoilMap[y][x].Runoff += outflow * VariableDT / (Map->DX * Map->DY); 
             
-            if (channel_grid_has_channel(ChannelData->stream_map, x, y)
-                  || (channel_grid_has_channel(ChannelData->road_map, x, y)
-                        && !channel_grid_has_sink(ChannelData->road_map, x, y))) {
-                        // SoilMap[y][x].IExcess += (Runon[y][x] - outflow) * VariableDT / (Map->DX * Map->DY);
-                        outflow = 0.0;
+            if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
+              outflow = 0.0;
             }
             
             SoilMap[y][x].IExcess += (Runon[y][x] - outflow) * VariableDT / (Map->DX * Map->DY);
@@ -303,44 +277,6 @@ void RouteSurface(MAPSIZE * Map, TIMESTRUCT * Time, TOPOPIX ** TopoMap,
       
     } /* End of code added for kinematic wave routing. */
   
-  } else {
-    /* No network, so use unit hydrograph method */
-    /* MAKE SURE THIS WORKS WITH A TIMESTEP IN SECONDS */
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          TravelTime = (int)TopoMap[y][x].Travel;
-          if (TravelTime != 0) {
-            WaveLength = HydrographInfo->WaveLength[TravelTime - 1];
-            for (Step = 0; Step < WaveLength; Step++) {
-              Lag = UnitHydrograph[TravelTime - 1][Step].TimeStep;
-              Hydrograph[Lag] += SoilMap[y][x].Runoff * UnitHydrograph[TravelTime - 1][Step].Fraction;
-
-            }
-            SoilMap[y][x].Runoff = 0.0;
-          }
-        }
-      }
-    }
-
-    StreamFlow = 0.0;
-    for (i = 0; i < Time->Dt; i++)
-      StreamFlow += (Hydrograph[i] * Map->DX * Map->DY) / Time->Dt;
-
-    /* Advance Hydrograph */
-    for (i = 0; i < Time->Dt; i++) {
-      for (j = 0; j < HydrographInfo->TotalWaveLength - 1; j++) {
-        Hydrograph[j] = Hydrograph[j + 1];
-      }
-
-    }
-
-    /* Set the last elements of the hydrograph to zero */
-    for (i = 0; i < Time->Dt; i++)
-      Hydrograph[HydrographInfo->TotalWaveLength - (i + 1)] = 0.0;
-
-    PrintDate(&(Time->Current), Dump->Stream.FilePtr);
-    fprintf(Dump->Stream.FilePtr, " %g\n", StreamFlow);
   }
 }
 
@@ -392,4 +328,3 @@ float FindDT(SOILPIX **SoilMap, MAPSIZE *Map, TIMESTRUCT *Time,
   
   return DT;
 }
-
