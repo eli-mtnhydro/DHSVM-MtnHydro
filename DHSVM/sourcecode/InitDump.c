@@ -210,7 +210,10 @@ void InitMapDump(LISTPTR Input, MAPSIZE * Map, int MaxSoilLayers,
   };
   char *SectionName = "OUTPUT";
   char VarStr[map_date + 1][BUFSIZE + 1];
-
+  
+  if (!(*DMap = (MAPDUMP *)calloc(NMaps, sizeof(MAPDUMP))))
+    ReportError(Routine, 1);
+  
   for (i = 0; i < NMaps; i++) {
 
     /* Read the key-entry pairs from the input file */
