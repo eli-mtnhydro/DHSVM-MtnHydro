@@ -57,7 +57,7 @@ LIBS = -lm -L/sw/lib -L/usr/local/lib
 #LIBS = -lm -L/sw/lib -L/usr/local/lib
 
 DHSVM: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.0_SnowOnly $(LIBS)
+	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.1_SnowOnly $(LIBS)
 
 clean::
 	rm -f DHSVM
@@ -297,8 +297,8 @@ UpdateVegMaps.o: UpdateVegMaps.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h sizeofnt.h varid.h
 
-tableio.c: tableio.lex
-	$(FLEX) -Ptable_yy -o$@ $<
+#tableio.c: tableio.lex
+#	$(FLEX) -Ptable_yy -o$@ $<
 
 #clean::
 #	rm -f tableio.c

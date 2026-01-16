@@ -536,6 +536,13 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!CopyFloat(&LAPSE_RATE_BIAS, StrEnv[lapse_bias].VarStr, 1))
     ReportError(StrEnv[lapse_bias].KeyName, 51);
   
+  if (!CopyFloat(&LAPSE_BIAS_ELEV, StrEnv[lapse_elev].VarStr, 1))
+    ReportError(StrEnv[lapse_elev].KeyName, 51);
+  
+  printf("\nTemperature inputs are adjusted by %.3f deg. C\n",TEMPERATURE_OFFSET);
+  printf("Temperature also adjusted by %.3e deg. C / m rel. to %.0f m\n",
+         LAPSE_RATE_BIAS,LAPSE_BIAS_ELEV);
+  
   if (!CopyFloat(&SOIL_DEPTH_ADJ, StrEnv[soil_depth_adj].VarStr, 1))
     ReportError(StrEnv[soil_depth_adj].KeyName, 51);
   
@@ -733,6 +740,6 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
       strcpy(Options->PrecipMultiplierMapPath, StrEnv[multiplier].VarStr);
     }
     else
-      printf("Precipitation inputs are rescaled by a factor of %f\n",PRECIP_MULTIPLIER);
+      printf("Precipitation inputs are rescaled by a factor of %.3f\n",PRECIP_MULTIPLIER);
   }
 }

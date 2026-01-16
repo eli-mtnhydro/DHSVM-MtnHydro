@@ -26,7 +26,7 @@
 /* GLOBAL VARIABLES */
 /******************************************************************************/
 
-char *version = "Version X.2.0";    /* store version string */
+char *version = "Version X.2.1";    /* store version string */
 char commandline[BUFSIZE + 1] = "";	/* store command line */
 char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */

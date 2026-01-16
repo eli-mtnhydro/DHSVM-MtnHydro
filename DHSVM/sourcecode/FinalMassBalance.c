@@ -58,7 +58,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONS
   fprintf(stderr, "\n          Final Soil Moisture ....        %.3f", (Total->SoilWater + Total->Soil.SatFlow)*1000);
   fprintf(stderr, "\n          Final Surface ..........        %.3f", (Total->Soil.IExcess  + 
 						                               Total->CanopyWater + Total->Soil.DetentionStorage)*1000);
-  fprintf(stderr, "  ******************************************************");
+  fprintf(stderr, "\n  ******************************************************");
   fprintf(stderr, "\n  Mass Error (mm).................        %.3f", MassError*1000);
   fprintf(stderr, "\n  Cumulative Mass Error (mm)......        %.3f\n", Total->CumulativeErr*1000);
   
@@ -84,7 +84,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONS
   fprintf(Out->FilePtr, "\n          Final Soil Moisture ....        %.3f", (Total->SoilWater + Total->Soil.SatFlow)*1000);
   fprintf(Out->FilePtr, "\n          Final Surface ..........        %.3f", (Total->Soil.IExcess  + 
 						                               Total->CanopyWater + Total->Soil.DetentionStorage)*1000);
-  fprintf(Out->FilePtr, "  ******************************************************");
+  fprintf(Out->FilePtr, "\n  ******************************************************");
   fprintf(Out->FilePtr, "\n  Mass Error (mm).................        %.3f", MassError*1000);
   fprintf(Out->FilePtr, "\n  Cumulative Mass Error (mm)......        %.3f\n", Total->CumulativeErr*1000);
   
@@ -95,7 +95,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONS
     fprintf(Out->FilePtr,
       "FINAL MASS BALANCE ERROR:  Negative soil moisture %.3f\n", (Total->SoilWater + Total->Soil.SatFlow) * 1000);
   }
-  if ((Total->Soil.IExcess + Total->CanopyWater + Total->Soil.DetentionStorage)/ Input > 0.1 &&
+  if ((Total->Soil.IExcess + Total->CanopyWater + Total->Soil.DetentionStorage) / Input > 0.1 &&
       !Options->LakeDynamics) {
     fprintf(stderr, "FINAL MASS BALANCE ERROR:  TOO MUCH SURFACE WATER PONDING %.3f\n", 
       (Total->Soil.IExcess + Total->CanopyWater + Total->Soil.DetentionStorage) * 1000);
