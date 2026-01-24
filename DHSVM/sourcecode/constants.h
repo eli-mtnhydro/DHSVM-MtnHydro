@@ -40,19 +40,16 @@ extern int xdirection8[];
 extern int ydirection8[];
 extern int *xdirection, *ydirection;
 
-extern float LAI_SNOW_MULTIPLIER;		/* multiplier to calculate the amount of available
-										snow interception as a function of LAI */
-extern float LAI_WATER_MULTIPLIER;		/* multiplier to determine maximum
-										interception storage as a function of LAI  */
-extern float LIQUID_WATER_CAPACITY;		/* water holding capacity of snow as a
-										fraction of snow-water-equivalent */
-extern float MAX_SNOW_TEMP;				/* maximum temperature at which snow can occur (C) */
-extern float MIN_INTERCEPTION_STORAGE;	/* the amount of snow on the canopy
-										that can only be melted off. (m) */
-extern float MIN_SNOW_RESET_ALBEDO; /* minimum snow (m) required to completely reset snow albedo */
-extern float MIN_RAIN_TEMP;				/* minimum temperature at which rain can occur (C) */
+extern float LAI_SNOW_MULTIPLIER;		/* Multiplier to calculate the amount of available snow interception as a function of LAI */
+extern float LAI_WATER_MULTIPLIER;		/* Multiplier to determine maximum interception storage as a function of LAI  */
+extern float LIQUID_WATER_CAPACITY;		/* Water holding capacity of snow as a fraction of snow-water-equivalent */
+extern float MAX_SNOW_TEMP;				/* Maximum temperature at which snow can occur (C) */
+extern float MIN_INTERCEPTION_STORAGE;	/* The amount of snow on the canopy that can only be melted off (m) */
+extern float MIN_SNOW_RESET_ALBEDO; /* Minimum snow (m) required to completely reset snow albedo */
+extern float LAMBDA_FOREST_OFFSET; /* Additional correction applied to albedo decay rate in forest */
+extern float MIN_RAIN_TEMP;				/* Minimum temperature at which rain can occur (C) */
 extern unsigned char OUTSIDEBASIN;		/* Mask value indicating outside the basin */
-extern float MINELEV;
+extern float MINELEV; /* Smallest elevation of all grid cells (m) */
 extern float SNOWPAT_WEIGHT; /* Fractional weight between snow pattern and precip pattern for snowfall */
 extern float TEMPLAPSE;					/* Temperature lapse rate in C/m */
 extern float TEMPERATURE_OFFSET; /* Uniform offset added to input air temperature (C) */
@@ -69,17 +66,17 @@ extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */
 extern float Zref;						/* Reference height (m) */
 
-/* snow albedo decay curve */
-extern float ALB_MAX;                   /* fresh snow albedo */                                                               
-extern float ALB_ACC_LAMBDA;            /* snow freeze albedo cruve control parameters */
-extern float ALB_MELT_LAMBDA;           /* snow thaw albedo cruve control parameters */
+/* Snow albedo decay curve */
+extern float ALB_MAX;                   /* Fresh snow albedo */                                                               
+extern float ALB_ACC_LAMBDA;            /* Snow freeze albedo curve control parameters */
+extern float ALB_MELT_LAMBDA;           /* Snow thaw albedo curve control parameters */
 extern float ALB_ACC_MIN;
 extern float ALB_MELT_MIN;
-extern float PRECIP_MULTIPLIER;        /* precipitatio multiplier */
-extern float MAX_SURFACE_SWE; 	       /* maximum depth of the surface layer in snow water equivalent (m) */
+extern float PRECIP_MULTIPLIER;        /* Precipitation multiplier */
+extern float MAX_SURFACE_SWE; 	       /* Maximum depth of the surface layer in snow water equivalent (m) */
 
 extern float GAPWIND_FACTOR;
-extern int TotNumGap;                  /* total number of grid cells with a gap structure */
+extern int TotNumGap;                  /* Total number of grid cells with a gap structure */
 
 extern float SNOWSLIDE1;               /* First Parameter in Snowslide equation */
 extern float SNOWSLIDE2;               /* Second Parameter in Snowslide equation */

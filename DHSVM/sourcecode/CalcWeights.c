@@ -38,7 +38,6 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
   double *InvDist2;		/* Array with inverse distance squared */
   double Denominator;		/* Sum of 1/Distance^2 */
   double mindistance;
-  double avgdistance;
   double tempdistance;
   double cr, crt;
   float uniformweight;
@@ -116,14 +115,35 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
           }
           else {
             for (i = 0, Denominator = 0; i < NStats; i++) {
+              /* N.B. these distances are in gridcell-units */
               Distance[i] = CalcDistance(&(Station[i].Loc), &Loc);
-              InvDist2[i] = 1 / (Distance[i] * Distance[i]);
+              if (Distance[i] < Options->MaxInterpDist)
+                InvDist2[i] = 1 / (Distance[i] * Distance[i]);
+              else
+                InvDist2[i] = 0.0;
               Denominator += InvDist2[i];
             }
-            for (i = 0; i < NStats; i++) {
-              (*WeightArray)[y][x][i] =
-                (uchar)Round(InvDist2[i] / Denominator * MAXUCHAR);
-            }
+            if (Denominator > 0.0) {
+              for (i = 0; i < NStats; i++) {
+                (*WeightArray)[y][x][i] =
+                  (uchar)Round(InvDist2[i] / Denominator * MAXUCHAR);
+              }
+            } else {
+              /* Use nearest if none of the stations are within MaxInterpDist */
+              mindistance = DHSVM_HUGE;
+              for (i = 0; i < NStats; i++) {
+                if (Distance[i] < mindistance) {
+                  mindistance = Distance[i];
+                  closest = i;
+                }
+              }
+              for (i = 0; i < NStats; i++) {
+                if (i == closest)
+                  (*WeightArray)[y][x][i] = MAXUCHAR;
+                else
+                  (*WeightArray)[y][x][i] = 0;
+              }
+            } /* End handling nearest */
           }
         }
         else {
@@ -143,19 +163,16 @@ void CalcWeights(METLOCATION * Station, int NStats, int NX, int NY,
       for (x = 0; x < NX; x++) {
         Loc.E = x;
         if (INBASIN(BasinMask[y][x])) {	/*we are inside the basin mask */
-          /* find the distance to nearest station */
+          /* Find the distance to nearest station */
           mindistance = DHSVM_HUGE;
-          avgdistance = 0.0;
           for (i = 0; i < NStats; i++) {
             Distance[i] = CalcDistance(&(Station[i].Loc), &Loc);
-            avgdistance += Distance[i] / ((double)NStats);
             if (Distance[i] < mindistance) {
               mindistance = Distance[i];
               closest = i;
             }
           }
-          /* got closest station */
-
+          /* Got closest station */
           for (i = 0; i < NStats; i++) {
             if (i == closest)
               (*WeightArray)[y][x][i] = MAXUCHAR;

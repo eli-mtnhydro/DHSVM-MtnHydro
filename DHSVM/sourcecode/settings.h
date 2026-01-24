@@ -92,9 +92,9 @@ enum CanopyType {
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
   extent = 0, gradient, routing_neighbors, routing_mfd,
-  sensible_heat_flux, routing, lakedyna, vertksatsource, infiltration, interpolation,
-  prism, snowpattern, canopy_radatt, 
-  shading, outside, rhoverride, 
+  sensible_heat_flux, routing, lakedyna, vertksatsource, infiltration,
+  interpolation, max_interp_dist, prism, snowpattern,
+  canopy_radatt, shading, outside, rhoverride, 
   temp_lapse, cressman_radius, cressman_stations,
   prism_data_path, prism_data_ext, snowpattern_data_path,
   shading_data_path, shading_data_ext, skyview_data_path, 
@@ -109,7 +109,8 @@ enum KEYS {
   /* Constants */
   ground_roughness, snow_roughness, 
   snow_water_capacity, reference_height, rain_lai_multiplier,
-  snow_lai_multiplier, min_intercepted_snow, min_snow_reset_albedo, outside_basin,
+  snow_lai_multiplier, min_intercepted_snow, min_snow_reset_albedo, albedo_lambda_forest,
+  outside_basin,
   temp_lapse_rate, max_swe, snowslide_parameter1, snowslide_parameter2,
   gapwind_adj, snowpattern_weight, temperature_offset, lapse_bias, lapse_elev,
   soil_depth_adj, soil_ksat_adj, soil_expdec_adj, soil_porosity_adj, soil_fieldcap_adj, veg_lai_adj, veg_fc_adj,

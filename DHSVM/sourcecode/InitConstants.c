@@ -53,6 +53,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "VERTICAL KSAT SOURCE", "", "TABLE"},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
+    {"OPTIONS", "MAX INTERPOLATION DISTANCE", "", ""},
     {"OPTIONS", "PRISM", "", ""},
     {"OPTIONS", "SNOW PATTERN", "", ""},
     {"OPTIONS", "CANOPY RADIATION ATTENUATION MODE", "", ""},
@@ -100,6 +101,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SNOW LAI MULTIPLIER", "", ""},
     {"CONSTANTS", "MIN INTERCEPTED SNOW", "", ""},
     {"CONSTANTS", "MIN ALBEDO RESET SNOWFALL", "", "" },
+    {"CONSTANTS", "ALBEDO LAMBDA FOREST OFFSET", "", "0.0" },
     {"CONSTANTS", "OUTSIDE BASIN VALUE", "", ""},
     {"CONSTANTS", "TEMPERATURE LAPSE RATE", "", ""},
     {"CONSTANTS", "MAX SURFACE SNOW LAYER DEPTH", "", "0.125" },
@@ -192,8 +194,17 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->Interpolation = UNIFORM;
   else
     ReportError(StrEnv[interpolation].KeyName, 51);
-
-  /* if VARIABLE CRESTMAN interpolation then get parameters */
+  
+  /* If INVDIST interpolation then get maximum distance */
+  if (Options->Interpolation == INVDIST) {
+    if (!CopyFloat(&(Options->MaxInterpDist), StrEnv[max_interp_dist].VarStr, 1)) {
+      printf("\nMaximum meteorological station interpolation distance not supplied\n");
+      printf("Setting no limit on interpolation distance\n\n");
+      Options->MaxInterpDist = DHSVM_HUGE;
+    }
+  }
+  
+  /* If VARIABLE CRESTMAN interpolation then get parameters */
   if (Options->Interpolation == VARCRESS) {
     if (!CopyInt(&(Options->CressRadius), StrEnv[cressman_radius].VarStr, 1))
       ReportError(StrEnv[cressman_radius].KeyName, 51);
@@ -447,7 +458,9 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   if (!CopyFloat(&(Map->DY), StrEnv[grid_spacing].VarStr, 1))
     ReportError(StrEnv[grid_spacing].KeyName, 51);
-
+  
+  Options->MaxInterpDist /= Map->DY;
+  
   Map->DX = Map->DY;
   Map->DXY = (float) sqrt(Map->DX * Map->DX + Map->DY * Map->DY);
   Map->X = 0;
@@ -512,7 +525,11 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!CopyFloat(&MIN_SNOW_RESET_ALBEDO,
 		 StrEnv[min_snow_reset_albedo].VarStr, 1))
     ReportError(StrEnv[min_snow_reset_albedo].KeyName, 51);
-
+  
+  if (!CopyFloat(&LAMBDA_FOREST_OFFSET,
+		 StrEnv[albedo_lambda_forest].VarStr, 1))
+    ReportError(StrEnv[albedo_lambda_forest].KeyName, 51);
+  
   if (!CopyUChar(&OUTSIDEBASIN, StrEnv[outside_basin].VarStr, 1))
     ReportError(StrEnv[outside_basin].KeyName, 51);
 
@@ -591,7 +608,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
  ******************************************************************************/
 void
 InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-                    SNOWPIX ***SnowMap)
+                    SNOWPIX ***SnowMap, VEGTABLE *VType, VEGPIX ***VegMap)
 {
   STRINIENTRY StrEnv[] =
     {
@@ -605,7 +622,7 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
      {"CONSTANTS", "PRECIPITATION MULTIPLIER MAP", "", "" },
      {NULL, NULL, "", NULL}
     };
-  int i;
+  int i, x, y;
   int MapId;
   int ParamType;
   char FileName[BUFSIZE + 1];	      /* Variable name */
@@ -678,8 +695,17 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 	  ParamType = CONSTANT;
 	InitParameterMaps(Options, Map, MapId, FileName, SnowMap, ParamType, ALB_MELT_LAMBDA);
   }
-
-
+  
+  /* Adjust albedo melt/acc lambda in forested regions */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+        (*SnowMap)[y][x].LamdaAcc += (LAMBDA_FOREST_OFFSET * (*VegMap)[y][x].Fract[0]);
+        (*SnowMap)[y][x].LamdaMelt += (LAMBDA_FOREST_OFFSET * (*VegMap)[y][x].Fract[0]);
+      }
+    }
+  }
+  
   if (IsEmptyStr(StrEnv[alb_acc_min].VarStr)) {
     ReportError(StrEnv[alb_acc_min].KeyName, 51);
   }
