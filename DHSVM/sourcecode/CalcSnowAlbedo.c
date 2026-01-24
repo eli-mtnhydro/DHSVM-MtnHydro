@@ -27,9 +27,9 @@
 float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay)
 {
   
-  float Last, Albedo;
+  float Last, Albedo, GroundFrac;
   
-  Last = LocalSnow->LastSnow / (float) StepsPerDay;
+  Last = LocalSnow->LastSnow;
   
   if (Last > (float) DAYPYEAR)
     Last = (float) DAYPYEAR;
@@ -37,14 +37,22 @@ float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay)
   if (LocalSnow->AccumSeason == TRUE) {
     /* Accumulation season */
     Albedo = LocalSnow->amax * pow(LocalSnow->LamdaAcc, pow(Last, 0.58));
-    if (Albedo < LocalSnow->AccMin)
-      Albedo = LocalSnow->AccMin;
   } else {
     /* Melt season */
     Albedo = LocalSnow->amax * pow(LocalSnow->LamdaMelt, pow(Last, 0.46));
-    if (Albedo < LocalSnow->MeltMin)
-      Albedo = LocalSnow->MeltMin;
   }
+  
+  /* Average snow albedo with ground albedo for shallow snowpack */
+  if (LocalSnow->Swq < MIN_SNOW_RESET_ALBEDO) {
+    GroundFrac = 1.0 - LocalSnow->Swq / MIN_SNOW_RESET_ALBEDO;
+    Albedo = (GroundFrac * LocalSnow->AlbedoGround) + ((1.0 - GroundFrac) * Albedo);
+  }
+  
+  /* Enforce constraints */
+  if (LocalSnow->AccumSeason == TRUE && Albedo < LocalSnow->AccMin)
+    Albedo = LocalSnow->AccMin;
+  else if (Albedo < LocalSnow->MeltMin)
+    Albedo = LocalSnow->MeltMin;
   
   return Albedo;
 }

@@ -125,7 +125,7 @@ int main(int argc, char **argv) {
   InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg, &LType);
   InitTerrainMaps(Input, &Options, &Map, &Soil, &Veg, &TopoMap, SType, &SoilMap, VType, &VegMap, &DVeg, LType);
   InitSnowMap(&Map, &SnowMap, &Time);
-  InitMappedConstants(Input, &Options, &Map, &SnowMap);
+  InitMappedConstants(Input, &Options, &Map, &SnowMap, VType, &VegMap);
   CheckOut(&Options, Veg, Soil, VType, SType, &Map, TopoMap, VegMap, SoilMap);
   if (Options.Extent != POINT)
     InitChannel(Input, &Map, Time.Dt, &ChannelData, SType, SoilMap, VType, VegMap,
@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
 		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
 		 TopoMap, Network, &ChannelData);
   InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
-	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap);
+	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
   InitNewDay(Time.Current.JDay, &SolarGeo);
   
   /* Setup for mass balance calculations */
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
       InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
     if (IsNewMonth(&(Time.Current), Time.Dt))
       InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
-		   &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap);
+		   &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
     if (IsNewDay(Time.DayStep)) {
       InitNewDay(Time.Current.JDay, &SolarGeo);
       PrintDate(&(Time.Current), stdout);

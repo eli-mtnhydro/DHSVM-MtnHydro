@@ -257,20 +257,32 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
     }
   }
   free(Array);
-
+  
+  /* Calculate current albedo */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
+        
+        /* Determine albedo of ground/understory */
+        if (VType[VegMap[y][x].Veg - 1].UnderStory == TRUE) {
+          if (VType[VegMap[y][x].Veg - 1].OverStory == TRUE) {
+            SnowMap[y][x].AlbedoGround = VType[VegMap[y][x].Veg - 1].AlbedoMonthly[1][Start->Month - 1];
+          } else {
+            SnowMap[y][x].AlbedoGround = VType[VegMap[y][x].Veg - 1].AlbedoMonthly[0][Start->Month - 1];
+          }
+        } else {
+          SnowMap[y][x].AlbedoGround = SType[SoilMap[y][x].Soil - 1].Albedo;
+        }
+        
         if (Options->CanopyGapping) {
           for (i = 0; i < CELL_PARTITION; i++)
-          VegMap[y][x].Type[i].Albedo =
-          CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
+            VegMap[y][x].Type[i].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
         }
         else {
           if (SnowMap[y][x].HasSnow)
-          SnowMap[y][x].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
+            SnowMap[y][x].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
           else
-          SnowMap[y][x].Albedo = 0;
+            SnowMap[y][x].Albedo = 0;
         }
       }
     }
@@ -470,7 +482,7 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
     }
   }
   
-  // Initialize the flood detention storage in each pixel for impervious fraction > 0 situation. 
+  /* Initialize the flood detention storage in each pixel for impervious fraction > 0 situation */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       SoilMap[y][x].DetentionStorage = 0.0;

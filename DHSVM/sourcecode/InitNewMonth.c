@@ -23,7 +23,7 @@
 void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase, unsigned char ***ShadowMap, 
   INPUTFILES *InFiles, int NVegs, VEGTABLE *VType, int NStats,
-  METLOCATION *Stat, char *Path, VEGPIX ***VegMap)
+  METLOCATION *Stat, char *Path, VEGPIX ***VegMap, SNOWPIX **SnowMap)
 {
   const char *Routine = "InitNewMonth";
   char FileName[BUFSIZE * 2 + 5];
@@ -121,9 +121,25 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
       else
         VType[i].ExtnCoeff = 0.;
     }
+    
+    /* Update vegetation albedo and corresponding understory albedo for snowpack */
     for (j = 0; j < VType[i].NVegLayers; j++) {
       VType[i].Albedo[j] = VType[i].AlbedoMonthly[j][Time->Current.Month - 1];
     }
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        if (INBASIN(TopoMap[y][x].Mask)) {
+          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE) {
+            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
+              SnowMap[y][x].AlbedoGround = VType[(*VegMap)[y][x].Veg - 1].Albedo[1];
+            } else {
+              SnowMap[y][x].AlbedoGround = VType[(*VegMap)[y][x].Veg - 1].Albedo[0];
+            }
+          }
+        }
+      }
+    }
+    
 	if (Options->CanopyRadAtt == VARIABLE) {
       if (VType[i].OverStory) {
         a = VType[i].LeafAngleA;

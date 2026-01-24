@@ -110,7 +110,7 @@ void InitMapDump(LISTPTR Input, MAPSIZE *Map, int MaxSoilLayers, int MaxVegLayer
 		 char *Path, int NMaps, MAPDUMP **DMap);
 
 void InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-                         SNOWPIX ***SnowMap);
+                         SNOWPIX ***SnowMap, VEGTABLE *VType, VEGPIX ***VegMap);
 
 void InitMassWaste(LISTPTR Input, TIMESTRUCT *Time);
 
@@ -147,7 +147,7 @@ void InitNewDay(int DayOfYear, SOLARGEOMETRY *SolarGeo);
 void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
 		  TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase, unsigned char ***ShadowMap, 
 		  INPUTFILES *InFiles, int NVegs, VEGTABLE *VType, int NStats,
-		  METLOCATION *Stat, char *Path, VEGPIX ***VegMap);
+		  METLOCATION *Stat, char *Path, VEGPIX ***VegMap, SNOWPIX **SnowMap);
 
 void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
 		 int NSoilLayers, OPTIONSTRUCT *Options, int NStats,

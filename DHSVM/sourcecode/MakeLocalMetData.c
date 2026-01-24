@@ -270,12 +270,13 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     else if (PrecipMap->SnowFall > 0.0)
       LocalSnow->LastSnow *= (1.0 - PrecipMap->SnowFall / MIN_SNOW_RESET_ALBEDO);
     else
-      LocalSnow->LastSnow += 1.0;
+      LocalSnow->LastSnow += (1.0 / (float) NDaySteps);
     
     LocalSnow->Albedo = CalcSnowAlbedo(LocalSnow, NDaySteps);
   }
   else
-    LocalSnow->LastSnow = 0.0;
+    LocalSnow->LastSnow += (1.0 / (float) NDaySteps);
+  
   /* if canopy gap is present */
   if (VegMap->Gapping > 0.0) {
     for (j = 0; j < CELL_PARTITION; j++) {

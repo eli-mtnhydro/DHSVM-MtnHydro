@@ -194,6 +194,7 @@ typedef struct {
   int Outside;					/* if TRUE then all listed met stats are used */
   int Rhoverride;				/* if TRUE then RH=100% if Precip>0 */
   int TempLapse;				/* Whether the temperature lapse rate is CONSTANT or VARIABLE */
+  float MaxInterpDist;
   int CressRadius;
   int CressStations;
   int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
@@ -292,10 +293,11 @@ typedef struct {
   float TSurf;				/* Temperature of snow pack surface layer */
   float ColdContent;		/* Cold content of snow pack */
   float Albedo;				/* Albedo of snow pack */
+  float AlbedoGround; /* Albedo of the ground or understory under the snowpack */
   float Depth;				/* Snow depth; Does not appear to be calculated
 							   or used anywhere */
   float VaporMassFlux;		/* Vapor mass flux to/from snow pack,(m/timestep). 
-                               A negataive value indicates flux from snow -- sublimiation */
+                               A negative value indicates flux from snow -- sublimiation */
   float CanopyVaporMassFlux;/* Vapor mass flux to/from intercepted snow in the canopy (m/timestep) */
   float Qsw;                /* Net shortwave radiation exchange at surface */
   float Qlw;                /* Net longwave radiation exchange at surface */
@@ -306,16 +308,16 @@ typedef struct {
   
   // spatial parameters
   float Ts;	   				    /* snow temperature threshold */
-  float Tr;	    				/* rain tempeature threshold */
+  float Tr;	    				/* rain temperature threshold */
   float amax;					/* fresh snow albedo */
   float LamdaAcc;               /* lambda for accumulation period */
   float LamdaMelt;              /* lambda for melt period */
   float AccMin;                 /* minimum albedo for accumulation period*/
-  float MeltMin;                /* minimu albedo for melt period*/
+  float MeltMin;                /* minimum albedo for melt period*/
   
   // SWE stats 
-  float MaxSwe;         /*Peak SWE of the water year*/
-  unint MaxSweDate;       /*Peak SWE date/timestep of the water year*/
+  float MaxSwe;         /* Peak SWE of the water year*/
+  unint MaxSweDate;       /* Peak SWE date/timestep of the water year*/
   unint MeltOutDate;    /* Last day of SWE of the water year */
 } SNOWPIX;
 
