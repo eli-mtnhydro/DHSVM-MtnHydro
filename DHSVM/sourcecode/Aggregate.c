@@ -217,7 +217,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->Snow.TSurf /= NSnow;
   Total->Snow.ColdContent /= NSnow;
   Total->Snow.Albedo /= NSnow;
-  Total->Snow.LastSnow /= (NSnow * NDaySteps); /* Convert steps to days since last snow */
+  Total->Snow.LastSnow /= NSnow;
   Total->Snow.Depth /= NSnow;
   Total->Snow.Qe /= NSnow;
   Total->Snow.Qs /= NSnow;
