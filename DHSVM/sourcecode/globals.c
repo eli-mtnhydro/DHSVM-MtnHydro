@@ -41,6 +41,7 @@ float ALB_MELT_LAMBDA;           /* Snow thaw albedo curve control parameters */
 float ALB_ACC_MIN;
 float ALB_MELT_MIN;
 float PRECIP_MULTIPLIER;        /* Precipitation multiplier */
+float SNOWMELT_MULTIPLIER;        /* Snow melt multiplier */
 float MAX_SURFACE_SWE; 	       /* Maximum depth of the surface layer in snow water equivalent (m) */
 
 float GAPWIND_FACTOR;

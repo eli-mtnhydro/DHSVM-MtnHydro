@@ -20,7 +20,7 @@ void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map,
   float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
   unsigned char ****ShadowMap, float ***SkyViewMap,
   EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
-  PIXRAD ***RadMap,
+  float ***MeltMultiplierMap, PIXRAD ***RadMap,
   SOILPIX **SoilMap, LAYER *Soil, VEGPIX **VegMap,
   LAYER *Veg, TOPOPIX **TopoMap)
 {
@@ -30,7 +30,7 @@ void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map,
 
   InitEvapMap(Map, EvapMap, SoilMap, Soil, VegMap, Veg, TopoMap);
   InitPrecipMap(Map, PrecipMap, VegMap, Veg, TopoMap);
-  InitPptMultiplierMap(Options, Map, PptMultiplierMap);                                                            
+  InitMultiplierMaps(Options, Map, PptMultiplierMap, MeltMultiplierMap);                                                            
 
   if (Options->Prism == TRUE)
     InitPrismMap(Map->NY, Map->NX, PrismMap);
@@ -159,6 +159,7 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
     for (x = 0; x < Map->NX; x++) {
       (*PrecipMap)[y][x].SumPrecip = 0.0;
       (*PrecipMap)[y][x].SnowAccum = 0.0;
+      (*PrecipMap)[y][x].SnowMelt = 0.0;
       if (INBASIN(TopoMap[y][x].Mask))
         (*PrecipMap)[y][x].PrecipStart = TRUE;
     }
@@ -311,20 +312,21 @@ void InitShadeMap(OPTIONSTRUCT * Options, int NDaySteps, MAPSIZE *Map,
 }
 
 /*****************************************************************************
-InitPptMultiplierMap()
+ InitMultiplierMaps()
 *****************************************************************************/
-void InitPptMultiplierMap(OPTIONSTRUCT * Options, MAPSIZE *Map, float ***PptMultiplierMap)
+void InitMultiplierMaps(OPTIONSTRUCT * Options, MAPSIZE *Map,
+                        float ***PptMultiplierMap, float ***MeltMultiplierMap)
 {
-  const char *Routine = "InitPptMultiplierMap";
+  const char *Routine = "InitMultiplierMaps";
   char VarName[BUFSIZE + 1];
   int i;			/* counter */
   int x;			/* counter */
   int y;			/* counter */
   int NumberType;		/* number type */
   float *Array;
-
-
-  /* Get the canopy gap map filename from the [VEGETATION] section */
+  
+  /* Precip multiplier */
+  
   if (!((*PptMultiplierMap) = (float **)calloc(Map->NY, sizeof(float *))))
     ReportError((char *)Routine, 1);
   for (y = 0; y < Map->NY; y++) {
@@ -355,6 +357,41 @@ void InitPptMultiplierMap(OPTIONSTRUCT * Options, MAPSIZE *Map, float ***PptMult
   }
   else {
     printf("No valid input of precipitation multiplier ...\n");
+    exit(88);
+  }
+
+  /* Snow melt multiplier */
+  
+  if (!((*MeltMultiplierMap) = (float **)calloc(Map->NY, sizeof(float *))))
+    ReportError((char *)Routine, 1);
+  for (y = 0; y < Map->NY; y++) {
+    if (!((*MeltMultiplierMap)[y] = (float *)calloc(Map->NX, sizeof(float))))
+      ReportError((char *)Routine, 1);
+  }
+  if (SNOWMELT_MULTIPLIER > NA) {
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        (*MeltMultiplierMap)[y][x] = SNOWMELT_MULTIPLIER;
+      }
+    }
+  }
+  else if (!IsEmptyStr(Options->SnowMeltMultiplierMapPath)) {
+    /* Read the map path */
+    GetVarName(101, 0, VarName);
+    GetVarNumberType(101, &NumberType);
+    if (!(Array = (float *)calloc(Map->NX * Map->NY, SizeOfNumberType(NumberType))))
+      ReportError((char *)Routine, 1);
+    Read2DMatrix(Options->SnowMeltMultiplierMapPath, Array, NumberType, Map, 0, VarName, 0);
+
+    for (y = 0, i = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++, i++) {
+        (*MeltMultiplierMap)[y][x] = Array[i];
+      }
+    }
+    free(Array);
+  }
+  else {
+    printf("No valid input of snow melt multiplier ...\n");
     exit(88);
   }
 

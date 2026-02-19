@@ -32,7 +32,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   float SineSolarAltitude, float DX, float DY,
   int Dt, int HeatFluxOption, int CanopyRadAttOption,
   int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
-  NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip,
+  NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip, float SnowMeltMultiplier,
   VEGTABLE *VType, VEGPIX *LocalVeg, SOILTABLE *SType,
   SOILPIX *LocalSoil, SNOWPIX *LocalSnow, PIXRAD *LocalRad,
   EVAPPIX *LocalEvap, PIXRAD *TotalRad, CHANNEL *ChannelData,
@@ -209,7 +209,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
         LocalMet->Tair, LocalMet->Vpd, SnowWind,
         &(LocalSnow->PackWater), &(LocalSnow->SurfWater),
         &(LocalSnow->Swq), &(LocalSnow->VaporMassFlux),
-        &(LocalSnow->TPack), &(LocalSnow->TSurf), &(LocalVeg->MeltEnergy));
+        &(LocalSnow->TPack), &(LocalSnow->TSurf), &(LocalVeg->MeltEnergy),
+        SnowMeltMultiplier);
 
     /* Calculate the terms of the snow energy balance.  This is similar to the
     code in SnowPackEnergyBalance.c */

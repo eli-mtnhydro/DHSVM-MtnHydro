@@ -75,7 +75,8 @@ void CanopyGapSnowMelt(OPTIONSTRUCT *Options, int y, int x, int Dt,
         LocalMet->Tair, LocalMet->Vpd, SnowWind,
         &((*Gap)[Opening].PackWater), &((*Gap)[Opening].SurfWater),
         &((*Gap)[Opening].Swq), &((*Gap)[Opening].VaporMassFlux),
-        &((*Gap)[Opening].TPack), &((*Gap)[Opening].TSurf), &((*Gap)[Opening].MeltEnergy));
+        &((*Gap)[Opening].TPack), &((*Gap)[Opening].TSurf), &((*Gap)[Opening].MeltEnergy),
+        1.0);
 
     /* Calculate the terms of the snow energy balance.  This is similar to the
     code in SnowPackEnergyBalance.c */
@@ -342,7 +343,8 @@ void CalcGapSurroudingIntercept(OPTIONSTRUCT *Options, int HeatFluxOption,
         LocalMet->Tair, LocalMet->Vpd, SnowWind,
         &((*Gap)[Forest].PackWater), &((*Gap)[Forest].SurfWater),
         &((*Gap)[Forest].Swq), &((*Gap)[Forest].VaporMassFlux),
-        &((*Gap)[Forest].TPack), &((*Gap)[Forest].TSurf), &((*Gap)[Forest].MeltEnergy));
+        &((*Gap)[Forest].TPack), &((*Gap)[Forest].TSurf), &((*Gap)[Forest].MeltEnergy),
+        1.0);
 
     /* Rainfall was added to SurfWater of the snow pack and has to be set to zero */
     (*Gap)[Forest].RainFall = 0.0;

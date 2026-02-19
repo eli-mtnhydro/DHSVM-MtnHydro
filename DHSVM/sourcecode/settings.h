@@ -123,6 +123,7 @@ enum KEYS {
   alb_acc_min,
   alb_melt_min,
   multiplier,
+  multiplier_melt,
   /* Station information */
   station_name = 0, station_north, station_east, station_elev, station_file,
   /* Soil information */

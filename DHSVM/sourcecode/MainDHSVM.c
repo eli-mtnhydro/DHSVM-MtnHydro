@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
   unsigned char ***ShadowMap = NULL;
   float **SkyViewMap = NULL;
   float **PptMultiplierMap = NULL;                                  
+  float **MeltMultiplierMap = NULL;                                  
   int MaxStreamID;
   clock_t start, finish1;
   double runtime = 0.0;
@@ -52,10 +53,10 @@ int main(int argc, char **argv) {
   
   AGGREGATED Total = {			/* Total or average value of a  variable over the entire basin */
     {0.0, NULL, NULL, NULL, NULL, 0.0, 0.0},												/* EVAPPIX */
-    {0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0.0, 0},								/* PRECIPPIX */
+    {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0.0, 0},								/* PRECIPPIX */
     {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, /* PIXRAD */
     {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
+	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
     {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
     {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
@@ -137,7 +138,7 @@ int main(int argc, char **argv) {
   InitMetMaps(Input, Time.NDaySteps, &Map, &Options,
 	      &PrismMap, &SnowPatternMap, &SnowPatternMapBase,
 	      &ShadowMap, &SkyViewMap, &EvapMap, &PrecipMap, &PptMultiplierMap,
-	      &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap);
+	      &MeltMultiplierMap, &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap);
   InitInterpolationWeights(&Map, &Options, TopoMap, &MetWeights, Stat, NStats);
   InitDump(Input, &Options, &Map, Soil.MaxLayers, Veg.MaxLayers, Time.Dt,
 	   TopoMap, &Dump);
@@ -223,7 +224,7 @@ int main(int argc, char **argv) {
                           Options.HeatFlux, Options.CanopyRadAtt,
                           Options.Infiltration, Soil.MaxLayers,
                           Veg.MaxLayers, &LocalMet, &(Network[y][x]),
-                          &(PrecipMap[y][x]),
+                          &(PrecipMap[y][x]), MeltMultiplierMap[y][x],
                           &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]),
                           &(SType[SoilMap[y][x].Soil - 1]), &(SoilMap[y][x]),
                           &(SnowMap[y][x]), &(RadiationMap[y][x]),
@@ -231,6 +232,7 @@ int main(int argc, char **argv) {
           
   		    PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
   		    PrecipMap[y][x].SnowAccum += PrecipMap[y][x].SnowFall;
+  		    PrecipMap[y][x].SnowMelt += SnowMap[y][x].Outflow;
 		    }
 	    }
     }

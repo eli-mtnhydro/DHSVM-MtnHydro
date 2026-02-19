@@ -23,7 +23,7 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
 	       float SnowFall, float Tair, float Vpd, float Wind,
 	       float *PackWater, float *SurfWater, float *Swq,
 	       float *VaporMassFlux, float *TPack, float *TSurf,
-	       float *MeltEnergy);
+	       float *MeltEnergy, float SnowMeltAdjustRatio);
 
 float SnowPackEnergyBalance(float TSurf, va_list ap);
 

@@ -77,6 +77,9 @@ struct {
   017, "Lake.ID",
       "Lake Map ID", "%d", 
       "", "Lake Map ID", NC_BYTE, FALSE, FALSE, FALSE, 0 }, {
+  99, "Met.MeltMultiplier",
+	   "MeltMultiplier", "%.8f",
+	   "", "Snow Melt Multiplier", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{
   100, "Met.PrecipMultiplier",
 	   "PptMultiplier", "%.8f",
 	   "", "Precipitation Multiplier", NC_FLOAT, FALSE, FALSE, FALSE, 0 },{
@@ -184,6 +187,9 @@ struct {
   415, "Snow.SumAccum",
     "Snow Accumulation", "%.4g",
     " ", "Total snow accumulation for current water year", NC_FLOAT, FALSE, FALSE, FALSE, 0 }, {
+  416, "Snow.SumMelt",
+    "Snow Melt", "%.4g",
+    " ", "Total snow melt for current water year", NC_FLOAT, FALSE, FALSE, FALSE, 0 }, {
   501, "Soil.Moist",
       "Soil Moisture Content", "%.4g",
       "", "Soil moisture for layer %d", NC_FLOAT, TRUE, FALSE, TRUE, 0}, {

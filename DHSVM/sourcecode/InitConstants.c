@@ -620,6 +620,7 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
      {"CONSTANTS", "ALBEDO ACCUMULATION MIN", "", "" },
      {"CONSTANTS", "ALBEDO MELTING MIN", "", "" },
      {"CONSTANTS", "PRECIPITATION MULTIPLIER MAP", "", "" },
+     {"CONSTANTS", "SNOW MELT MULTIPLIER MAP", "", "" },
      {NULL, NULL, "", NULL}
     };
   int i, x, y;
@@ -736,7 +737,7 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 	InitParameterMaps(Options, Map, MapId, FileName, SnowMap, ParamType, ALB_MELT_MIN);
   }
 
-  /* fresh albedo - this was made a constant 0.85 in previous versions */
+  /* Fresh albedo - this was made a constant 0.85 in previous versions */
   if (IsEmptyStr(StrEnv[fresh_alb].VarStr)) {
     ReportError(StrEnv[fresh_alb].KeyName, 51);
   }
@@ -753,7 +754,7 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 	InitParameterMaps(Options, Map, MapId, FileName, SnowMap, ParamType, ALB_MAX);
   }
 
-  /* precipitation multiplier that bias correct the precipitation */
+  /* Precipitation multiplier that bias corrects the precipitation */
   strcpy(Options->PrecipMultiplierMapPath, "");
   if (IsEmptyStr(StrEnv[multiplier].VarStr)) {
     PRECIP_MULTIPLIER = 0;
@@ -767,5 +768,30 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     }
     else
       printf("Precipitation inputs are rescaled by a factor of %.3f\n",PRECIP_MULTIPLIER);
+  }
+  
+  /* Snow melt multiplier -- this should almost always be == 1.0! */
+  strcpy(Options->SnowMeltMultiplierMapPath, "");
+  if (IsEmptyStr(StrEnv[multiplier_melt].VarStr)) {
+    SNOWMELT_MULTIPLIER = 1.0;
+  }
+  else {
+    if (!CopyFloat(&SNOWMELT_MULTIPLIER, StrEnv[multiplier_melt].VarStr, 1)) {
+      SNOWMELT_MULTIPLIER = NA;
+      strcpy(Options->SnowMeltMultiplierMapPath, StrEnv[multiplier_melt].VarStr);
+      
+      printf("\n\n\n**********\n");
+      printf("%s: spatial parameters are used\n", StrEnv[multiplier_melt].KeyName);
+      printf("WARNING: THIS VIOLATES THE MODEL ENERGY BALANCE!\n");
+      printf("WARNING: DOUBLE CHECK THAT THIS IS WHAT YOU WANT!\n");
+      printf("**********\n\n\n");
+    }
+    else if (!fequal(SNOWMELT_MULTIPLIER, 1.0)) {
+      printf("\n\n\n**********\n");
+      printf("Modeled snow melt is rescaled by a factor of %.3f\n",SNOWMELT_MULTIPLIER);
+      printf("WARNING: THIS VIOLATES THE MODEL ENERGY BALANCE!\n");
+      printf("WARNING: DOUBLE CHECK THAT THIS IS WHAT YOU WANT!\n");
+      printf("**********\n\n\n");
+    }
   }
 }

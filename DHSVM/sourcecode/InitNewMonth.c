@@ -239,6 +239,7 @@ void InitNewWaterYear(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
     for (x = 0; x < Map->NX; x++) {
       PrecipMap[y][x].SumPrecip = 0;
       PrecipMap[y][x].SnowAccum = 0;
+      PrecipMap[y][x].SnowMelt = 0;
     }
   }
   

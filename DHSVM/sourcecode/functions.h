@@ -118,12 +118,13 @@ void InitGridMet(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map, TOPOPIX **T
          GRID *Grid, METLOCATION **Stat, int *NStats);
 
 void InitMetMaps(LISTPTR Input, int NDaySteps, MAPSIZE *Map, 
-		 OPTIONSTRUCT *Options,
-		 float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
-		 unsigned char ****ShadowMap, float ***SkyViewMap,
-		 EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
-		 PIXRAD ***RadMap, SOILPIX **SoilMap, 
-                 LAYER *Soil, VEGPIX **VegMap, LAYER *Veg, TOPOPIX **TopoMap);
+                 OPTIONSTRUCT *Options,
+                 float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
+                 unsigned char ****ShadowMap, float ***SkyViewMap,
+                 EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, float ***PptMultiplierMap,
+                 float ***MeltMultiplierMap, PIXRAD ***RadMap,
+                 SOILPIX **SoilMap, LAYER *Soil, VEGPIX **VegMap,
+                 LAYER *Veg, TOPOPIX **TopoMap);
 
 void InitMetSources(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
             TOPOPIX **TopoMap, int NSoilLayers, TIMESTRUCT *Time, 
@@ -163,7 +164,8 @@ void InitParameterMaps(OPTIONSTRUCT *Options, MAPSIZE *Map, int Id,
 int InitPixDump(LISTPTR Input, MAPSIZE *Map, uchar **BasinMask, char *Path,
 		int NPix, PIXDUMP **Pix, OPTIONSTRUCT *Options);
     
-void InitPptMultiplierMap(OPTIONSTRUCT *Options, MAPSIZE *Map, float ***PptMultiplierMap);                            
+void InitMultiplierMaps(OPTIONSTRUCT *Options, MAPSIZE *Map,
+                        float ***PptMultiplierMap, float ***MeltMultiplierMap);
 
 void InitPrismMap(int NY, int NX, float ***PrismMap);
 
@@ -236,7 +238,7 @@ void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATE
 void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x, float SineSolarAltitude,
             float DX, float DY, int Dt, int HeatFluxOption, int CanopyRadAttOption,
             int InfiltOption, int MaxSoilLayer, int MaxVegLayers, PIXMET *LocalMet,
-            NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip, VEGTABLE *VType,
+            NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip,  float SnowMeltMultiplier, VEGTABLE *VType,
             VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil,
             SNOWPIX *LocalSnow, PIXRAD *LocalRad, EVAPPIX *LocalEvap, PIXRAD *TotalRad,
             CHANNEL *ChannelData, float **skyview);

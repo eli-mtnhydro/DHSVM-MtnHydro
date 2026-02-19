@@ -215,14 +215,16 @@ typedef struct {
   char ShadingDataPath[BUFSIZE + 1];
   char ShadingDataExt[BUFSIZE + 1];
   char SkyViewDataPath[BUFSIZE + 1];
-  char ImperviousFilePath[BUFSIZ + 1];      
-  char PrecipMultiplierMapPath[BUFSIZ + 1];  
+  char ImperviousFilePath[BUFSIZ + 1];
+  char PrecipMultiplierMapPath[BUFSIZ + 1];
+  char SnowMeltMultiplierMapPath[BUFSIZ + 1];
 } OPTIONSTRUCT;
 
 typedef struct {
   float Precip;					    /* Total amount of precipitation at pixel (m) */
   float SumPrecip;          /* Accumulated precipitation at pixel (m) */
   float SnowAccum;          /* Cumulative SWE accumulation for the water year */
+  float SnowMelt;           /* Cumulative SWE melt for the water year */
   float RainFall;		        /* Amount of rainfall (m) */
   float SnowFall;		        /* Amount of snowfall determined by air temperature (m) */
   float *IntRain;		        /* Rain interception by each vegetation layer (m) */

@@ -66,7 +66,8 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
   float BaseRa, float AirDens, float EactAir, float Lv, float ShortRad, 
   float LongRadIn, float Press, float RainFall, float SnowFall, float Tair, 
   float Vpd, float Wind, float *PackWater, float *SurfWater, float *Swq,
-  float *VaporMassFlux, float *TPack, float *TSurf, float *MeltEnergy)
+  float *VaporMassFlux, float *TPack, float *TSurf, float *MeltEnergy,
+  float SnowMeltAdjustRatio)
 {
   float DeltaPackCC;		/* Change in cold content of the pack */
   float DeltaPackSwq;		/* Change in snow water equivalent of the pack (m) */
@@ -165,6 +166,11 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
       SnowMelt = fabs(RefreezeEnergy) / (LF * WATER_DENSITY) * Dt;
       *MeltEnergy += RefreezeEnergy;
     }
+    
+    /* Apply empirical correction factor to snowmelt */
+    /* THIS VIOLATES THE ENERGY BALANCE! (if correction factor != 1) */
+    /* However, this may be desirable in some circumstances, e.g., glaciers */
+    SnowMelt *= SnowMeltAdjustRatio;
 
     /* Convert vapor mass flux to a depth per timestep and adjust *SurfWater */
     *VaporMassFlux *= Dt;
