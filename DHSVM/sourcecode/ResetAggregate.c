@@ -89,6 +89,7 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
   Total->Soil.TableDepth = 0.0;
   Total->Soil.WaterLevel = 0.0;
   Total->Soil.SatFlow = 0.0;
+  Total->Soil.DeepFlux = 0.0;
   Total->Soil.TSurf = 0.0;
   Total->Soil.Qnet = 0.0;
   Total->Soil.Qs = 0.0;

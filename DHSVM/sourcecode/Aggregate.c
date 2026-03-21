@@ -140,6 +140,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 	
 	Total->Soil.WaterLevel += SoilMap[y][x].WaterLevel;
 	Total->Soil.SatFlow += SoilMap[y][x].SatFlow;
+	Total->Soil.DeepFlux += SoilMap[y][x].DeepFlux;
 	Total->Soil.TSurf += SoilMap[y][x].TSurf;
 	Total->Soil.Qnet += SoilMap[y][x].Qnet;
 	Total->Soil.Qs += SoilMap[y][x].Qs;
@@ -249,6 +250,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->Soil.TableDepth /= NPixels;
   Total->Soil.WaterLevel /= NPixels;
   Total->Soil.SatFlow /= NPixels;
+  Total->Soil.DeepFlux /= NPixels;
   Total->Soil.TSurf /= NPixels;
   Total->Soil.Qnet /= NPixels;
   Total->Soil.Qs /= NPixels;

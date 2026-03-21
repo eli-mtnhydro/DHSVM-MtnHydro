@@ -33,6 +33,7 @@ float VEG_FC_ADJ; /* Calibration param - multiplicative */
 float Z0_GROUND;					/* Roughness length for bare soil (m) */
 float Z0_SNOW;					/* Roughness length for snow (m) */
 float Zref;						/* Reference height (m) */
+float DEEP_GROUNDWATER_FLUX;	/* Net groundwater flux upwelling (+) or downwelling (-) (m/timestep) */
 
 /* Snow albedo decay curve */
 float ALB_MAX;                   /* Fresh snow albedo */                                                               

@@ -5,9 +5,12 @@
  might lead to negative soil moisture in deep soil while the layer above it remains saturated. This tends
  to happen more often in dry climate. In order to avoid negative deep soil moisture, here I add a loop 
  to redistribution of water extraction. The outflow starts from the (top) water table layer, extract the 
- excess water larger than field capacity. While there's no enough water from the current layer, extract 
- water from one layer below it until it reaches bottom layer.
+ excess water larger than field capacity. While there's not enough water from the current layer, extract 
+ water from one layer below it until it reaches the bottom layer.
  Added 06/09/2016 by Zhuoran Duan(zhuoran.duan@pnnl.gov)
+ 
+ Further modified by Eli Boardman to subtract water from deep infiltration
+ (essentially a leaky bottom to the watershed)
 */
 
 #include <math.h>
@@ -44,7 +47,7 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
   for (i = 0; i < NSoilLayers; i++)
     DeepLayerDepth -= RootDepth[i];
   
-  /*New algorithm for SatFlow, remove water from top layer to bottom layer*/
+  /* New algorithm for SatFlow, remove water from top layer to bottom layer */
   if (SatFlow < 0.0) {
     
     Depth = 0.0;
@@ -56,9 +59,9 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
       else
         Depth = TotalDepth;
 
-      /* if water table is in the ith root zone layer */
+      /* If water table is in the ith root zone layer */
       if (Depth > *TableDepth) {
-        /* fully saturated in the current layer */
+        /* Fully saturated in the current layer */
         if ((Depth - *TableDepth) > RootDepth[i])
           AvaWater = (Porosity[i]-FCap[i]) * RootDepth[i] * Adjust[i];
         else

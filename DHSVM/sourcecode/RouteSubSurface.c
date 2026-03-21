@@ -101,6 +101,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   float DeltaWaterLevel;
   float Depth;
   float OutFlow;
+  float DeepFlux;
   float water_out_stream;
   float water_in_stream;
   float Transmissivity;
@@ -326,11 +327,25 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       }
     }
     
-    /* Subsurface Component - decrease water change only by as much
-     as possible (up to transmissivity) to not violate TotalAvailableWater */
+    /* First subtract streamflow generation */
     AvailableWater = TotalAvailableWater - water_out_stream;
-    OutFlow = (OutFlow > AvailableWater) ? AvailableWater : OutFlow; 
     SoilMap[y][x].SatFlow -= water_out_stream;
+    
+    /* Add deep groundwater flux */
+    if (DEEP_GROUNDWATER_FLUX >= 0.0) {
+      DeepFlux = DEEP_GROUNDWATER_FLUX;
+    } else {
+      /* Only subtract as much water as available in saturated zone */
+      DeepFlux = ((AvailableWater + DEEP_GROUNDWATER_FLUX) < 0.0) ? (AvailableWater * -1.0) : DEEP_GROUNDWATER_FLUX;
+    }
+    SoilMap[y][x].SatFlow += DeepFlux;
+    SoilMap[y][x].DeepFlux = DeepFlux;
+    AvailableWater += DeepFlux;
+    
+    /* Subsurface lateral outflow */
+    OutFlow = (OutFlow > AvailableWater) ? AvailableWater : OutFlow;
+    if (OutFlow < 0.0)
+      OutFlow = 0.0;
     
     /* Assign the water to appropriate surrounding pixels */
     if (SubTotalDir[y][x] > 0)

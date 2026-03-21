@@ -107,7 +107,7 @@ enum KEYS {
   /* Time */
   time_step, model_start, model_end, 
   /* Constants */
-  ground_roughness, snow_roughness, 
+  deep_flux, ground_roughness, snow_roughness, 
   snow_water_capacity, reference_height, rain_lai_multiplier,
   snow_lai_multiplier, min_intercepted_snow, min_snow_reset_albedo, albedo_lambda_forest,
   outside_basin,

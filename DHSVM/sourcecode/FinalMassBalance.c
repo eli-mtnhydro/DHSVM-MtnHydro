@@ -32,7 +32,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONS
 
   Output = (Mass->CumChannelInt - Mass->CumChannelInfiltration - Mass->CumChannelEvap) + Mass->CumET;
 
-  Input = Mass->CumPrecipIn + Mass->CumSnowVaporFlux;
+  Input = Mass->CumPrecipIn + Mass->CumSnowVaporFlux + Mass->CumDeepGW;
 
   MassError = (NewWaterStorage - Mass->StartWaterStorage) + Output - Input;
 
@@ -51,6 +51,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONS
   fprintf(stderr, "\n          Channel Inflow..............    %.3f", Mass->CumChannelInt*1000);
   fprintf(stderr, "\n          Channel Re-Infiltration.....    -%.3f", Mass->CumChannelInfiltration*1000);
   fprintf(stderr, "\n          Channel Evaporation.........    -%.3f", Mass->CumChannelEvap*1000);
+  fprintf(stderr, "\n      Deep Groundwater Flux ......        %.3f", Mass->CumDeepGW*1000);
   fprintf(stderr, "\n  Storage Change .................        %.3f", (NewWaterStorage - Mass->StartWaterStorage)*1000);
   fprintf(stderr, "\n      Initial Storage ............        %.3f", Mass->StartWaterStorage*1000);
   fprintf(stderr, "\n      Final Storage ..............        %.3f", NewWaterStorage*1000);
@@ -77,6 +78,7 @@ void FinalMassBalance(FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass, OPTIONS
   fprintf(Out->FilePtr, "\n          Channel Inflow..............    %.3f", Mass->CumChannelInt*1000);
   fprintf(Out->FilePtr, "\n          Channel Re-Infiltration.....    -%.3f", Mass->CumChannelInfiltration*1000);
   fprintf(Out->FilePtr, "\n          Channel Evaporation.........    -%.3f", Mass->CumChannelEvap*1000);
+  fprintf(Out->FilePtr, "\n      Deep Groundwater Flux ......        %.3f", Mass->CumDeepGW*1000);
   fprintf(Out->FilePtr, "\n  Storage Change .................        %.3f", (NewWaterStorage - Mass->StartWaterStorage)*1000);
   fprintf(Out->FilePtr, "\n      Initial Storage ............        %.3f", Mass->StartWaterStorage*1000);
   fprintf(Out->FilePtr, "\n      Final Storage ..............        %.3f", NewWaterStorage*1000);

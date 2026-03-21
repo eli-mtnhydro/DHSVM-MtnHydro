@@ -93,6 +93,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"TIME", "TIME STEP", "", ""},
     {"TIME", "MODEL START", "", ""},
     {"TIME", "MODEL END", "", ""},
+    {"CONSTANTS", "DEEP GROUNDWATER FLUX", "", "0.0"},
     {"CONSTANTS", "GROUND ROUGHNESS", "", ""},
     {"CONSTANTS", "SNOW ROUGHNESS", "", ""},
     {"CONSTANTS", "SNOW WATER CAPACITY", "", ""},
@@ -499,7 +500,12 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   InitTime(Time, &Start, &End, (int) TimeStep);
 
    /**************** Determine model constants ****************/
-
+  
+  if (!CopyFloat(&DEEP_GROUNDWATER_FLUX, StrEnv[deep_flux].VarStr, 1))
+    ReportError(StrEnv[deep_flux].KeyName, 51);
+  /* Convert m/yr (config) to m/timestep (used in DistributeSatflow) */
+  DEEP_GROUNDWATER_FLUX /= (DAYPYEAR * Time->NDaySteps);
+  
   if (!CopyFloat(&Z0_GROUND, StrEnv[ground_roughness].VarStr, 1))
     ReportError(StrEnv[ground_roughness].KeyName, 51);
 

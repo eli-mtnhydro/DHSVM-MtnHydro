@@ -334,11 +334,12 @@ typedef struct {
   float WaterLevel;		/* Absolute height of the watertable above datum (m), 
 						          i.e. corrected for terrain elevation */
   float WaterLevelLast;
-  float SatFlow;		/* amount of saturated flow generated */
-  float IExcess;		/* amount of surface runoff (m) generated from HOF and Return flow */
+  float SatFlow;		/* Amount of saturated flow generated */
+  float DeepFlux; /* Amount of water entering (+) or leaving (-) bottom of soil column (m) */
+  float IExcess;		/* Amount of surface runoff (m) generated from HOF and Return flow */
   float Runoff;         /* Surface water flux (m) from the grid cell. */
-  float ChannelInt;		/* amount of subsurface flow intercepted by the channel */
-  float ChannelInfiltration;		/* amount of channel storage returned to the subsurface */
+  float ChannelInt;		/* Amount of subsurface flow intercepted by the channel */
+  float ChannelInfiltration;		/* Amount of channel storage returned to the subsurface */
   float TSurf;			/* Soil surface temperature */
   float Qnet;			/* Net radiation exchange at surface */
   float Qrest;			/* Rest term for energy balance (should be 0) */
@@ -568,6 +569,7 @@ typedef struct {
   float CumChannelInfiltration;
   float CumChannelEvap;
   float CumSnowVaporFlux;
+  float CumDeepGW;
 } WATERBALANCE;
 
 typedef struct node node;

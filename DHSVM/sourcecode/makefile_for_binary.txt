@@ -57,7 +57,7 @@ LIBS = -lm -L/sw/lib -L/usr/local/lib
 #LIBS = -lm -L/sw/lib -L/usr/local/lib
 
 DHSVM: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.1 $(LIBS)
+	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.2 $(LIBS)
 
 clean::
 	rm -f DHSVM
