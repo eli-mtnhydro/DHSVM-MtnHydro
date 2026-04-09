@@ -9,23 +9,6 @@
 #include "slopeaspect.h"
 #include "DHSVMerror.h"
 
-/* These indices are so neighbors can be looked up quickly */
-/* Now defined in globals.c but left here as a comment for convenient reference */
-// int xdirection[NDIRS] = {
-// #if NDIRS == 4
-//   0, 1, 0, -1
-// #elif NDIRS == 8
-//   -1, 0, 1, 1, 1, 0, -1, -1
-// #endif
-// };
-// int ydirection[NDIRS] = {
-// #if NDIRS == 4
-//   -1, 0, 1, 0
-// #elif NDIRS == 8
-//   1, 1, 1, 0, -1, -1, -1, 0
-// #endif
-// };
-
 float temp_aspect[NNEIGHBORS] = {
   225., 180., 135., 90., 45., 0., 315., 270.
 };
@@ -61,7 +44,7 @@ static void slope_aspect(float dx, float dy, float celev, float
   int n;
   float dzdx, dzdy;
   float *dummyelev;
-  /* this dummy variable is added for calculation of elev difference,
+  /* This dummy variable is added for calculation of elev difference,
   in which the elev of OUTSIDEBASIN cells (which is ZERO) is
   replaced by the elev of the central cell */
 
@@ -287,16 +270,12 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
 void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
 {
   const char *Routine = "ElevationSlopeAspect";
-  int x;
-  int y;
-  int n;
-  int k;
+  int x, y, n, k, xn, yn;
   float neighbor_elev[NNEIGHBORS];
   int steepestdirection;
-  float min;
-  int xn, yn;
+  float min, dzdx, dzdx_max;
 
-  /* fill neighbor array */
+  /* Fill neighbor array */
   
   for (x = 0; x < Map->NX; x++) {
     for (y = 0; y < Map->NY; y++) {
@@ -314,16 +293,16 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
 	  else {
 	    neighbor_elev[n] = (float) OUTSIDEBASIN;
 	  }
-	}	
+	}
 	slope_aspect(Map->DX, Map->DY, TopoMap[y][x].Dem, neighbor_elev,
 		     &(TopoMap[y][x].Slope), &(TopoMap[y][x].Aspect));
 
-	/* fill Dirs in TopoMap too */
+	/* Fill Dirs in TopoMap too */
 	flow_fractions(Map->DX, Map->DY, TopoMap[y][x].Slope,
 		       TopoMap[y][x].Aspect, TopoMap[y][x].Dem,
 		       neighbor_elev, &(TopoMap[y][x].FlowGrad),
 		       TopoMap[y][x].Dir, &(TopoMap[y][x].TotalDir), MultiFlowDir);
-	   
+	
 	/* If there is a sink, check again to see if there 
 	   is a direction of steepest descent. Does not account 
 	   for ties.*/
@@ -337,10 +316,11 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
 	      if (INBASIN(TopoMap[yn][xn].Mask)) {
 			  if(TopoMap[yn][xn].Dem < min) { 
 				  min = TopoMap[yn][xn].Dem;
-				  steepestdirection = n;}
-		  }
-	    }
-	  }	  
+				  steepestdirection = n;
+		}
+		}
+	  }
+	  }
 	  if(min < TopoMap[y][x].Dem) {
 	    TopoMap[y][x].Dir[steepestdirection] = (int)(255.0 + 0.5);
 	    TopoMap[y][x].TotalDir = (int)(255.0 + 0.5);
@@ -354,18 +334,18 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
 	    xn = x + xdirection[steepestdirection];
 	    yn = y + ydirection[steepestdirection];
 	  }
-	}
-   } 
+	  }
   }
- } 	
+  }
+  } /* End of loop over y,x */
   /* Create a structure to hold elevations of only those cells
-     within the basin and the y,x of those cells.*/
+     within the basin and the y,x of those cells */
   if (!(Map->OrderedCells = (ITEM *) calloc(Map->NumCells, sizeof(ITEM))))
     ReportError((char *) Routine, 1);
   k = 0;
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
-      /* Save the elevation, y, and x in the ITEM structure. */
+      /* Save the elevation, y, and x in the ITEM structure */
       if (INBASIN(TopoMap[y][x].Mask)) {
         Map->OrderedCells[k].Rank = TopoMap[y][x].Dem;
         Map->OrderedCells[k].y = y;
@@ -374,10 +354,45 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
       }
     }
   }
-  /* Sort Elev in descending order-- Elev.x and Elev.y hold indices. */ 
+  /* Sort Elev in descending order-- Elev.x and Elev.y hold indices */ 
   quick(Map->OrderedCells, Map->NumCells);
-
-  /* End of modifications to create ordered cell coordinates.  SRW 10/02, LCB 03/03 */
+  
+  /* Determine unsaturated flow directions and slopes (steepest descent) */
+  for (x = 0; x < Map->NX; x++) {
+    for (y = 0; y < Map->NY; y++) {
+      if (INBASIN(TopoMap[y][x].Mask)) {
+        steepestdirection = -99;
+        dzdx_max = -1.0 * DHSVM_HUGE;	       
+        for (n = 0; n < NDIRS; n++) {
+          xn = x + xdirection[n];
+          yn = y + ydirection[n];
+          if (valid_cell(Map, xn, yn)) {
+            if (INBASIN(TopoMap[yn][xn].Mask)) {
+              if (n == 0 || n == 2 || n == 4 ||n == 6)
+                dzdx = (TopoMap[y][x].Dem - TopoMap[yn][xn].Dem) / (sqrt(2.0) * Map->DX);
+              else 
+                dzdx = (TopoMap[y][x].Dem - TopoMap[yn][xn].Dem) / Map->DX;
+              if(dzdx > dzdx_max) { 
+                dzdx_max = dzdx;
+                steepestdirection = n;
+              }
+            }
+          }
+        }
+        TopoMap[y][x].LateralDir = (uchar) steepestdirection;
+        
+        if (dzdx_max > 0.0) {
+          TopoMap[y][x].LateralFrac = dzdx_max / (1.0 + dzdx_max);
+        } else {
+          TopoMap[y][x].LateralFrac = 0.0;
+        }
+        
+  }
+  }
+  } /* End of loop over y,x */
+  
+  
+  /* End of modifications to create ordered cell coordinates */
   return;
 }
 

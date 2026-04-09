@@ -41,6 +41,8 @@ void InitAggregated(OPTIONSTRUCT *Options, int MaxVegLayers, int MaxSoilLayers,
     ReportError("InitAggregated()", 1);
   if (!(Total->Soil.Perc = (float *)calloc(MaxSoilLayers, sizeof(float))))
     ReportError("InitAggregated()", 1);
+  if (!(Total->Soil.InterFlow = (float *)calloc(MaxSoilLayers + 1, sizeof(float))))
+    ReportError("InitAggregated()", 1);
   if (!(Total->Soil.Temp = (float *)calloc(MaxSoilLayers, sizeof(float))))
     ReportError("InitAggregated()", 1);
 

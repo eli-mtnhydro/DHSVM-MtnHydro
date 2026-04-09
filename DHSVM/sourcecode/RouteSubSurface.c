@@ -150,11 +150,16 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       ReportError((char *) Routine, 1);
   }
   
-  /* Reset the saturated subsurface flow to zero 
+  /* Reset the saturated subsurface flow to zero,
+     assign interflow to soil moisture,
      and update water table elevation */
   for (q = (Map->NumCells - 1); q > -1;  q--) {
     y = Map->OrderedCells[q].y;
     x = Map->OrderedCells[q].x;
+    
+    for (i = 0; i <= VType[VegMap[y][x].Veg - 1].NSoilLayers; i++) {
+      SoilMap[y][x].Moist[i] += SoilMap[y][x].InterFlow[i];
+    }
     
     SoilMap[y][x].SatFlow = 0.0;
     

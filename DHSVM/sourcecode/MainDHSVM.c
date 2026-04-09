@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
   clock_t start, finish1;
   double runtime = 0.0;
   int t = 0;
-  int i, x, y;
+  int i, x, y, xdown, ydown;
   int NStats;
   uchar ***MetWeights = NULL;
   
@@ -57,8 +57,8 @@ int main(int argc, char **argv) {
     {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, /* PIXRAD */
     {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
-	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
+	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
     {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0
   };
@@ -202,6 +202,15 @@ int main(int argc, char **argv) {
     
     for (y = 0; y < Map.NY; y++) {
       for (x = 0; x < Map.NX; x++) {
+        if (INBASIN(TopoMap[y][x].Mask)) {
+          for (i = 0; i <= SType[SoilMap[y][x].Soil - 1].NLayers; i++)
+            SoilMap[y][x].InterFlow[i] = 0.0;
+        }
+      }
+    }
+    
+    for (y = 0; y < Map.NY; y++) {
+      for (x = 0; x < Map.NX; x++) {
   	    if (INBASIN(TopoMap[y][x].Mask)) {
   	      LocalMet =
   	        MakeLocalMetData(y, x, &Map, Time.DayStep, Time.NDaySteps, &Options, NStats,
@@ -219,6 +228,9 @@ int main(int argc, char **argv) {
     	        SoilMap[y][x].Temp[i] = LocalMet.Tair;
     		  }
     		  
+    		  xdown = x + xdirection[TopoMap[y][x].LateralDir];
+    		  ydown = y + ydirection[TopoMap[y][x].LateralDir];
+    		  
     		  MassEnergyBalance(&Options, y, x, SolarGeo.SineSolarAltitude,
                           Map.DX, Map.DY, Time.Dt,
                           Options.HeatFlux, Options.CanopyRadAtt,
@@ -228,7 +240,9 @@ int main(int argc, char **argv) {
                           &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]),
                           &(SType[SoilMap[y][x].Soil - 1]), &(SoilMap[y][x]),
                           &(SnowMap[y][x]), &(RadiationMap[y][x]),
-                          &(EvapMap[y][x]), &(Total.Rad), &ChannelData, SkyViewMap);
+                          &(EvapMap[y][x]), &(Total.Rad), &ChannelData, SkyViewMap,
+                          &(SoilMap[ydown][xdown]), &(VType[VegMap[ydown][xdown].Veg - 1]),
+                          &(Network[ydown][xdown]), TopoMap[y][x].LateralFrac);
           
   		    PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
   		    PrecipMap[y][x].SnowAccum += PrecipMap[y][x].SnowFall;

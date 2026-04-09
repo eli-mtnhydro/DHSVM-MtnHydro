@@ -124,6 +124,7 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
 		Total->Soil.Moist[i] += SoilMap[y][x].Moist[i];
 		if (SoilMap[y][x].Moist[i] <= 0.0)
 		  SoilMap[y][x].Moist[i] = 0.0;
+		Total->Soil.InterFlow[i] += SoilMap[y][x].InterFlow[i];
 		
 		Total->Soil.Perc[i] += SoilMap[y][x].Perc[i];
 		Total->Soil.Temp[i] += SoilMap[y][x].Temp[i];
@@ -243,10 +244,12 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->Soil.Depth /= NPixels;
   for (i = 0; i < Soil->MaxLayers; i++) {
     Total->Soil.Moist[i] /= NPixels;
+    Total->Soil.InterFlow[i] /= NPixels;
     Total->Soil.Perc[i] /= NPixels;
     Total->Soil.Temp[i] /= NPixels;
   }
   Total->Soil.Moist[Soil->MaxLayers] /= NPixels;
+  Total->Soil.InterFlow[Soil->MaxLayers] /= NPixels;
   Total->Soil.TableDepth /= NPixels;
   Total->Soil.WaterLevel /= NPixels;
   Total->Soil.SatFlow /= NPixels;

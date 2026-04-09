@@ -13,44 +13,6 @@ Function name: UnsaturatedFlow()
 Purpose      : Calculate the unsaturated flow in the soil column, and
 adjust the moisture in each soil layer
 
-Required     :
-int Dt             - Time step (seconds)
-float DX           - Grid cell width (m)
-float DY           - Grid cell width (m)
-float Infiltration - Amount of infiltration entering the top of the soil
-column (m)
-float SatFlow      - Amount of saturated flow entering the soil column
-from neighbouring pixels (m)
-int NSoilLayers    - Number of soil layers
-float TotalDepth   - Total depth of the soil profile (m)
-float Area         - Area of channel surface (m)
-float *RootDepth   - Depth of each of the soil layers (m)
-float *Ks          - Vertical saturated hydraulic conductivity in each
-soil layer (m/s)
-float *PoreDist    - Pore size distribution index for each soil layer
-float *Porosity    - Porosity of each soil layer
-float *FCap        - Field capacity of each soil layer
-float *Perc        - Amount of water percolating from each soil layer to
-the layer below (m)
-float *PercArea    - Area of the bottom of each soil layer as a fraction
-of the gridcell area DX*DY
-float *Adjust      - Correction for each layer for loss of soil storage
-due to channel cut.  Multiplied with RootDepth
-to give the layer thickness for use in calculating
-
-
-soil moisture
-int CutBankZone    - Number of the soil layer containing the bottom of
-
-the cut-bank
-float BankHeight   - Distance from ground surface to channel bed (m)
-
-Modifies     :
-float *TableDepth - Depth of the water table below the ground surface (m)
-float *IExcess     - Amount of IExcess produced at the pixel (m)
-float *Moist      - Moisture content in each soil layer
-
-Comments     :
 Sources:
 Bras, R. A., Hydrology, an introduction to hydrologic science, Addisson
 Wesley, Inc., Reading, etc., 1990.
@@ -75,7 +37,6 @@ Brooks-Corey equation see for example Wigmosta et al. [1994], eq.41
 The calculated amount of drainage is averaged with the amount calculated
 for the previous timestep, see eq. 42 [Wigmosta et al., 1994].
 
-
 The residual moisture content is assumed to be zero (easy to adapt if
 needed).
 
@@ -88,14 +49,18 @@ CHANGES:
 Changes have been made to account for the potental loss of soil storage
 in a grid cell due to a channel.  Correction coefficents are
 calculated in AdjustStorage() and CutBankGeometry()
+
+Eli Boardman added unsaturated lateral gravimetric interflow (2026)
 *****************************************************************************/
 void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
-  float SatFlow, int NSoilLayers,
+  int NSoilLayers,
   float TotalDepth, float Area, float *RootDepth, float *Ks,
   float *PoreDist, float *Porosity, float *FCap,
   float *Perc, float *PercArea, float *Adjust,
   int CutBankZone, float BankHeight, float *TableDepth,
-  float *IExcess, float *Moist, int InfiltOption)
+  float *IExcess, float *Moist, int InfiltOption,
+  float *MoistDownhill, float *PorosityDownhill, float *InterFlowDownhill,
+  float *RootDepthDownhill, float *AdjustDownhill, float LateralFrac)
 {
   float DeepDrainage;		/* amount of drainage from the lowest root
                                zone to the layer below it (m) */
@@ -106,12 +71,14 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   float FieldCapacity;		/* amount of water in soil at field capacity (m) */
   float MaxSoilWater;		/* maximum allowable amount of soil moiture in each layer (m) */
   float SoilWater;		    /* amount of water in each soil layer (m) */
+  float LateralFracLayer; /* Fraction of total percolation that is routed laterally */
+  float DownhillCapacity; /* Amount of water that neighbor cell's layer can accept */
   int i;			        /* counter */
 
   DeepLayerDepth = TotalDepth;
   for (i = 0; i < NSoilLayers; i++)
     DeepLayerDepth -= RootDepth[i];
-
+  
   if (*TableDepth <= 0) { /* watertable above surface */
     *IExcess += Infiltration;
     if (InfiltOption == DYNAMIC) 
@@ -121,7 +88,7 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
     Moist[0] += Infiltration / (RootDepth[0] * Adjust[0]);
   }
 
-  /* from top to bottom soil layer */
+  /* From top to bottom soil layer */
   for (i = 0; i < NSoilLayers; i++) {
 
     /* No movement if soil moisture is below field capacity */
@@ -129,15 +96,15 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
       Exponent = 2.0 / PoreDist[i] + 3.0;
 
       if (Moist[i] > Porosity[i])
-        /* this can happen because the moisture content can exceed the
+        /* This can happen because the moisture content can exceed the
         porosity the way the algorithm is implemented */
         Drainage = Ks[i];
       else
         Drainage = Ks[i] * pow((double)(Moist[i]/Porosity[i]), (double)Exponent);
-      /* convert to m */
+      /* Convert to m */
       Drainage *= Dt;
 
-      /* percolation = drainage + perc from layer above */
+      /* Average across timesteps */
       Perc[i] = 0.5 * (Perc[i] + Drainage) * PercArea[i];
 
       MaxSoilWater = RootDepth[i] * Porosity[i] * Adjust[i];
@@ -159,24 +126,43 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
       /* Adjust the moisture content in the current layer, and the layer
       immediately below it */
       Moist[i] -= Perc[i] / (RootDepth[i] * Adjust[i]);
-      if (i < (NSoilLayers - 1))
-        Moist[i + 1] += Perc[i] / (RootDepth[i + 1] * Adjust[i + 1]);
+      if (i < (NSoilLayers - 1)) {
+        /* Only allow enough lateral flow to raise neighboring layer to saturation */
+        DownhillCapacity = (PorosityDownhill[i] - MoistDownhill[i]) * RootDepthDownhill[i] * AdjustDownhill[i];
+        if (DownhillCapacity > (LateralFrac * Perc[i])) {
+          LateralFracLayer = LateralFrac;
+        } else if (Perc[i] > 1e-10) {
+          LateralFracLayer = DownhillCapacity / Perc[i];
+        } else {
+          LateralFracLayer = 0.0;
+        }
+        
+        Moist[i + 1] += (1.0 - LateralFracLayer) * Perc[i] / (RootDepth[i + 1] * Adjust[i + 1]);
+        InterFlowDownhill[i] += LateralFracLayer * Perc[i] / (RootDepthDownhill[i] * AdjustDownhill[i]);
+      }
     }
     else
       Perc[i] = 0.0;
 
-    /* convert back to straight 1-d flux */
+    /* Convert back to straight 1-d flux */
     Perc[i] /= PercArea[i];
   }
-
-  /* Change: dont extract outflow from the bottom layer only. The new function DistributeSatFlow
-  extract water from top to bottom layer to avoid negative soil mositure (overdraw) in the bottom
-  layer (below root zone layers */
-  /* DeepDrainage = (Perc[NSoilLayers - 1] * PercArea[NSoilLayers - 1]) + SatFlow; */
-
+  
   DeepDrainage = (Perc[NSoilLayers - 1] * PercArea[NSoilLayers - 1]);
-
-  Moist[NSoilLayers] += DeepDrainage / (DeepLayerDepth * Adjust[NSoilLayers]);
+  
+  /* Only allow enough lateral flow to raise neighboring layer to saturation */
+  DownhillCapacity = (PorosityDownhill[NSoilLayers - 1] - MoistDownhill[NSoilLayers - 1]) *
+                      RootDepthDownhill[NSoilLayers - 1] * AdjustDownhill[NSoilLayers - 1];
+  if (DownhillCapacity > (LateralFrac * DeepDrainage)) {
+    LateralFracLayer = LateralFrac;
+  } else if (DeepDrainage > 1e-10) {
+    LateralFracLayer = DownhillCapacity / DeepDrainage;
+  } else {
+    LateralFracLayer = 0.0;
+  }
+  
+  Moist[NSoilLayers] += (1.0 - LateralFracLayer) * DeepDrainage / (DeepLayerDepth * Adjust[NSoilLayers]);
+  InterFlowDownhill[NSoilLayers - 1] += LateralFracLayer * DeepDrainage / (RootDepthDownhill[NSoilLayers - 1] * AdjustDownhill[NSoilLayers - 1]);
 
   /* Calculate the depth of the water table based on the soil moisture
   profile and adjust the soil moisture profile, to assure that the soil

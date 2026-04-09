@@ -335,6 +335,7 @@ typedef struct {
 						          i.e. corrected for terrain elevation */
   float WaterLevelLast;
   float SatFlow;		/* Amount of saturated flow generated */
+  float *InterFlow;		/* Amount of unsaturated lateral interflow entering each layer */
   float DeepFlux; /* Amount of water entering (+) or leaving (-) bottom of soil column (m) */
   float IExcess;		/* Amount of surface runoff (m) generated from HOF and Return flow */
   float Runoff;         /* Surface water flux (m) from the grid cell. */
@@ -423,6 +424,8 @@ typedef struct {
   int drains_y;					/* y-loc of cell to which this impervious cell drains */
   int LakeID;           /* Unique ID of each discrete lake */
   ITEM *OrderedTopoIndex;       /* Structure array to hold the ranked topoindex for fine pixels in a coarse pixel */
+  uchar LateralDir;    /* Direction of downhill grid cell for unsaturated flow */
+  float LateralFrac;    /* Fraction of unsaturated vertical flow partitioned downslope */
 } TOPOPIX;
 
 typedef struct

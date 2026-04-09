@@ -80,8 +80,10 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
      in the RouteSurface() routine */
   Total->Soil.Soil = 0;
   Total->Soil.Depth = 0.0;
-  for (i = 0; i < Soil->MaxLayers + 1; i++)
+  for (i = 0; i < Soil->MaxLayers + 1; i++) {
     Total->Soil.Moist[i] = 0.0;
+    Total->Soil.InterFlow[i] = 0.0;
+  }
   for (i = 0; i < Soil->MaxLayers; i++) {
     Total->Soil.Perc[i] = 0.0;
     Total->Soil.Temp[i] = 0.0;

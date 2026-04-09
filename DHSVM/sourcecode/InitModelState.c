@@ -314,6 +314,7 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
         if (INBASIN(TopoMap[y][x].Mask)) {
           NSoil = Soil.NLayers[(SoilMap[y][x].Soil - 1)];
           if (i <= NSoil) {
+            SoilMap[y][x].InterFlow[i] = 0.0;
             SoilMap[y][x].Moist[i] = ((float *)Array)[y * Map->NX + x];
             if (SoilMap[y][x].Moist[i] < 0.0) {
               /* fprintf(stderr, "InitModelState at (x, y) is (%d, %d):\n", x, y);

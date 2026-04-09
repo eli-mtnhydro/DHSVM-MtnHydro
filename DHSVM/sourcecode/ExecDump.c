@@ -752,6 +752,30 @@ void DumpMap(MAPSIZE *Map, DATE *Current, MAPDUMP *DMap, TOPOPIX **TopoMap,
     else
       ReportError(VarIDStr, 66);
     break;
+    
+  case 515:
+    if (DMap->Resolution == MAP_OUTPUT) {
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          if (INBASIN(TopoMap[y][x].Mask)) {
+            NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
+            if (DMap->Layer <= NSoil)
+              ((float *)Array)[y * Map->NX + x] =
+              SoilMap[y][x].InterFlow[DMap->Layer - 1];
+            else
+              ((float *)Array)[y * Map->NX + x] = NA;
+          }
+          else
+            ((float *)Array)[y * Map->NX + x] = NA;
+        }
+      }
+      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
+
+    }
+    else
+      ReportError(VarIDStr, 66);
+    break;
+    
   }
 }
 
@@ -808,6 +832,8 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
       fprintf(OutFile->FilePtr, " SoilMoist%d ", (i + 1));
     for (i = 0; i < NSoil; i++)
       fprintf(OutFile->FilePtr, " Perc%d ", (i + 1));
+    for (i = 0; i < NSoil; i++)
+      fprintf(OutFile->FilePtr, " InterFlow%d ", (i + 1));
     fprintf(OutFile->FilePtr, " TableDepth SatFlow DetentionStorage ");
 
     /* print radiation associated variables */
@@ -877,6 +903,8 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
     fprintf(OutFile->FilePtr, " %g ", Soil->Moist[i]);
   for (i = 0; i < NSoil; i++)
     fprintf(OutFile->FilePtr, " %g ", Soil->Perc[i]);
+  for (i = 0; i < NSoil; i++)
+    fprintf(OutFile->FilePtr, " %g ", Soil->InterFlow[i]);
 
   fprintf(OutFile->FilePtr, " %g %g %g ", Soil->TableDepth,
     Soil->SatFlow, Soil->DetentionStorage);

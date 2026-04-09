@@ -632,6 +632,9 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
         if (!((*SoilMap)[y][x].Perc =
           (float *)calloc(Soil->NLayers[Type[i] - 1], sizeof(float))))
           ReportError((char *)Routine, 1);
+        if (!((*SoilMap)[y][x].InterFlow =
+            (float *)calloc((Soil->NLayers[Type[i] - 1] + 1), sizeof(float))))
+          ReportError((char *)Routine, 1);
         if (!((*SoilMap)[y][x].Temp =
           (float *)calloc(Soil->NLayers[Type[i] - 1], sizeof(float))))
           ReportError((char *)Routine, 1);
@@ -639,6 +642,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
       else {
         (*SoilMap)[y][x].Moist = NULL;
         (*SoilMap)[y][x].Perc = NULL;
+        (*SoilMap)[y][x].InterFlow = NULL;
         (*SoilMap)[y][x].Temp = NULL;
       }
     }
