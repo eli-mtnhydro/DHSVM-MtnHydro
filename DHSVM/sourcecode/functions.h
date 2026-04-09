@@ -242,7 +242,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x, float SineSolarAltit
             VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil,
             SNOWPIX *LocalSnow, PIXRAD *LocalRad, EVAPPIX *LocalEvap, PIXRAD *TotalRad,
             CHANNEL *ChannelData, float **skyview,
-            SOILPIX *LocalSoilDownhill, VEGTABLE *VTypeDownhill, NETSTRUCT *LocalNetworkDownhill, float LateralFrac);
+            SOILPIX *LocalSoilDownhill, VEGTABLE *VTypeDownhill, NETSTRUCT *LocalNetworkDownhill, TOPOPIX *LocalTopo);
 
 double pow (double a, double b);
 

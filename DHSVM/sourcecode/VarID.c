@@ -236,6 +236,9 @@ struct {
       "Infiltration Accumulation", "%.4g",
       "m", "Accumulated water in top layer",
       NC_FLOAT, FALSE, FALSE, FALSE, 0}, {
+  515, "Soil.InterFlow",
+      "InterFlow", "%.4g",
+      "m/timestep", "InterFlow", NC_FLOAT, TRUE, FALSE, TRUE, 0}, {
   602, "Precip.Lapse",
       "Precipitation Lapse Rate", "%.5f",
       "", "Precipitation Lapse Rate", NC_FLOAT, FALSE, FALSE, FALSE, 0}, {

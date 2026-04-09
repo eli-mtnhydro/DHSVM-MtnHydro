@@ -242,7 +242,7 @@ int main(int argc, char **argv) {
                           &(SnowMap[y][x]), &(RadiationMap[y][x]),
                           &(EvapMap[y][x]), &(Total.Rad), &ChannelData, SkyViewMap,
                           &(SoilMap[ydown][xdown]), &(VType[VegMap[ydown][xdown].Veg - 1]),
-                          &(Network[ydown][xdown]), TopoMap[y][x].LateralFrac);
+                          &(Network[ydown][xdown]), &(TopoMap[y][x]));
           
   		    PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
   		    PrecipMap[y][x].SnowAccum += PrecipMap[y][x].SnowFall;

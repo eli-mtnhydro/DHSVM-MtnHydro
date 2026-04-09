@@ -425,7 +425,8 @@ typedef struct {
   int LakeID;           /* Unique ID of each discrete lake */
   ITEM *OrderedTopoIndex;       /* Structure array to hold the ranked topoindex for fine pixels in a coarse pixel */
   uchar LateralDir;    /* Direction of downhill grid cell for unsaturated flow */
-  float LateralFrac;    /* Fraction of unsaturated vertical flow partitioned downslope */
+  float CosSlope;    /* Cosine of slope for unsaturated flow partitioned downslope */
+  float SinSlope;    /* Sine of slope for unsaturated flow partitioned downslope */
 } TOPOPIX;
 
 typedef struct

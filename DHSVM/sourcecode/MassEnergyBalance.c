@@ -37,7 +37,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   SOILPIX *LocalSoil, SNOWPIX *LocalSnow, PIXRAD *LocalRad,
   EVAPPIX *LocalEvap, PIXRAD *TotalRad, CHANNEL *ChannelData,
   float **skyview,
-  SOILPIX *LocalSoilDownhill, VEGTABLE *VTypeDownhill, NETSTRUCT *LocalNetworkDownhill, float LateralFrac)
+  SOILPIX *LocalSoilDownhill, VEGTABLE *VTypeDownhill, NETSTRUCT *LocalNetworkDownhill, TOPOPIX *LocalTopo)
 {
   float SurfaceWater;		/* Pixel average depth of water before infiltration is calculated (m) */
   float ChannelWater;       /* Precip that hits the channel */
@@ -537,13 +537,14 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* Calculate unsaturated soil water movement, and adjust soil water table depth */
   UnsaturatedFlow(Dt, DX, DY, Infiltration,
     SType->NLayers, LocalSoil->Depth,
-    LocalNetwork->Area, VType->RootDepth, LocalSoil->KsVert,
+    LocalNetwork->Area, VType->RootDepth, LocalSoil->KsVert, SType->KsAnisotropy,
     SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,
     LocalNetwork->PercArea, LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth), &(LocalSoil->IExcess),
     LocalSoil->Moist, InfiltOption,
     LocalSoilDownhill->Moist, LocalSoilDownhill->Porosity, LocalSoilDownhill->InterFlow,
-    VTypeDownhill->RootDepth, LocalNetworkDownhill->Adjust, LateralFrac);
+    VTypeDownhill->RootDepth, LocalNetworkDownhill->Adjust, LocalNetworkDownhill->PercArea,
+    LocalTopo->CosSlope, LocalTopo->SinSlope);
 
   /* Infiltration is updated in UnsaturatedFlow and accumulated
      below */

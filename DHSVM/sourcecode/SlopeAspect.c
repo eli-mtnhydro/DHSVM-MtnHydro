@@ -273,7 +273,7 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
   int x, y, n, k, xn, yn;
   float neighbor_elev[NNEIGHBORS];
   int steepestdirection;
-  float min, dzdx, dzdx_max;
+  float min, dzdx, dzdx_max, slope;
 
   /* Fill neighbor array */
   
@@ -382,9 +382,12 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
         TopoMap[y][x].LateralDir = (uchar) steepestdirection;
         
         if (dzdx_max > 0.0) {
-          TopoMap[y][x].LateralFrac = dzdx_max / (1.0 + dzdx_max);
+          slope = atan(dzdx_max);
+          TopoMap[y][x].CosSlope = cos(slope);
+          TopoMap[y][x].SinSlope = sin(slope);
         } else {
-          TopoMap[y][x].LateralFrac = 0.0;
+          TopoMap[y][x].CosSlope = 1.0;
+          TopoMap[y][x].SinSlope = 0.0;
         }
         
   }
