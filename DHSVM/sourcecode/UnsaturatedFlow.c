@@ -63,7 +63,7 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   float *RootDepthDownhill, float *AdjustDownhill, float *PercAreaDownhill,
   float cosTheta, float sinTheta)
 {
-  float NextLayerDepth;
+  float LayerBottomDepth, NextLayerDepth;
   float DeepLayerDepth;		/* depth of the layer below the deepest root layer */
   float Drainage;		    /* amount of water drained from each soil
                                layer during the current timestep */
@@ -91,8 +91,11 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
   }
 
   /* From top to bottom soil layer */
+  LayerBottomDepth = 0.0;
   for (i = 0; i < NSoilLayers; i++) {
-
+    
+    LayerBottomDepth += RootDepth[i];
+    
     /* No movement if soil moisture is below field capacity */
     if (Moist[i] > FCap[i]) {
       Exponent = 2.0 / PoreDist[i] + 3.0;
@@ -108,6 +111,14 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
         Drainage = Ks[i] * Multiplier * cosTheta;
         InterFlow = Ks[i] * Multiplier * KsAnisotropy * sinTheta;
       }
+      
+      /* Only permit interflow in soil layers that do NOT contain the water table
+         to prevent conflicting routing directions and redundancy
+         between unsaturated and saturated flow */
+      if (*TableDepth < LayerBottomDepth) {
+        InterFlow = 0.0;
+      }
+      
       Drainage += InterFlow;
       if (Drainage > 1e-10) {
         LateralFrac = InterFlow / Drainage;

@@ -49,7 +49,7 @@ DEFS =
 #possible DEFS -DSHOW_MET_ONLY -DSNOW_ONLY
 CFLAGS = -flto=auto -Ofast -Wall -I/usr/local/include/  $(DEFS) 
 
-CC = cc
+CC = gcc
 FLEX = /usr/bin/flex
 LIBS = -lm -L/sw/lib -L/usr/local/lib 
 
@@ -57,7 +57,7 @@ LIBS = -lm -L/sw/lib -L/usr/local/lib
 #LIBS = -lm -L/sw/lib -L/usr/local/lib
 
 DHSVM: $(OBJS)
-	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.2 $(LIBS)
+	$(CC) $(OBJS) $(CFLAGS) -o DHSVM_X.2.2_InterFlow $(LIBS)
 
 clean::
 	rm -f DHSVM
