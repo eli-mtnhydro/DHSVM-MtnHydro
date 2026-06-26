@@ -336,12 +336,11 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     AvailableWater = TotalAvailableWater - water_out_stream;
     SoilMap[y][x].SatFlow -= water_out_stream;
     
-    /* Add deep groundwater flux */
-    if (DEEP_GROUNDWATER_FLUX >= 0.0) {
-      DeepFlux = DEEP_GROUNDWATER_FLUX;
-    } else {
+    /* Add or subtract deep groundwater flux */
+    DeepFlux = SoilMap[y][x].MaxDeepFlux;
+    if (DeepFlux < 0.0) {
       /* Only subtract as much water as available in saturated zone */
-      DeepFlux = ((AvailableWater + DEEP_GROUNDWATER_FLUX) < 0.0) ? (AvailableWater * -1.0) : DEEP_GROUNDWATER_FLUX;
+      DeepFlux = ((AvailableWater + DeepFlux) < 0.0) ? (AvailableWater * -1.0) : DeepFlux;
     }
     SoilMap[y][x].SatFlow += DeepFlux;
     SoilMap[y][x].DeepFlux = DeepFlux;

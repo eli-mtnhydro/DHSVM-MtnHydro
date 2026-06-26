@@ -92,14 +92,14 @@ enum CanopyType {
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
   extent = 0, gradient, routing_neighbors, routing_mfd,
-  sensible_heat_flux, routing, lakedyna, vertksatsource, infiltration,
+  sensible_heat_flux, routing, lakedyna, interflow, vertksatsource, infiltration,
   interpolation, max_interp_dist, prism, snowpattern,
   canopy_radatt, shading, outside, rhoverride, 
   temp_lapse, cressman_radius, cressman_stations,
   prism_data_path, prism_data_ext, snowpattern_data_path,
   shading_data_path, shading_data_ext, skyview_data_path, 
   improv_radiation, gapping, snowslide, sepr, 
-  snowstats, dynaveg, streamdata, gw_spinup, gw_spinup_yrs, gw_spinup_recharge,
+  snowstats, dynaveg, streamdata, streamtime, gw_spinup, gw_spinup_yrs, gw_spinup_recharge,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
   center_longitude, time_zone_meridian, number_of_rows,
@@ -107,7 +107,7 @@ enum KEYS {
   /* Time */
   time_step, model_start, model_end, 
   /* Constants */
-  deep_flux, ground_roughness, snow_roughness, 
+  ground_roughness, snow_roughness, 
   snow_water_capacity, reference_height, rain_lai_multiplier,
   snow_lai_multiplier, min_intercepted_snow, min_snow_reset_albedo, albedo_lambda_forest,
   outside_basin,
@@ -127,7 +127,7 @@ enum KEYS {
   /* Station information */
   station_name = 0, station_north, station_east, station_elev, station_file,
   /* Soil information */
-  soil_description = 0, lateral_ks, exponent, depth_thresh, anisotropy, max_infiltration, capillary_drive,
+  soil_description = 0, lateral_ks, exponent, depth_thresh, anisotropy, max_infiltration, capillary_drive, deepflux,
   soil_albedo, manning, number_of_layers, porosity, pore_size, bubbling_pressure, field_capacity,
   wilting_point, bulk_density, vertical_ks, solids_thermal, thermal_capacity,
   /* Vegetation information */

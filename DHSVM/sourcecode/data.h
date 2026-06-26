@@ -184,6 +184,7 @@ typedef struct {
                            should be calculated, TRUE or FALSE */
   int Routing;          /* Overland flow routing indicator, either CONVENTIONAL (FALSE) or KINEMATIC (TRUE) */
   int LakeDynamics;		  /* If TRUE, lake dynamics will be simulated using power law storage relationships */
+  int UseInterflow;		  /* If TRUE, unsaturated lateral flow is simulated */
   int UseKsatAnisotropy;/* Vertical Ksat from lateral Ksat and anisotropy (TRUE) or default table (FALSE) */
   int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
   int Interpolation;
@@ -204,6 +205,7 @@ typedef struct {
   int SnowStats;        /* if TRUE dumps snow statistics for each water year */
   int DynamicVeg;       /* if TRUE update vegetation maps at user defined dates*/
   int DumpExtraStream;  /* Whether to save extra stream data when dumping model state */
+  int SaveExtraStreamData;  /* Whether to save extra file with detailed stream timeseries */
   int PointX;					  /* X-index of point to model in POINT mode */
   int PointY;					  /* Y-index of point to model in POINT mode */
   int GW_SPINUP;        /* Whether to spinup groundwater state prior to launching run */
@@ -336,6 +338,7 @@ typedef struct {
   float WaterLevelLast;
   float SatFlow;		/* Amount of saturated flow generated */
   float *InterFlow;		/* Amount of unsaturated lateral interflow entering each layer */
+  float MaxDeepFlux; /* Theoretical deep flux before accounting for available water */
   float DeepFlux; /* Amount of water entering (+) or leaving (-) bottom of soil column (m) */
   float IExcess;		/* Amount of surface runoff (m) generated from HOF and Return flow */
   float Runoff;         /* Surface water flux (m) from the grid cell. */
@@ -380,7 +383,8 @@ typedef struct {
   float KsLatExp;		    /* Exponent for vertical change of KsLat */
   float DepthThresh;    /* Threshold water table depth, beyond which transmissivity decays linearly with water table depth */
   float KsAnisotropy; /* KsVert = KsLat / KsAnisotropy */
-  float MaxInfiltrationRate;/* Maximum infiltration rate for upper layer (m/s) */
+  float MaxInfiltrationRate; /* Maximum infiltration rate for upper layer (m/s) */
+  float DeepFlux; /* Net groundwater flux upwelling (+) or downwelling (-) (m/timestep) */
   float *KhDry;				/* Thermal conductivity for dry soil (W/(m*K)) */
   float *KhSol;				/* Effective solids thermal conductivity (W/(M*K)) */
   float *Ch;				/* Heat capacity for soil medium */

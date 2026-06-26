@@ -425,7 +425,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
         sidx = (*SoilMap)[y][x].Soil - 1;
         if (NSet == Soil->NLayers[sidx]) {
           if (Options->UseKsatAnisotropy &&
-              VType[(*VegMap)[y][x].Veg - 1].NSoilLayers > NSet &&
+              VType[(*VegMap)[y][x].Veg - 1].NSoilLayers == NSet &&
               ((*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth) > 0.001) {
             
             /* Calculate effective lateral conductivity of current soil layer */
@@ -460,6 +460,22 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
         }
         else
           (*SoilMap)[y][x].MaxInfiltrationRate = SType[sidx].MaxInfiltrationRate;
+      }
+    }
+  }
+  
+  /* Also create spatial seepage flux from table */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN((TopoMap)[y][x].Mask)) {
+        (*SoilMap)[y][x].MaxDeepFlux = SType[(*SoilMap)[y][x].Soil - 1].DeepFlux;
+        
+        /* Constrain seepage loss (if deep flux is negative) to max rate of soil Ks */
+        if ((*SoilMap)[y][x].MaxDeepFlux < 0.0) {
+          NSet = Soil->NLayers[(*SoilMap)[y][x].Soil - 1];
+          if ((*SoilMap)[y][x].MaxDeepFlux < ((*SoilMap)[y][x].KsVert[NSet] * -1.0))
+            (*SoilMap)[y][x].MaxDeepFlux = (*SoilMap)[y][x].KsVert[NSet] * -1.0;
+        }
       }
     }
   }

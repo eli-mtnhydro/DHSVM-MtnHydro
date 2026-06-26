@@ -189,7 +189,7 @@ void InitSoilMap(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
 		 VEGPIX *** VegMap, VEGTABLE * VType);
 
 int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE **SType, 
-			LISTPTR Input, LAYER *Soil, int InfiltOption);
+			LISTPTR Input, LAYER *Soil, int InfiltOption, TIMESTRUCT *Time);
 
 void InitStateDump(LISTPTR Input, int NStates, DATE **DState);
 
@@ -198,7 +198,7 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
 
 void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options, 
   MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType, LAYER *Veg,
-  LAKETABLE **LType);
+  LAKETABLE **LType, TIMESTRUCT *Time);
     
 void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   LAYER *Soil, LAYER *Veg, TOPOPIX ***TopoMap, SOILTABLE *SType, SOILPIX ***SoilMap, 

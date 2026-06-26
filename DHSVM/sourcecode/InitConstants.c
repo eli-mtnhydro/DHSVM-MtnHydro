@@ -50,6 +50,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "SENSIBLE HEAT FLUX", "", ""},
     {"OPTIONS", "OVERLAND ROUTING", "", ""},
     {"OPTIONS", "LAKE DYNAMICS", "", "FALSE"},
+    {"OPTIONS", "UNSATURATED LATERAL FLOW", "", "FALSE"},
     {"OPTIONS", "VERTICAL KSAT SOURCE", "", "TABLE"},
     {"OPTIONS", "INFILTRATION", "", ""},
     {"OPTIONS", "INTERPOLATION", "", ""},
@@ -76,6 +77,7 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "SNOW STATISTICS", "", "FALSE" },
     {"OPTIONS", "DYNAMIC VEGETATION", "", "FALSE" },
     {"OPTIONS", "EXTRA STREAM STATE DATA", "", "FALSE" },
+    {"OPTIONS", "EXTRA STREAM TIMESERIES DATA", "", "FALSE"},
     {"OPTIONS", "GROUNDWATER SPINUP", "", "FALSE" },
     {"OPTIONS", "GROUNDWATER SPINUP YEARS", "", "0" },
     {"OPTIONS", "GROUNDWATER SPINUP RECHARGE", "", "0.0" },
@@ -93,7 +95,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"TIME", "TIME STEP", "", ""},
     {"TIME", "MODEL START", "", ""},
     {"TIME", "MODEL END", "", ""},
-    {"CONSTANTS", "DEEP GROUNDWATER FLUX", "", "0.0"},
     {"CONSTANTS", "GROUND ROUGHNESS", "", ""},
     {"CONSTANTS", "SNOW ROUGHNESS", "", ""},
     {"CONSTANTS", "SNOW WATER CAPACITY", "", ""},
@@ -238,6 +239,14 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   else
     ReportError(StrEnv[lakedyna].KeyName, 51);
   
+  /* Determine whether to include unsaturated lateral flow (interflow) */
+  if (strncmp(StrEnv[interflow].VarStr, "TRUE", 4) == 0)
+    Options->UseInterflow = TRUE;
+  else if (strncmp(StrEnv[interflow].VarStr, "FALSE", 5) == 0)
+    Options->UseInterflow = FALSE;
+  else
+    ReportError(StrEnv[interflow].KeyName, 51);
+  
   /* Determine if vertical conductivity is calculated from map anisotropy
    or read from default soil table */
   if (strncmp(StrEnv[vertksatsource].VarStr, "ANISOTROPY", 6) == 0)
@@ -349,6 +358,14 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->DumpExtraStream = FALSE;
   else
     ReportError(StrEnv[streamdata].KeyName, 51);
+  
+  /* Determine whether to save extra file with detailed stream timeseries */
+  if (strncmp(StrEnv[streamtime].VarStr, "TRUE", 4) == 0)
+    Options->SaveExtraStreamData = TRUE;
+  else if (strncmp(StrEnv[streamtime].VarStr, "FALSE", 5) == 0)
+    Options->SaveExtraStreamData = FALSE;
+  else
+    ReportError(StrEnv[streamtime].KeyName, 51);
   
   /* Determine whether to spinup groundwater state before starting model run */
   if (strncmp(StrEnv[gw_spinup].VarStr, "TRUE", 4) == 0)
@@ -500,11 +517,6 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   InitTime(Time, &Start, &End, (int) TimeStep);
 
    /**************** Determine model constants ****************/
-  
-  if (!CopyFloat(&DEEP_GROUNDWATER_FLUX, StrEnv[deep_flux].VarStr, 1))
-    ReportError(StrEnv[deep_flux].KeyName, 51);
-  /* Convert m/yr (config) to m/timestep (used in DistributeSatflow) */
-  DEEP_GROUNDWATER_FLUX /= (DAYPYEAR * Time->NDaySteps);
   
   if (!CopyFloat(&Z0_GROUND, StrEnv[ground_roughness].VarStr, 1))
     ReportError(StrEnv[ground_roughness].KeyName, 51);

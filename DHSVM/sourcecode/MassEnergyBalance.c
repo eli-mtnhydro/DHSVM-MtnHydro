@@ -535,7 +535,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   }
 
   /* Calculate unsaturated soil water movement, and adjust soil water table depth */
-  UnsaturatedFlow(Dt, DX, DY, Infiltration,
+  UnsaturatedFlow(Options, Dt, DX, DY, Infiltration,
     SType->NLayers, LocalSoil->Depth,
     LocalNetwork->Area, VType->RootDepth, LocalSoil->KsVert, SType->KsAnisotropy,
     SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,

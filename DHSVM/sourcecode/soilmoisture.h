@@ -2,6 +2,8 @@
 #ifndef SOILMOISTURE_H
 #define SOILMOISTURE_H
 
+#include "data.h"
+
 #define NO_CUT -10
 
 void AdjustStorage(int NSoilLayers, float TotalDepth, float *RootDepth,
@@ -24,7 +26,7 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
                        float *Porosity, float *FCap, float *Adjust,
                        float *TableDepth, float *Runoff, float *Moist);
 
-void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration, 
+void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float Infiltration, 
 		     int NSoilLayers, 
 		     float TotalDepth, float Area, float *RootDepth, float *Ks, float KsAnisotropy,
 		     float *PoreDist, float *Porosity, float *FCap, float *Perc, 

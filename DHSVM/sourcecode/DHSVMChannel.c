@@ -113,8 +113,10 @@ void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL * ChannelData,
   char buffer[NAMESIZE];
 
   if (ChannelData->streams != NULL) {
-    sprintf(buffer, "%sStream.Flow", DumpPath);
-    OpenFile(&(ChannelData->streamout), buffer, "w", TRUE);
+    if (Options->SaveExtraStreamData) {
+      sprintf(buffer, "%sStream.Flow", DumpPath);
+      OpenFile(&(ChannelData->streamout), buffer, "w", TRUE);
+    }
     sprintf(buffer, "%sStreamflow.Only", DumpPath);
     OpenFile(&(ChannelData->streamflowout), buffer, "w", TRUE);
   }
@@ -248,7 +250,8 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   
   channel_save_outflow_text(buffer, ChannelData->streams,
                             ChannelData->streamout,
-                            ChannelData->streamflowout, flag);
+                            ChannelData->streamflowout, flag,
+                            Options->SaveExtraStreamData);
   
 }
 

@@ -682,7 +682,7 @@ int channel_save_outflow(double time, Channel * net, FILE * out, FILE * out2)
 {
   char buffer[16];
   sprintf(buffer, "%12.5g", time);
-  return (channel_save_outflow_text(buffer, net, out, out2, 0));
+  return (channel_save_outflow_text(buffer, net, out, out2, 0, 1));
 }
 
 /* -------------------------------------------------------------
@@ -691,7 +691,7 @@ Saves the channel outflow using a text string as the time field
 ------------------------------------------------------------- */
 int
   channel_save_outflow_text(char *tstring, Channel * net, FILE * out,
-  FILE * out2, int flag)
+  FILE * out2, int flag, int SaveExtraStreamData)
 {
   int err = 0;
   float total_outflow = 0.0;
@@ -701,7 +701,7 @@ int
   float total_error = 0.0;
   float total_infiltration = 0.0;
   float total_evaporation = 0.0;
-
+  
   if (flag == 1) {
     fprintf(out2, "DATE ");
     for (; net != NULL; net = net->next) {
@@ -714,67 +714,77 @@ int
     }
     fprintf(out2, "\n");
   }
-
-  // tsstring = date in the form of 01.01.1915-00:00:00 
+  
+  /* tsstring = date in the form of 01.01.1915-00:00:00 */
   if (fprintf(out2, "%15s ", tstring) == EOF) {
     error_handler(ERRHDL_ERROR,
       "channel_save_outflow: write error:%s", strerror(errno));
     err++;
   }
-
+  
   for (; net != NULL; net = net->next) {
-    total_lateral_inflow += (net->lateral_inflow + net->lake_inflow);
-    if (net->outlet == NULL) {
-      total_outflow += net->outflow;
-    }
-    total_storage += net->storage;
-    total_storage_change += net->storage - net->last_storage;
-    total_infiltration += net->infiltration;
-    total_evaporation += net->evaporation;
-
-    if (net->record) {
-      if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g",
-        tstring, net->id, net->inflow, net->lateral_inflow,
-        net->outflow, net->storage - net->last_storage, net->infiltration, net->evaporation) == EOF) {
-          error_handler(ERRHDL_ERROR,
-            "channel_save_outflow: write error:%s", strerror(errno));
-          err++;
+    if (SaveExtraStreamData) {
+      total_lateral_inflow += (net->lateral_inflow + net->lake_inflow);
+      if (net->outlet == NULL) {
+        total_outflow += net->outflow;
       }
+      total_storage += net->storage;
+      total_storage_change += net->storage - net->last_storage;
+      total_infiltration += net->infiltration;
+      total_evaporation += net->evaporation;
+    }
+    
+    if (net->record) {
+      /* Streamflow.Only file */
       if (fprintf(out2, "%12.5g ", net->outflow) == EOF) {
         error_handler(ERRHDL_ERROR,
-          "channel_save_outflow: write error:%s", strerror(errno));
+                      "channel_save_outflow: write error:%s", strerror(errno));
         err++;
       }
-      if (net->record_name != NULL) {
-        if (fprintf(out, "   \"%s\"\n", net->record_name) == EOF) {
+      
+      /* Stream.Flow file */
+      if (SaveExtraStreamData) {
+        if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g",
+                    tstring, net->id, net->inflow, net->lateral_inflow,
+                    net->outflow, net->storage - net->last_storage, net->infiltration, net->evaporation) == EOF) {
           error_handler(ERRHDL_ERROR,
-            "channel_save_outflow: write error:%s",
-            strerror(errno));
+                        "channel_save_outflow: write error:%s", strerror(errno));
           err++;
         }
+        if (net->record_name != NULL) {
+          if (fprintf(out, "   \"%s\"\n", net->record_name) == EOF) {
+            error_handler(ERRHDL_ERROR,
+                          "channel_save_outflow: write error:%s",
+                          strerror(errno));
+            err++;
+          }
+        }
+        else {
+          if (fprintf(out, "\n") == EOF) {
+            error_handler(ERRHDL_ERROR,
+                          "channel_save_outflow: write error:%s",
+                          strerror(errno));
+            err++;
+          }
+        }
+      } /* End of Stream.Flow */
+      
 
-      }
-      else {
-        if (fprintf(out, "\n") == EOF) {
-          error_handler(ERRHDL_ERROR,
-            "channel_save_outflow: write error:%s",
-            strerror(errno));
-          err++;
-        }
-      }
     }
   }
-  total_error = total_storage_change - total_lateral_inflow + total_outflow + total_infiltration + total_evaporation;
-  if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g \"Totals\"\n",
-    tstring, 0, total_lateral_inflow,
-    total_outflow, total_storage,
-    total_storage_change, total_infiltration, total_evaporation, total_error) == EOF) {
+  if (SaveExtraStreamData) {
+    total_error = total_storage_change - total_lateral_inflow + total_outflow + total_infiltration + total_evaporation;
+    if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g \"Totals\"\n",
+                tstring, 0, total_lateral_inflow,
+                total_outflow, total_storage,
+                total_storage_change, total_infiltration, total_evaporation, total_error) == EOF) {
       error_handler(ERRHDL_ERROR,
-        "channel_save_outflow: write error:%s", strerror(errno));
+                    "channel_save_outflow: write error:%s", strerror(errno));
       err++;
+    }
   }
   fprintf(out2, "\n");
-
+  
   return (err);
 }
 

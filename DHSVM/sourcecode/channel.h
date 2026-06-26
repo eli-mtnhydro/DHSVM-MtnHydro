@@ -82,7 +82,7 @@ void channel_segment_infil_evap(Channel * segment);
 int channel_route_network(Channel *net, int deltat);
 int channel_save_outflow(double time, Channel * net, FILE *file, FILE *file2);
 int channel_save_outflow_text(char *tstring, Channel *net, FILE *out,
-			      FILE *out2, int flag);
+			      FILE *out2, int flag, int SaveExtraStreamData);
 void channel_free_network(Channel *net);
 
 #endif

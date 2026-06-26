@@ -52,7 +52,7 @@ calculated in AdjustStorage() and CutBankGeometry()
 
 Eli Boardman added unsaturated lateral gravimetric interflow (2026)
 *****************************************************************************/
-void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
+void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float Infiltration,
   int NSoilLayers,
   float TotalDepth, float Area, float *RootDepth, float *Ks, float KsAnisotropy,
   float *PoreDist, float *Porosity, float *FCap,
@@ -115,7 +115,8 @@ void UnsaturatedFlow(int Dt, float DX, float DY, float Infiltration,
       /* Only permit interflow in soil layers that do NOT contain the water table
          to prevent conflicting routing directions and redundancy
          between unsaturated and saturated flow */
-      if (*TableDepth < LayerBottomDepth) {
+      if (!(Options->UseInterflow) ||
+          (*TableDepth < LayerBottomDepth)) {
         InterFlow = 0.0;
       }
       

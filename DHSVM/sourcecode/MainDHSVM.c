@@ -57,7 +57,7 @@ int main(int argc, char **argv) {
     {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, /* PIXRAD */
     {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
-	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
     {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
   ReadInitFile(InFiles.Const, &Input);
   InitConstants(Input, &Options, &Map, &SolarGeo, &Time);
   InitFileIO();
-  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg, &LType);
+  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg, &LType, &Time);
   InitTerrainMaps(Input, &Options, &Map, &Soil, &Veg, &TopoMap, SType, &SoilMap, VType, &VegMap, &DVeg, LType);
   InitSnowMap(&Map, &SnowMap, &Time);
   InitMappedConstants(Input, &Options, &Map, &SnowMap, VType, &VegMap);

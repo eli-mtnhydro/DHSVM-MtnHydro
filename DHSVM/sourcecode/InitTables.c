@@ -18,12 +18,12 @@
 /*******************************************************************************/
 void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options, 
   MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType, LAYER *Veg,
-  LAKETABLE **LType)
+  LAKETABLE **LType, TIMESTRUCT *Time)
 {
   printf("Initializing tables\n");
 
   if ((Soil->NTypes = InitSoilTable(Options, SType, Input, Soil,
-    Options->Infiltration)) == 0)
+    Options->Infiltration, Time)) == 0)
     ReportError("Input Options File", 8);
 
   if ((Veg->NTypes = InitVegTable(VType, Input, Options, Veg)) == 0)
@@ -58,7 +58,7 @@ Modifies     : SoilTable and Soil
 Comments     :
 ********************************************************************************/
 int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
-  LISTPTR Input, LAYER * Soil, int InfiltOption)
+  LISTPTR Input, LAYER * Soil, int InfiltOption, TIMESTRUCT *Time)
 {
   const char *Routine = "InitSoilTable";
   int i;			/* counter */
@@ -73,6 +73,7 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
     "VERTICAL ANISOTROPY",
     "MAXIMUM INFILTRATION",
     "CAPILLARY DRIVE",
+    "DEEP FLUX",
     "SURFACE ALBEDO",
     "MANNINGS N",
     "NUMBER OF SOIL LAYERS",
@@ -146,9 +147,14 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
     }
     else (*SType)[i].G_Infilt = NOT_APPLICABLE;
 
+    if (!CopyFloat(&((*SType)[i].DeepFlux), VarStr[deepflux], 1))
+      ReportError(KeyName[deepflux], 51);
+    /* Convert m/yr (config) to m/timestep (used in DistributeSatflow) */
+    (*SType)[i].DeepFlux /= (DAYPYEAR * Time->NDaySteps);
+
     if (!CopyFloat(&((*SType)[i].Albedo), VarStr[soil_albedo], 1))
       ReportError(KeyName[soil_albedo], 51);
-
+    
     if (!CopyInt(&(*SType)[i].NLayers, VarStr[number_of_layers], 1))
       ReportError(KeyName[number_of_layers], 51);
     Soil->NLayers[i] = (*SType)[i].NLayers;
