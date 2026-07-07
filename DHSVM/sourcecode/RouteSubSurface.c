@@ -105,7 +105,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   float water_out_stream;
   float water_in_stream;
   float Transmissivity;
-  float TotalAvailableWater = 0.0; /* Including water that flows laterally and to channels */
+  float TotalAvailableWater; /* Including water that flows laterally and to channels */
   float AvailableWater;
   float AdjTableDepth, AdjTableDepthK, AdjWaterLevel, AdjWaterLevelK;
   float PotentialSatFlow, ActualSatFlow, LayerContribWater, LayerStorageCap, DeltaTableDepth;
@@ -247,9 +247,10 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                          SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
                          SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                          AdjTableDepth, Adjust);
+    } else {
+      OutFlow = 0.0;
+      TotalAvailableWater = 0.0;
     }
-    else
-      OutFlow = 0.0f;
     
     /* Compute stream lateral inflow/outflow if water table is above channel cut */
     if (AdjTableDepth < BankHeight &&
@@ -581,9 +582,10 @@ void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   int x, nx;			/* counters */
   int y, ny;			/* counters */
   float fract_used;
+  float DeepFlux;
   float OutFlow;
   float Transmissivity;
-  float TotalAvailableWater = 0.0;
+  float TotalAvailableWater;
   float ActualSatFlow;
   int k, q;
   
@@ -645,9 +647,19 @@ void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                          SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
                          SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                          SoilMap[y][x].TableDepth, Network[y][x].Adjust);
+    } else {
+      OutFlow = 0.0;
+      TotalAvailableWater = 0.0;
     }
-    else
-      OutFlow = 0.0f;
+    
+    /* Add or subtract deep groundwater flux */
+    DeepFlux = SoilMap[y][x].MaxDeepFlux;
+    if (DeepFlux < 0.0) {
+      /* Only subtract as much water as available in saturated zone */
+      DeepFlux = ((TotalAvailableWater + DeepFlux) < 0.0) ? (TotalAvailableWater * -1.0) : DeepFlux;
+    }
+    SoilMap[y][x].SatFlow += DeepFlux;
+    TotalAvailableWater += DeepFlux;
     
     /* Subsurface Component - decrease water change only by as much
      as possible (up to transmissivity) to not violate TotalAvailableWater */
