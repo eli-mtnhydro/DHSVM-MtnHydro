@@ -235,14 +235,17 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
 
 void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass);
 
-void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x, float SineSolarAltitude,
-            float DX, float DY, int Dt, int HeatFluxOption, int CanopyRadAttOption,
-            int InfiltOption, int MaxSoilLayer, int MaxVegLayers, PIXMET *LocalMet,
-            NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip,  float SnowMeltMultiplier, VEGTABLE *VType,
-            VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil,
-            SNOWPIX *LocalSnow, PIXRAD *LocalRad, EVAPPIX *LocalEvap, PIXRAD *TotalRad,
-            CHANNEL *ChannelData, float **skyview,
-            SOILPIX *LocalSoilDownhill, VEGTABLE *VTypeDownhill, NETSTRUCT *LocalNetworkDownhill, TOPOPIX *LocalTopo);
+void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
+                       float SineSolarAltitude, float DX, float DY,
+                       int Dt, int HeatFluxOption, int CanopyRadAttOption,
+                       int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
+                       NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip, float SnowMeltMultiplier,
+                       VEGTABLE *LocalVType, VEGPIX *LocalVeg, SOILTABLE *SType,
+                       SOILPIX *LocalSoil, SNOWPIX *LocalSnow, PIXRAD *LocalRad,
+                       EVAPPIX *LocalEvap, PIXRAD *TotalRad, CHANNEL *ChannelData,
+                       float **skyview,
+                       VEGTABLE *VType, VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
+                       TOPOPIX *LocalTopo, TOPOPIX **TopoMap, MAPSIZE *Map);
 
 double pow (double a, double b);
 

@@ -26,15 +26,16 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
                        float *Porosity, float *FCap, float *Adjust,
                        float *TableDepth, float *Runoff, float *Moist);
 
-void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float Infiltration, 
-		     int NSoilLayers, 
-		     float TotalDepth, float Area, float *RootDepth, float *Ks, float KsAnisotropy,
-		     float *PoreDist, float *Porosity, float *FCap, float *Perc, 
-		     float *PercArea, float *Adjust, int CutBankZone, float BankHeight,
-			   float *TableDepth, float *Runoff, float *Moist, int InfiltOption,
-			   float *MoistDownhill, float *PorosityDownhill, float *InterFlowDownhill,
-			   float *RootDepthDownhill, float *AdjustDownhill, float *PercAreaDownhill,
-			   float cosTheta, float sinTheta);
+void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float Infiltration,
+                     int NSoilLayers,
+                     float TotalDepth, float Area, float *RootDepth, float *Ks, float KsAnisotropy,
+                     float *PoreDist, float *Porosity, float *FCap,
+                     float *Perc, float *PercArea, float *Adjust,
+                     int CutBankZone, float BankHeight, float *TableDepth,
+                     float *IExcess, float *Moist, int InfiltOption,
+                     VEGTABLE *VType, VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
+                     float cosTheta, float sinTheta, TOPOPIX **TopoMap,
+                     MAPSIZE *Map, int y, int x);
 
 float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
 		      float *Porosity, float *FCap, float *Adjust,

@@ -6,6 +6,7 @@
 #include "settings.h"
 #include "functions.h"
 #include "soilmoisture.h"
+#include "slopeaspect.h"
 
 /*****************************************************************************
 Function name: UnsaturatedFlow()
@@ -59,15 +60,15 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
   float *Perc, float *PercArea, float *Adjust,
   int CutBankZone, float BankHeight, float *TableDepth,
   float *IExcess, float *Moist, int InfiltOption,
-  float *MoistDownhill, float *PorosityDownhill, float *InterFlowDownhill,
-  float *RootDepthDownhill, float *AdjustDownhill, float *PercAreaDownhill,
-  float cosTheta, float sinTheta)
+  VEGTABLE *VType, VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
+  float cosTheta, float sinTheta, TOPOPIX **TopoMap,
+  MAPSIZE *Map, int y, int x)
 {
   float LayerBottomDepth, NextLayerDepth;
   float DeepLayerDepth;		/* depth of the layer below the deepest root layer */
   float Drainage;		    /* amount of water drained from each soil
                                layer during the current timestep */
-  float InterFlow; /* amount of water drained laterally */
+  float InterFlow, InterFlowK; /* amount of water drained laterally */
   float Exponent;		    /* Brooks-Corey exponent */
   float Multiplier; /* Brooks-Corey multiplicative factor on Ks */
   float FieldCapacity;		/* amount of water in soil at field capacity (m) */
@@ -75,7 +76,7 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
   float SoilWater;		    /* amount of water in each soil layer (m) */
   float LateralFrac; /* Fraction of total percolation that is routed laterally */
   float DownhillCapacity; /* Amount of water that neighbor cell's layer can accept */
-  int i;			        /* counter */
+  int i, k, nx, ny;			        /* counter */
 
   DeepLayerDepth = TotalDepth;
   for (i = 0; i < NSoilLayers; i++)
@@ -143,19 +144,33 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
       if (SoilWater > MaxSoilWater)
         Perc[i] += SoilWater - MaxSoilWater;
 
-      /* Update the moisture content in the current layer, and the layer
-         immediately below it, and the current layer in the down-slope cell */
-      
-      /* Only allow enough lateral flow to raise neighboring layer to saturation */
-      DownhillCapacity = (PorosityDownhill[i] - MoistDownhill[i] - InterFlowDownhill[i]) *
-                          RootDepthDownhill[i] * AdjustDownhill[i];
-      if (DownhillCapacity < 0.0)
-        DownhillCapacity = 0.0;
-      InterFlow = Perc[i] * LateralFrac;
-      if (InterFlow > DownhillCapacity) {
-        InterFlow = DownhillCapacity;
-        Perc[i] -= (InterFlow - DownhillCapacity);
+      /* Loop through adjacent cells and update the interflow (current layer) in down-slope cells */
+      InterFlow = 0.0;
+      for (k = 0; k < NDIRS; k++) {
+        if (TopoMap[y][x].Dir[k] > 0) {
+          nx = xdirection[k] + x;
+          ny = ydirection[k] + y;
+          if (valid_cell(Map, nx, ny) && INBASIN(TopoMap[ny][nx].Mask)) {
+            
+            /* Follows the topographic flow conventions of RouteSurface() */
+            InterFlowK = Perc[i] * LateralFrac * ((float) TopoMap[y][x].Dir[k] / (float) TopoMap[y][x].TotalDir);
+            
+            /* Only allow enough lateral flow to raise neighboring layer to saturation */
+            DownhillCapacity = (SoilMap[ny][nx].Porosity[i] - SoilMap[ny][nx].Moist[i] - SoilMap[ny][nx].InterFlow[i]) *
+                                VType[VegMap[ny][nx].Veg - 1].RootDepth[i] * Network[ny][nx].Adjust[i];
+            if (DownhillCapacity < 0.0)
+              DownhillCapacity = 0.0;
+            if (InterFlowK > DownhillCapacity) {
+              InterFlowK = DownhillCapacity;
+              Perc[i] -= (InterFlowK - DownhillCapacity);
+            }
+            InterFlow += InterFlowK;
+            SoilMap[ny][nx].InterFlow[i] += InterFlowK / (VType[VegMap[ny][nx].Veg - 1].RootDepth[i] * Network[ny][nx].Adjust[i]);
+          }
+        }
       }
+      
+      /* Update the moisture content in the current layer and the layer immediately below it */
       
       if (i < (NSoilLayers - 1))
         NextLayerDepth = RootDepth[i + 1];
@@ -163,8 +178,7 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
         NextLayerDepth = DeepLayerDepth;
       
       Moist[i] -= Perc[i] / (RootDepth[i] * Adjust[i]);
-      Moist[i + 1] += (Perc[i] - InterFlow) / (NextLayerDepth * Adjust[i + 1]);
-      InterFlowDownhill[i] += InterFlow / (RootDepthDownhill[i] * AdjustDownhill[i]);
+      Moist[i+1] += (Perc[i] - InterFlow) / (NextLayerDepth * Adjust[i+1]);
     }
     else
       Perc[i] = 0.0;

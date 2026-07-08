@@ -261,7 +261,7 @@ SurfaceEvaporation.o: SurfaceEvaporation.c settings.h DHSVMerror.h \
  channel_grid.h constants.h
 UnsaturatedFlow.o: UnsaturatedFlow.c constants.h settings.h functions.h \
  data.h Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h \
- soilmoisture.h
+ soilmoisture.h slopeaspect.h
 VarID.o: VarID.c settings.h data.h Calendar.h channel.h DHSVMerror.h \
  sizeofnt.h varid.h
 WaterTableDepth.o: WaterTableDepth.c settings.h soilmoisture.h

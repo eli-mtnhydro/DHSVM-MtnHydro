@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
   clock_t start, finish1;
   double runtime = 0.0;
   int t = 0;
-  int i, x, y, xdown, ydown;
+  int i, x, y;
   int NStats;
   uchar ***MetWeights = NULL;
   
@@ -228,9 +228,6 @@ int main(int argc, char **argv) {
     	        SoilMap[y][x].Temp[i] = LocalMet.Tair;
     		  }
     		  
-    		  xdown = x + xdirection[TopoMap[y][x].LateralDir];
-    		  ydown = y + ydirection[TopoMap[y][x].LateralDir];
-    		  
     		  MassEnergyBalance(&Options, y, x, SolarGeo.SineSolarAltitude,
                           Map.DX, Map.DY, Time.Dt,
                           Options.HeatFlux, Options.CanopyRadAtt,
@@ -241,8 +238,8 @@ int main(int argc, char **argv) {
                           &(SType[SoilMap[y][x].Soil - 1]), &(SoilMap[y][x]),
                           &(SnowMap[y][x]), &(RadiationMap[y][x]),
                           &(EvapMap[y][x]), &(Total.Rad), &ChannelData, SkyViewMap,
-                          &(SoilMap[ydown][xdown]), &(VType[VegMap[ydown][xdown].Veg - 1]),
-                          &(Network[ydown][xdown]), &(TopoMap[y][x]));
+                          VType, VegMap, Network, SoilMap,
+                          &(TopoMap[y][x]), TopoMap, &Map);
           
   		    PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
   		    PrecipMap[y][x].SnowAccum += PrecipMap[y][x].SnowFall;
