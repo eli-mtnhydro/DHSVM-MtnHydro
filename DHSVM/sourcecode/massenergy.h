@@ -14,8 +14,8 @@ float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 		       float VpdThres, float MoistThres, float WP,
 		       float TSoil, float SoilMoisture, float Vpd, float Rp);
 
-float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float Dormancy,
-                            float Beta, int Layer, float RsMax, float Rp, PIXMET *Met);
+float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float G0,
+                            float Dormancy, float Beta, int Layer, float RsMax, float Rp, PIXMET *Met);
 
 float Desorption(int Dt, float Moisture, float Porosity, float Ks, 
 			   float Press, float m);

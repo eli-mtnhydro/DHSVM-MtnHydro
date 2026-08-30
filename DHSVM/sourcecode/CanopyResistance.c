@@ -66,8 +66,8 @@ float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 /*****************************************************************************
  CanopyResistancePhoto()
  *****************************************************************************/
-float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float Dormancy,
-  float Beta, int Layer, float RsMax, float Rp, PIXMET *Met)
+float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float G0,
+  float Dormancy, float Beta, int Layer, float RsMax, float Rp, PIXMET *Met)
 {
   float FBeam, ParBeam, ParDiff, GsCanopy;
 
@@ -86,7 +86,7 @@ float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float Dormancy,
   ParBeam = Rp * FBeam;
   ParDiff = Rp * (1.0 - FBeam);
 
-  GsCanopy = PhotoCanopyConductance(Vcmax25, G1, Lai,
+  GsCanopy = PhotoCanopyConductance(Vcmax25, G1, G0, Lai,
     Met->SineSolarAltitude, ParBeam, ParDiff, Met->Tair,
     Met->Vpd * PHOTO_PA_TO_KPA, PHOTO_CA, Met->Press, PHOTO_GB, Beta, Dormancy, NULL);
 

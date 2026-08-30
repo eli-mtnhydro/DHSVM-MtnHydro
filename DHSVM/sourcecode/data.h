@@ -532,6 +532,7 @@ typedef struct {
   float *RsMin;			/* Minimum stomatal resistance */
   float *Vcmax25;			/* Maximum rate of carboxylation by the Rubisco enzyme */
   float *G1;			/* Slope of stomatal conductance with respect to VPD */
+  float *G0;			/* Intercept of minimum stomatal conductance (night/drought) */
   float *MoistThres;	/* Soil moisture threshold above which soil 
 						moisture does not restrict transpiration */
   float *VpdThres;		/* Vapor pressure deficit threshold above which

@@ -295,6 +295,7 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
     "MINIMUM RESISTANCE",
     "MAXIMUM CARBOXYLATION",
     "STOMATAL SLOPE",
+    "STOMATAL INTERCEPT",
     "MOISTURE THRESHOLD",
     "VAPOR PRESSURE DEFICIT",
     "RPC",
@@ -419,6 +420,9 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
       ReportError((char *)Routine, 1);
 
     if (!((*VType)[i].G1 = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+
+    if (!((*VType)[i].G0 = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
       ReportError((char *)Routine, 1);
 
     if (!((*VType)[i].MoistThres = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
@@ -584,6 +588,10 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
       if (!CopyFloat((*VType)[i].G1, VarStr[stomatal_slope],
                      (*VType)[i].NVegLayers))
         ReportError(KeyName[stomatal_slope], 51);
+      
+      if (!CopyFloat((*VType)[i].G0, VarStr[stomatal_intercept],
+                     (*VType)[i].NVegLayers))
+        ReportError(KeyName[stomatal_intercept], 51);
     }
 
     if (!CopyFloat((*VType)[i].MoistThres, VarStr[moisture_threshold],

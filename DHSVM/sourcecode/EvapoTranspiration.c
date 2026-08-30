@@ -21,16 +21,19 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
 {
   float *Rc;			/* canopy resistance associated with
                         conditions in each soil layer (s/m) */
+  float *RootWt;      /* fraction of transpiration drawn from each soil layer */
+  float RcPlant;      /* plant-level canopy resistance, PhotoET only (s/m) */
+  float Beta;         /* reciprocal of moisture-limiting factor in original multiplicative stomatal resistance */
+  float BetaLayer;    /* per-layer soil moisture-limiting factor */
   float DryEvapTime;	/* amount of time remaining during a timestep
-                        after the interception storage is depleted (sec) */
+                        after the interception storage is depleted (s) */
   float F;			    /* Fractional coverage by vegetation layer */
-  float SoilMoisture;	/* Amount of water in each soil layer (m) */
+  float SoilMoisture, PlantAvailableMoist;	/* Amount of water in each soil layer (m) */
   float WetArea;		/* relative leaf area wetted by interception storage */
   float WetEvapRate;	/* evaporation rate from wetted fraction per unit ground area (m/s) */
   float WetEvapTime;	/* amount of time needed to evaporate the amount of water
-                        in interception storage (sec) */
-  float Beta; /* Reciprocal of moisture-limiting factor in original multiplicative stomatal resistance */
-  int i;			    /* counter */
+                        in interception storage (s) */
+  int i;
 
 
   F = LocalVeg->Fract[Layer];
@@ -45,6 +48,8 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
 
   /* allocate memory for the canopy resistance array */
   if (!(Rc = (float *)calloc(VType->NSoilLayers, sizeof(float))))
+    ReportError("EvapoTranspiration()", 1);
+  if (!(RootWt = (float *)calloc(VType->NSoilLayers, sizeof(float))))
     ReportError("EvapoTranspiration()", 1);
 
   /* Calculate the evaporation rate in m/s */
@@ -121,29 +126,50 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   *Int *= F;
   LocalVeg->MaxInt[Layer] *= F;
 
-  /* Calculate the canopy conductances associated with the conditions in
-  each of the soil layers */
-  for (i = 0; i < VType->NSoilLayers; i++) {
-    if (PhotoET == TRUE) {
-      Beta = (Moist[i] - SType->WP[i]) / (VType->MoistThres[Layer] - SType->WP[i]);
-      Beta = MAX(0.0, MIN(1.0, Beta));
-      Rc[i] = CanopyResistancePhoto(LocalVeg->LAI[Layer],
-                                    VType->Vcmax25[Layer], VType->G1[Layer], LocalVeg->PhotoDormancy,
-                                    Beta, Layer, VType->RsMax[Layer], Rp, Met);
-    } else {
+  /* Canopy resistance and the distribution of root uptake among soil layers.
+   Jarvis / original: resistance is evaluated separately for each layer's moisture, and
+   uptake follows the prescribed root fractions.
+   Medlyn / photosynthesis: a plant integrates water stress over its whole root zone, so one
+   root-weighted Beta gives a single plant-level resistance, and the same
+   weights redistribute uptake toward wetter layers (compensatory root water uptake). */
+  if (PhotoET == TRUE) {
+
+    Beta = 0.0;
+    for (i = 0; i < VType->NSoilLayers; i++) {
+      BetaLayer = (Moist[i] - SType->WP[i]) / (VType->MoistThres[Layer] - SType->WP[i]);
+      BetaLayer = MAX(0.0, MIN(1.0, BetaLayer));
+      RootWt[i] = VType->RootFract[Layer][i] * BetaLayer;
+      Beta += RootWt[i];
+    }
+
+    RcPlant = CanopyResistancePhoto(LocalVeg->LAI[Layer],
+                                    VType->Vcmax25[Layer], VType->G1[Layer], VType->G0[Layer],
+                                    LocalVeg->PhotoDormancy, Beta, Layer, VType->RsMax[Layer], Rp, Met);
+
+    for (i = 0; i < VType->NSoilLayers; i++) {
+      Rc[i] = RcPlant;
+      /* Renormalize: Beta limits uptake through Rc, not by shrinking the weights a second time. */
+      if (Beta > 0.0)
+        RootWt[i] /= Beta;
+      else
+        RootWt[i] = VType->RootFract[Layer][i];
+    }
+  } else {
+    for (i = 0; i < VType->NSoilLayers; i++) {
       Rc[i] = CanopyResistance(LocalVeg->LAI[Layer], VType->RsMin[Layer],
                                VType->RsMax[Layer], VType->Rpc[Layer],
                                VType->VpdThres[Layer], VType->MoistThres[Layer],
                                SType->WP[i], SoilTemp[i], Moist[i], Met->Vpd, Rp);
+      RootWt[i] = VType->RootFract[Layer][i];
     }
   }
 
   /* Calculate the transpiration rate for the current vegetation layer,
   and adjust the soil moisture content in each of the soil layers */
   for (i = 0; i < VType->NSoilLayers; i++) {
-    ESoil[Layer][i] = (Met->Slope + Met->Gamma) /
-      (Met->Slope + Met->Gamma * (1 + Rc[i] / Ra)) * VType->RootFract[Layer][i] *
-      EPot[Layer] * Adjust[i];
+    ESoil[Layer][i] = ((Met->Slope + Met->Gamma) /
+                      (Met->Slope + Met->Gamma * (1 + Rc[i] / Ra))) *
+                        RootWt[i] * EPot[Layer] * Adjust[i];
 
     /* Calculate the amounts of water transpired during each timestep based
     on the evaporation and transpiration rates.  While there is still water
@@ -153,8 +179,11 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
     ESoil[Layer][i] *= WetEvapTime * (1 - WetArea) + DryEvapTime;
 
     SoilMoisture = Moist[i] * VType->RootDepth[i] * Adjust[i];
-    if (SoilMoisture < ESoil[Layer][i])
-      ESoil[Layer][i] = SoilMoisture;
+    PlantAvailableMoist = (Moist[i] - SType->WP[i]) * VType->RootDepth[i] * Adjust[i];
+    if (PlantAvailableMoist < 0.0)
+      PlantAvailableMoist = 0.0;
+    if (PlantAvailableMoist < ESoil[Layer][i])
+      ESoil[Layer][i] = PlantAvailableMoist;
 
     /* Correct the evaporation for the fractional overstory coverage and update
     the soil moisture */

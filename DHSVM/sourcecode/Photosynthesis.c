@@ -169,13 +169,13 @@ static float CiResidual(float Ci, float Vcmax25, float G1, float Vcmax, float Jm
  PhotoLeafFlux()
  Solve the coupled leaf system at fixed leaf temperature
 *****************************************************************************/
-void PhotoLeafFlux(float Vcmax25, float G1, float ParAbs, float Tleaf, float Vpd,
+void PhotoLeafFlux(float Vcmax25, float G1, float G0, float ParAbs, float Tleaf, float Vpd,
   float Ca, float Press, float Gb, float Beta, float Dormancy,
   float *An, float *Gs, float *Ci)
 {
   float Vcmax, Jmax, J, Rd;
   float GammaStar, Kc, Ko, Km, O2Pa;
-  float Slope, G0;
+  float Slope;
   float CiLo, CiHi, CiMid;
   float FLo, FHi;
   float AnLoc, GsLoc;
@@ -203,7 +203,7 @@ void PhotoLeafFlux(float Vcmax25, float G1, float ParAbs, float Tleaf, float Vpd
   if (Vpd < 0.05f)
     Vpd = 0.05f;
 
-  G0 = PHOTO_G0 * Dormancy; /* Temporary approximation heuristic for soil freezing */
+  G0 *= Dormancy; /* Temporary approximation heuristic for soil freezing */
   if (G0 < PHOTO_MIN_GS)
     G0 = PHOTO_MIN_GS;
 
@@ -478,7 +478,7 @@ void PhotoTwoLeafPartition(float Lai, float SinAlt, float ParBeam, float ParDiff
  is a canopy conductance in m/s; the caller inverts it to the resistance
  that the Penman-Monteith term in EvapoTranspiration() expects.
  *****************************************************************************/
-float PhotoCanopyConductance(float Vcmax25, float G1, float Lai, float SinAlt,
+float PhotoCanopyConductance(float Vcmax25, float G1, float G0, float Lai, float SinAlt,
   float ParBeam, float ParDiff, float Tair, float Vpd, float Ca, float Press,
   float Gb, float Beta, float Dormancy, float *AnCanopy)
 {
@@ -503,11 +503,11 @@ float PhotoCanopyConductance(float Vcmax25, float G1, float Lai, float SinAlt,
      photosynthetic capacity from the canopy nitrogen profile. */
   
   if (LaiSun > PHOTO_TINY)
-    PhotoLeafFlux(VcmaxSun, G1, ParSun, Tair, Vpd, Ca, Press, Gb, Beta, Dormancy,
+    PhotoLeafFlux(VcmaxSun, G1, G0, ParSun, Tair, Vpd, Ca, Press, Gb, Beta, Dormancy,
       &AnSun, &GsSun, &CiSun);
 
   if (LaiSha > PHOTO_TINY)
-    PhotoLeafFlux(VcmaxSha, G1, ParSha, Tair, Vpd, Ca, Press, Gb, Beta, Dormancy,
+    PhotoLeafFlux(VcmaxSha, G1, G0, ParSha, Tair, Vpd, Ca, Press, Gb, Beta, Dormancy,
       &AnSha, &GsSha, &CiSha);
 
   /* Conductances add in parallel across leaf area */

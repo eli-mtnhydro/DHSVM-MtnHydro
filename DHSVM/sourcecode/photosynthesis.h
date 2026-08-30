@@ -59,7 +59,6 @@
 /* Additional parameters */
 #define PHOTO_JMAXRATIO  1.7       /* 1.7 is common temperate value (Medlyn et al. 2002) */
 #define PHOTO_RD25RATIO  0.015     /* 0.015 of Vcmax25 (Collatz et al. 1991) */
-#define PHOTO_G0         0.01      /* 0.01 mol/m2/s is the SiB2/CABLE C3 default */
 #define PHOTO_T0         -4.0      /* lower temperature (C) for dormancy */
 #define PHOTO_T1         6.0       /* upper temperature (C) for dormancy */
 #define PHOTO_TAU        720000.0  /* time (seconds) for dormancy--default 200 hours */
@@ -141,7 +140,7 @@ float PhotoMolarToVelocity(float Tair, float Press);
      Gs       Stomatal conductance to H2O (mol/m2/s)
      Ci       Intercellular CO2 mole fraction (umol/mol)                       */
 
-void PhotoLeafFlux(float Vcmax25, float G1, float ParAbs, float Tleaf, float Vpd,
+void PhotoLeafFlux(float Vcmax25, float G1, float G0, float ParAbs, float Tleaf, float Vpd,
   float Ca, float Press, float Gb, float Beta, float Dormancy,
   float *An, float *Gs, float *Ci);
 
@@ -165,7 +164,7 @@ void PhotoTwoLeafPartition(float Lai, float SinAlt, float ParBeam, float ParDiff
    fractions and returns the LAI-weighted canopy conductance in m/s, ready to
    be inverted into the resistance that EvapoTranspiration() expects.
    Returns canopy conductance (m/s); optionally reports canopy An (umol/m2/s). */
-float PhotoCanopyConductance(float Vcmax25, float G1, float Lai, float SinAlt,
+float PhotoCanopyConductance(float Vcmax25, float G1, float G0, float Lai, float SinAlt,
   float ParBeam, float ParDiff, float Tair, float Vpd, float Ca, float Press,
   float Gb, float Beta, float Dormancy, float *AnCanopy);
 
