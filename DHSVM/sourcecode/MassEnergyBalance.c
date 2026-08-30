@@ -14,6 +14,7 @@
 #include "snow.h"
 #include "constants.h"
 #include "soilmoisture.h"
+#include "photosynthesis.h"
 #include "Calendar.h"
 
  /*****************************************************************************
@@ -29,8 +30,8 @@
 
  *****************************************************************************/
 void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
-  float SineSolarAltitude, float DX, float DY,
-  int Dt, int HeatFluxOption, int CanopyRadAttOption,
+  float DX, float DY, int Dt,
+  int HeatFluxOption, int CanopyRadAttOption,
   int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
   NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip, float SnowMeltMultiplier,
   VEGTABLE *LocalVType, VEGPIX *LocalVeg, SOILTABLE *SType,
@@ -115,14 +116,14 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
   /* calculate the radiation balance for pixels */
   RadiationBalance(Options, HeatFluxOption, CanopyRadAttOption,
-    LocalVType->OverStory, LocalVType->UnderStory, SineSolarAltitude,
+    LocalVType->OverStory, LocalVType->UnderStory, LocalMet->SineSolarAltitude,
     LocalMet->VICSin, LocalMet->Sin, LocalMet->SinBeam,
     LocalMet->SinDiffuse, LocalMet->Lin, LocalMet->Tair, LocalVeg->Tcanopy,
     LocalSoil->TSurf, SType->Albedo, LocalVType, LocalSnow, LocalRad, LocalVeg);
 
   /* if a gap is present, calculate radiation balance */
   if (Options->CanopyGapping && (LocalVeg->Gapping > 0.0)) {
-    CanopyGapRadiation(&(LocalVeg->Type), SineSolarAltitude, LocalMet->Sin,
+    CanopyGapRadiation(&(LocalVeg->Type), LocalMet->SineSolarAltitude, LocalMet->Sin,
       LocalMet->SinBeam, LocalMet->SinDiffuse, LocalMet->Lin, LocalSoil->TSurf,
       LocalVeg->Tcanopy, SType->Albedo, LocalVType, LocalSnow, LocalRad, LocalVeg->Gapping, LocalVeg);
 
@@ -136,7 +137,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       LocalVeg->Fract[0], LocalVeg->Type[Forest].Tcanopy, Tsurf);
 
     GapSurroundingShortRadiation(&(LocalVeg->Type[Forest]), LocalVType, LocalSnow,
-      SType->Albedo, SineSolarAltitude, LocalMet->Sin, LocalVeg);
+      SType->Albedo, LocalMet->SineSolarAltitude, LocalMet->Sin, LocalVeg);
   }
 
   /* calculate the actual aerodynamic resistances and wind speeds */
@@ -301,6 +302,11 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* calculate the amount of evapotranspiration from each vegetation layer
      above the ground/soil surface.  Also calculate the total amount of
      evapotranspiration from the vegetation */
+  
+  LocalVeg->PhotoAcclim += (LocalMet->Tair - LocalVeg->PhotoAcclim) * Dt / PHOTO_TAU;
+  LocalVeg->PhotoDormancy = (LocalVeg->PhotoAcclim - PHOTO_T0) / (PHOTO_T1 - PHOTO_T0);
+  LocalVeg->PhotoDormancy = MAX(0.0, MIN(1.0, LocalVeg->PhotoDormancy));
+  
   if (LocalVType->OverStory == TRUE) {
     Rp = VISFRACT * LocalRad->NetShort[0];
     if (Options->ImprovRadiation)
@@ -310,10 +316,13 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       NetRadiation = LocalRad->NetShort[0] +
       LocalRad->LongIn[0] - 2 * LocalVeg->Fract[0] * LocalRad->LongOut[0];
     LocalRad->NetRadiation[0] = NetRadiation;
+    
     EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
       Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, UpperRa, LocalVeg);
+      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, UpperRa, LocalVeg,
+      Options->PhotoET);
+    
     LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
 
     if (LocalSnow->HasSnow != TRUE && LocalVType->UnderStory == TRUE) {
@@ -322,10 +331,13 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
         LocalRad->NetShort[1] +
         LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
       LocalRad->NetRadiation[1] = NetRadiation;
+      
       EvapoTranspiration(1, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
         Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
         &(LocalPrecip->IntRain[1]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-        LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg);
+        LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg,
+        Options->PhotoET);
+      
       LocalVeg->MoistureFlux += LocalEvap->EAct[1] + LocalEvap->EInt[1];
     }
     else if (LocalVType->UnderStory == TRUE) {
@@ -339,10 +351,13 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     NetRadiation =
       LocalRad->NetShort[0] +
       LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
+    
     EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
       Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg);
+      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg,
+      Options->PhotoET);
+    
     LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
     LocalRad->NetRadiation[0] = NetRadiation;
     LocalRad->NetRadiation[1] = 0.;
@@ -449,14 +464,14 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
     CalcGapSurroudingET(Dt, &(LocalVeg->Type), SType, LocalVType, LocalRad, LocalMet,
       LocalSoil, LocalNetwork, UpperRa, LowerRa, LocalVeg,
-      DX, DY, x, y, ChannelData);
+      DX, DY, x, y, ChannelData, Options->PhotoET);
 
     /* update wind and aero resistance for gap opening */
     LowerRa = LocalVeg->Type[Opening].Ra[1] / LocalMet->Wind;
 
     CalcCanopyGapET(&(LocalVeg->Type), MaxSoilLayers, LocalVType, LocalVeg, SType,
       LocalSoil, LocalMet, LocalEvap, LocalNetwork, Dt, UpperRa, LowerRa,
-      DX, DY, x, y, ChannelData);
+      DX, DY, x, y, ChannelData, Options->PhotoET);
 
   }
 #endif

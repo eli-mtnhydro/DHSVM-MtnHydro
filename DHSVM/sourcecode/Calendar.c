@@ -76,9 +76,6 @@ int SScanDate(char *DateStr, DATE * Day)
   int Number[6];
   int DaysPerMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
 
-  if (Str == NULL)
-    return FALSE;
-
   strcpy(Str, DateStr);
 
   Length = strlen(Str);
@@ -502,9 +499,6 @@ int SScanMonthDay(char *DateStr, DATE * Day)
   int Length;
   int Number[6];
   int DaysPerMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
-  if (Str == NULL)
-    return FALSE;
 
   strcpy(Str, DateStr);
 

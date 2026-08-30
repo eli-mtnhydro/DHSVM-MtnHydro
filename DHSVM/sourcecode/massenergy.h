@@ -5,6 +5,7 @@
 #include "data.h"
 #include <stdarg.h>
 #include "DHSVMChannel.h"
+#include "photosynthesis.h"
 
 void AggregateRadiation(int MaxVegLayers, int NVegL, PIXRAD * Rad,
 			PIXRAD * TotalRad);
@@ -13,6 +14,9 @@ float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 		       float VpdThres, float MoistThres, float WP,
 		       float TSoil, float SoilMoisture, float Vpd, float Rp);
 
+float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float Dormancy,
+                            float Beta, int Layer, float RsMax, float Rp, PIXMET *Met);
+
 float Desorption(int Dt, float Moisture, float Porosity, float Ks, 
 			   float Press, float m);
 
@@ -20,7 +24,7 @@ void EvapoTranspiration(int Layer, int impvRad, int Dt, PIXMET *Met,
               float NetRad, float Rp, VEGTABLE *VType, SOILTABLE *SType,
               float MoistureFlux, float *Moist, float *Temp, float *Int,
               float *EPot, float *EInt, float **ESoil, float *EAct,
-              float *ETot, float *Adjust, float Ra, VEGPIX *LocalVeg);
+              float *ETot, float *Adjust, float Ra, VEGPIX *LocalVeg, int PhotoET);
 
 void InitLocalRad(int HeatFluxOption, float Rs, float Ld, float Tair, 
                float Tcanopy, float Tsoil, VEGTABLE *VType, 

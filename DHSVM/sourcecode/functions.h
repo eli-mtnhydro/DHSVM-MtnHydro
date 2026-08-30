@@ -236,8 +236,8 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
 void MassBalance(DATE *Current, DATE *Start, FILES *Out, AGGREGATED *Total, WATERBALANCE *Mass);
 
 void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
-                       float SineSolarAltitude, float DX, float DY,
-                       int Dt, int HeatFluxOption, int CanopyRadAttOption,
+                       float DX, float DY, int Dt,
+                       int HeatFluxOption, int CanopyRadAttOption,
                        int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
                        NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip, float SnowMeltMultiplier,
                        VEGTABLE *LocalVType, VEGPIX *LocalVeg, SOILTABLE *SType,
@@ -331,12 +331,12 @@ void CalcCanopyGapAerodynamic(CanopyGapStruct **Gap, int NVegLayers,
 void CalcCanopyGapET(CanopyGapStruct **Gap, int MaxSoilLayer, VEGTABLE *VType,
   VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil, PIXMET *LocalMet,
   EVAPPIX *LocalEvap, NETSTRUCT *LocalNetwork, int Dt, float UpperRa,
-  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData);
+  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData, int PhotoET);
 
 void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
   SOILTABLE *SType, VEGTABLE *VType, PIXRAD *LocalRad, PIXMET *LocalMet,
   SOILPIX *LocalSoil, NETSTRUCT *LocalNetwork, float UpperRa, float LowerRa,
-  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData);
+  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData, int PhotoET);
 
 void CanopyGapInterception(OPTIONSTRUCT *Options, CanopyGapStruct **Gap,
   int HeatFluxOption, int y, int x, int Dt, int NVegLActual,

@@ -102,6 +102,7 @@ typedef struct {
   float Eact;			/* Actual vapor pressure (Pa) */
   float Slope;			/* Slope of vapor pressure curve (Pa/C) */
   float Vpd;			/* Vapor pressure deficit (Pa) */
+  float SineSolarAltitude; /* sin(solar altitude) = cos(solar zenith) */
 } PIXMET;
 
 typedef struct {
@@ -199,8 +200,9 @@ typedef struct {
   int CressRadius;
   int CressStations;
   int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
-  int CanopyGapping;    /* if canopy gapping is on */
-  int SnowSlide;        /* if snow sliding option is true */
+  int PhotoET;          /* if TRUE then more sophisticated photosynthesis-based ET is used */
+  int CanopyGapping;    /* if TRUE canopy gapping is on */
+  int SnowSlide;        /* if TRUE snow sliding option is on */
   int PrecipSepr;       /* if TRUE use separate input of rain and snow */
   int SnowStats;        /* if TRUE dumps snow statistics for each water year */
   int DynamicVeg;       /* if TRUE update vegetation maps at user defined dates*/
@@ -492,6 +494,8 @@ typedef struct {
   int Veg;			            /* Vegetation type */
   float Gapping;                  /* gap diameter*/
   float Tcanopy;		        /* Canopy temperature (C) */
+  float PhotoAcclim;        /* Photosynthetic state of temperature acclimation (C) */
+  float PhotoDormancy;      /* Relative dormancy caused by PhotoAcclim */
   float MoistureFlux;		    /* Amount of water transported from the pixel
                                    to the atmosphere (m/timestep) */
   float MeltEnergy;			    /* Energy used to melt snow and change of cold content
@@ -526,6 +530,8 @@ typedef struct {
   float *MaxInt;		/* Maximum interception storage (m) */
   float *RsMax;			/* Maximum stomatal resistance */
   float *RsMin;			/* Minimum stomatal resistance */
+  float *Vcmax25;			/* Maximum rate of carboxylation by the Rubisco enzyme */
+  float *G1;			/* Slope of stomatal conductance with respect to VPD */
   float *MoistThres;	/* Soil moisture threshold above which soil 
 						moisture does not restrict transpiration */
   float *VpdThres;		/* Vapor pressure deficit threshold above which
@@ -545,7 +551,7 @@ typedef struct {
   float LeafAngleA;		/* parameter describing the Leaf Angle Distribution */
   float LeafAngleB;		/* parameter describing the leaf Angle Distribution */
   float Scat;			/* scattering parameter (between 0.7 and 0.85) */
-  float *Rpc;			/* fraction of radiaton that is photosynthetically active (PAR) */
+  float *Rpc;			/* reference light level for original multiplicative stomatal resistance */
   float *Albedo;		/* Albedo for each vegetation layer */
   float **AlbedoMonthly;
   float Cn;				/* Canopy attenuation coefficient for wind profile */

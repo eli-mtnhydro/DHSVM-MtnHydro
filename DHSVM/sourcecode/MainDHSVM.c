@@ -26,7 +26,7 @@
 /* GLOBAL VARIABLES */
 /******************************************************************************/
 
-char *version = "Version X.2.2";    /* store version string */
+char *version = "Version X.3.0";    /* store version string */
 char commandline[BUFSIZE + 1] = "";	/* store command line */
 char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
 	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
-    {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
+    {0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0
   };
   CHANNEL ChannelData = {NULL, NULL, NULL, NULL, NULL};
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
     	        SoilMap[y][x].Temp[i] = LocalMet.Tair;
     		  }
     		  
-    		  MassEnergyBalance(&Options, y, x, SolarGeo.SineSolarAltitude,
+    		  MassEnergyBalance(&Options, y, x,
                           Map.DX, Map.DY, Time.Dt,
                           Options.HeatFlux, Options.CanopyRadAtt,
                           Options.Infiltration, Soil.MaxLayers,

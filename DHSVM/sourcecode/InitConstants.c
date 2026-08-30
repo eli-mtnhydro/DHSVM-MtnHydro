@@ -71,7 +71,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "SHADING DATA EXTENSION", "", ""},
     {"OPTIONS", "SKYVIEW DATA PATH", "", ""},
 	  {"OPTIONS", "VARIABLE LIGHT TRANSMITTANCE", "", "" },
-    {"OPTIONS", "CANOPY GAPPING", "", "" },
+	  {"OPTIONS", "EVAPOTRANSPIRATION MODE", "", "SIMPLE" },
+	  {"OPTIONS", "CANOPY GAPPING", "", "" },
     {"OPTIONS", "SNOW SLIDING", "", "" },
     {"OPTIONS", "PRECIPITATION SEPARATION", "", "FALSE" },
     {"OPTIONS", "SNOW STATISTICS", "", "FALSE" },
@@ -310,6 +311,14 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     Options->ImprovRadiation = FALSE;
   else
     ReportError(StrEnv[improv_radiation].KeyName, 51);
+
+  /* Determine if the more sophisticated ET scheme will be used */
+  if (strncmp(StrEnv[photoet].VarStr, "PHOTOSYNTHESIS", 5) == 0)
+    Options->PhotoET = TRUE;
+  else if (strncmp(StrEnv[photoet].VarStr, "SIMPLE", 6) == 0)
+    Options->PhotoET = FALSE;
+  else
+    ReportError(StrEnv[photoet].KeyName, 51);
 
   /* Determine if canopy gapping will be modeled */
   if (strncmp(StrEnv[gapping].VarStr, "TRUE", 4) == 0)

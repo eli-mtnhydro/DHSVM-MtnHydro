@@ -98,7 +98,7 @@ enum KEYS {
   temp_lapse, cressman_radius, cressman_stations,
   prism_data_path, prism_data_ext, snowpattern_data_path,
   shading_data_path, shading_data_ext, skyview_data_path, 
-  improv_radiation, gapping, snowslide, sepr, 
+  improv_radiation, photoet, gapping, snowslide, sepr, 
   snowstats, dynaveg, streamdata, streamtime, gw_spinup, gw_spinup_yrs, gw_spinup_recharge,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
@@ -134,7 +134,7 @@ enum KEYS {
   veg_description = 0, overstory, understory, fraction, hemifraction, trunk_space,
   aerodynamic_att, beam_attn, diff_attn, clumping_factor, leaf_angle_a, leaf_angle_b,
   scat, snow_int_cap, mass_drip_ratio, snow_int_eff, imperv_frac, detention_frac, 
-  detention_decay, height, max_resistance, min_resistance, moisture_threshold, vpd, rpc,
+  detention_decay, height, max_resistance, min_resistance, max_carboxylation, stomatal_slope, moisture_threshold, vpd, rpc,
   number_of_root_zones, root_zone_depth, overstory_fraction, understory_fraction, 
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
   /* terrain information */

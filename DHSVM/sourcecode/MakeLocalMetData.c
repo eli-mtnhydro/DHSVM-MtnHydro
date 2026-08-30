@@ -38,8 +38,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
                         PRECIPPIX *PrecipMap, float **PrismMap, float **SnowPatternMap,
                         SNOWPIX *LocalSnow, CanopyGapStruct **Gap, VEGPIX *VegMap,
                         float precipMultiplier, int Month, float skyview,
-                        unsigned char shadow, float SunMax,
-                        float SineSolarAltitude)
+                        unsigned char shadow, float SunMax, float SineSolarAltitude)
 {
   float CurrentWeight;		/* weight for current station */
   float Temp;			/* Temporary variable */
@@ -56,6 +55,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   LocalMet.SinBeam = 0.0;
   LocalMet.SinDiffuse = 0.0;
   LocalMet.Lin = 0.0;
+  LocalMet.SineSolarAltitude = SineSolarAltitude;
   TempLapseRate = 0.0;
 
   WeightSum = 0.0;

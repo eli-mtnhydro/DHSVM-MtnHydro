@@ -50,6 +50,14 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
 
   printf("Restoring model state\n");
 
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN(TopoMap[y][x].Mask)) {
+        VegMap[y][x].PhotoAcclim = 25.0;
+      }
+    }
+  }
+  
   /* Restore canopy interception */
   NSet = 0;
   if (DEBUG)

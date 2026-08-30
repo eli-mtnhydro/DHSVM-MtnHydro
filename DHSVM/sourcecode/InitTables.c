@@ -293,6 +293,8 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
     "HEIGHT",
     "MAXIMUM RESISTANCE",
     "MINIMUM RESISTANCE",
+    "MAXIMUM CARBOXYLATION",
+    "STOMATAL SLOPE",
     "MOISTURE THRESHOLD",
     "VAPOR PRESSURE DEFICIT",
     "RPC",
@@ -411,6 +413,12 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
       ReportError((char *)Routine, 1);
 
     if (!((*VType)[i].RsMin = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+
+    if (!((*VType)[i].Vcmax25 = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+
+    if (!((*VType)[i].G1 = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
       ReportError((char *)Routine, 1);
 
     if (!((*VType)[i].MoistThres = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
@@ -567,6 +575,16 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
     if (!CopyFloat((*VType)[i].RsMin, VarStr[min_resistance],
       (*VType)[i].NVegLayers))
       ReportError(KeyName[min_resistance], 51);
+
+    if (Options->PhotoET == TRUE) {
+      if (!CopyFloat((*VType)[i].Vcmax25, VarStr[max_carboxylation],
+                     (*VType)[i].NVegLayers))
+        ReportError(KeyName[max_carboxylation], 51);
+      
+      if (!CopyFloat((*VType)[i].G1, VarStr[stomatal_slope],
+                     (*VType)[i].NVegLayers))
+        ReportError(KeyName[stomatal_slope], 51);
+    }
 
     if (!CopyFloat((*VType)[i].MoistThres, VarStr[moisture_threshold],
       (*VType)[i].NVegLayers))
