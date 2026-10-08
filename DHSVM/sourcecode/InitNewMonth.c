@@ -39,6 +39,9 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (DEBUG)
     printf("Initializing new month\n");
 
+  /* Year-varying atmospheric CO2, when configured (no-op otherwise). */
+  AtmosCO2Update(Time->Current.Year);
+
   /* If PRISM precipitation fields are being used to interpolate the
      observed precipitation fields, then read in the new months field */
 

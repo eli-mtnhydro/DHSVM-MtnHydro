@@ -320,8 +320,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
       Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, UpperRa, LocalVeg,
-      Options->PhotoET);
+      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, UpperRa,
+      LocalVeg, LocalSoil, Options);
     
     LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
 
@@ -335,8 +335,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       EvapoTranspiration(1, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
         Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
         &(LocalPrecip->IntRain[1]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-        LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg,
-        Options->PhotoET);
+        LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa,
+        LocalVeg, LocalSoil, Options);
       
       LocalVeg->MoistureFlux += LocalEvap->EAct[1] + LocalEvap->EInt[1];
     }
@@ -355,8 +355,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
       Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg,
-      Options->PhotoET);
+      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa,
+      LocalVeg, LocalSoil, Options);
     
     LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
     LocalRad->NetRadiation[0] = NetRadiation;
@@ -464,14 +464,14 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
     CalcGapSurroudingET(Dt, &(LocalVeg->Type), SType, LocalVType, LocalRad, LocalMet,
       LocalSoil, LocalNetwork, UpperRa, LowerRa, LocalVeg,
-      DX, DY, x, y, ChannelData, Options->PhotoET);
+      DX, DY, x, y, ChannelData, Options);
 
     /* update wind and aero resistance for gap opening */
     LowerRa = LocalVeg->Type[Opening].Ra[1] / LocalMet->Wind;
 
     CalcCanopyGapET(&(LocalVeg->Type), MaxSoilLayers, LocalVType, LocalVeg, SType,
       LocalSoil, LocalMet, LocalEvap, LocalNetwork, Dt, UpperRa, LowerRa,
-      DX, DY, x, y, ChannelData, Options->PhotoET);
+      DX, DY, x, y, ChannelData, Options);
 
   }
 #endif

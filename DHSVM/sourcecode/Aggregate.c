@@ -65,6 +65,45 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   Total->Evap.EvapSoil += Evap[y][x].EvapSoil;
   Total->Evap.EvapChannel += Evap[y][x].EvapChannel;
   
+  /* Sperry/Medlyn canopy diagnostics.  Rc is accumulated as CONDUCTANCE:
+   resistances combine in parallel across a basin, so an arithmetic mean of
+   Rc is dominated by the RsMax pixels and overstates basin resistance. */
+  for (i = 0; i < NVegL; i++)
+    Total->Veg.Rc[i] += (VegMap[y][x].Rc[i] > 0.0) ? 1.0 / VegMap[y][x].Rc[i] : 0.0;
+  Total->Veg.PhotoDormancy += VegMap[y][x].PhotoDormancy;
+
+  /* Plant hydraulic diagnostics, per canopy layer.
+
+     Water potentials are INTENSIVE, so unlike a flux they cannot simply be
+     summed over the basin and divided by NPixels: a pixel with no vegetation
+     in a given layer contributes a potential of 0 MPa, which is the wettest
+     possible value and would bias the basin mean toward "unstressed".  So
+     each layer carries its own count of contributing pixels, incremented
+     only where that layer actually has leaf area, and the divide below uses
+     it.  NVegPix is a diagnostic counter, not model state. */
+  for (i = 0; i < NVegL; i++) {
+    Total->Veg.AnCanopy[i] += VegMap[y][x].AnCanopy[i];
+    Total->Veg.Escheme[i]  += VegMap[y][x].Escheme[i];
+    Total->Veg.Ecrit[i]    += VegMap[y][x].Ecrit[i];
+    Total->Veg.SupplyLimited[i] += VegMap[y][x].SupplyLimited[i];
+
+    /* PsiSoil is computed for every scheme, so it is averaged over the
+       vegetated fraction whether or not the hydraulic scheme ran. */
+    if (VegMap[y][x].LAI != NULL && VegMap[y][x].LAI[i] > 0.0)
+      Total->Veg.PsiSoil[i] += VegMap[y][x].PsiSoil[i];
+
+    if (VegMap[y][x].LAI != NULL && VegMap[y][x].LAI[i] > 0.0) {
+      Total->NVegPix[i]++;
+      Total->Veg.Tleaf[i]        += VegMap[y][x].Tleaf[i];
+      Total->Veg.VpdLeaf[i]      += VegMap[y][x].VpdLeaf[i];
+      Total->Veg.PsiRoot[i]      += VegMap[y][x].PsiRoot[i];
+      Total->Veg.PsiLeaf[i]      += VegMap[y][x].PsiLeaf[i];
+      Total->Veg.PLC[i]          += VegMap[y][x].PLC[i];
+      Total->Veg.SafetyMargin[i] += VegMap[y][x].SafetyMargin[i];
+      Total->Veg.HydStress[i]    += VegMap[y][x].HydStress[i];
+    }
+  }
+  
   /* aggregate precipitation data */
   Total->Precip.Precip += Precip[y][x].Precip;
       Total->Precip.SnowFall += Precip[y][x].SnowFall;
@@ -187,7 +226,31 @@ void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
   }
   Total->Evap.EvapSoil /= NPixels;
   Total->Evap.EvapChannel /= NPixels;
+  
+  for (i = 0; i < Veg->MaxLayers; i++)
+    Total->Veg.Rc[i] = (Total->Veg.Rc[i] > 0.0) ? (float)NPixels / Total->Veg.Rc[i] : DHSVM_HUGE;
+  Total->Veg.PhotoDormancy /= NPixels;
 
+  /* Extensive quantities over the whole basin; intensive ones over the
+     vegetated fraction only (see the note where these are accumulated). */
+  for (i = 0; i < Veg->MaxLayers; i++) {
+    Total->Veg.AnCanopy[i] /= NPixels;
+    Total->Veg.Escheme[i]  /= NPixels;
+    Total->Veg.Ecrit[i]    /= NPixels;
+
+    if (Total->NVegPix[i] > 0) {
+      float N = (float) Total->NVegPix[i];
+      Total->Veg.Tleaf[i]        /= N;
+      Total->Veg.VpdLeaf[i]      /= N;
+      Total->Veg.PsiSoil[i]      /= N;
+      Total->Veg.PsiRoot[i]      /= N;
+      Total->Veg.PsiLeaf[i]      /= N;
+      Total->Veg.PLC[i]          /= N;
+      Total->Veg.SafetyMargin[i] /= N;
+      Total->Veg.HydStress[i]    /= N;
+    }
+  }
+  
   /* average precipitation data */
   Total->Precip.Precip /= NPixels;
   Total->Precip.SnowFall /= NPixels;

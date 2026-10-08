@@ -34,6 +34,27 @@ void ResetAggregate(LAYER * Soil, LAYER * Veg, AGGREGATED * Total,
   Total->Evap.EvapSoil = 0.0;
   Total->Evap.EvapChannel = 0.0;
 
+  for (i = 0; i < Veg->MaxLayers; i++)
+    Total->Veg.Rc[i] = 0.0;
+  Total->Veg.PhotoDormancy = 0.0;
+
+  for (i = 0; i < Veg->MaxLayers; i++) {
+    Total->NVegPix[i]           = 0;
+    Total->Veg.Tleaf[i]         = 0.0;
+    Total->Veg.VpdLeaf[i]       = 0.0;
+    Total->Veg.PsiSoil[i]       = 0.0;
+    Total->Veg.PsiRoot[i]       = 0.0;
+    Total->Veg.PsiLeaf[i]       = 0.0;
+    Total->Veg.PLC[i]           = 0.0;
+    Total->Veg.SafetyMargin[i]  = 0.0;
+    Total->Veg.HydStress[i]     = 0.0;
+    Total->Veg.Escheme[i]       = 0.0;
+    Total->Veg.Ecrit[i]         = 0.0;
+    Total->Veg.Tsupply[i]       = 0.0;
+    Total->Veg.AnCanopy[i]      = 0.0;
+    Total->Veg.SupplyLimited[i] = 0;
+  }
+  
   /* initialize precipitation data */
   Total->Precip.Precip = 0.0;
   Total->Precip.SnowFall = 0.0;

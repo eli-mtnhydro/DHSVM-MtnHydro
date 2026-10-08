@@ -59,7 +59,24 @@ int main(int argc, char **argv) {
 	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
 	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
-    {0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
+    {0, 0.0, 0.0, 0.0, 0.0,            /* Veg, Gapping, Tcanopy, PhotoAcclim,
+                                          PhotoDormancy                     */
+     /* Plant hydraulic diagnostics, per canopy layer -- see VEGPIX in
+        data.h.  Anything added there must gain an initializer here IN THE
+        SAME ORDER; a positional initializer that falls out of step reports
+        its error somewhere unrelated. */
+     {0.0, 0.0},   /* Tleaf         */  {0.0, 0.0},   /* VpdLeaf       */
+     {0.0, 0.0},   /* PsiSoil       */  {0.0, 0.0},   /* PsiRoot       */
+     {0.0, 0.0},   /* PsiLeaf       */  {0.0, 0.0},   /* PLC           */
+     {0.0, 0.0},   /* SafetyMargin  */  {0.0, 0.0},   /* HydStress     */
+     {0.0, 0.0},   /* Escheme       */  {0.0, 0.0},   /* Ecrit         */
+     {0.0, 0.0},   /* Tsupply       */  {0.0, 0.0},   /* AnCanopy      */
+     {0, 0},       /* SupplyLimited */  {0.0, 0.0},   /* Rc            */
+     0.0, 0.0,                          /* MoistureFlux, MeltEnergy       */
+     NULL, NULL, NULL, NULL, NULL,      /* Fract, LAI, Height, LAIMonthly,
+                                           MaxInt                         */
+     0.0, NULL},                        /* Vf, Type                       */
+                                                                /* VEGPIX */
     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0
   };
   CHANNEL ChannelData = {NULL, NULL, NULL, NULL, NULL};

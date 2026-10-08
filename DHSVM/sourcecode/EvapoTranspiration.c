@@ -17,14 +17,13 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   float NetRad, float Rp, VEGTABLE *VType, SOILTABLE *SType,
   float MoistureFlux, float *Moist, float *SoilTemp, float *Int,
   float *EPot, float *EInt, float **ESoil, float *EAct, float *ETot,
-  float *Adjust, float Ra, VEGPIX *LocalVeg, int PhotoET)
+  float *Adjust, float Ra, VEGPIX *LocalVeg, SOILPIX *LocalSoil,
+  OPTIONSTRUCT *Options)
 {
   float *Rc;			/* canopy resistance associated with
                         conditions in each soil layer (s/m) */
   float *RootWt;      /* fraction of transpiration drawn from each soil layer */
-  float RcPlant;      /* plant-level canopy resistance, PhotoET only (s/m) */
-  float Beta;         /* reciprocal of moisture-limiting factor in original multiplicative stomatal resistance */
-  float BetaLayer;    /* per-layer soil moisture-limiting factor */
+  float RcPlant;      /* plant-level canopy resistance, Options only (s/m) */
   float DryEvapTime;	/* amount of time remaining during a timestep
                         after the interception storage is depleted (s) */
   float F;			    /* Fractional coverage by vegetation layer */
@@ -33,6 +32,7 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   float WetEvapRate;	/* evaporation rate from wetted fraction per unit ground area (m/s) */
   float WetEvapTime;	/* amount of time needed to evaporate the amount of water
                         in interception storage (s) */
+  CANOPYHYD Hyd;
   int i;
 
 
@@ -127,42 +127,78 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   LocalVeg->MaxInt[Layer] *= F;
 
   /* Canopy resistance and the distribution of root uptake among soil layers.
-   Jarvis / original: resistance is evaluated separately for each layer's moisture, and
-   uptake follows the prescribed root fractions.
-   Medlyn / photosynthesis: a plant integrates water stress over its whole root zone, so one
-   root-weighted Beta gives a single plant-level resistance, and the same
-   weights redistribute uptake toward wetter layers (compensatory root water uptake). */
-  if (PhotoET == TRUE) {
 
-    Beta = 0.0;
-    for (i = 0; i < VType->NSoilLayers; i++) {
-      BetaLayer = (Moist[i] - SType->WP[i]) / (VType->MoistThres[Layer] - SType->WP[i]);
-      BetaLayer = MAX(0.0, MIN(1.0, BetaLayer));
-      RootWt[i] = VType->RootFract[Layer][i] * BetaLayer;
-      Beta += RootWt[i];
-    }
+     JARVIS: resistance is evaluated separately for each layer's moisture and
+     uptake follows the prescribed root fractions (Wigmosta et al. 1994).
 
-    RcPlant = CanopyResistancePhoto(LocalVeg->LAI[Layer],
-                                    VType->Vcmax25[Layer], VType->G1[Layer], VType->G0[Layer],
-                                    LocalVeg->PhotoDormancy, Beta, Layer, VType->RsMax[Layer], Rp, Met);
+     Everything else goes through the single seam in CanopyResistance.c: one
+     plant-level resistance, and per-layer uptake weights that come either
+     from the empirical beta (HYD_NONE) or from the Krs/SUF macroscopic root
+     model (HYD_KRSSUF; Couvreur 2012, Vanderborght 2021). */
+  /* Root-zone soil water potential, computed for EVERY scheme.  It is a
+     property of the soil state, so it is the one variable on which Jarvis,
+     the empirical-beta paths and the hydraulic schemes can be compared
+     directly.  Costs one Brooks-Corey evaluation per soil layer. */
+  LocalVeg->PsiSoil[Layer] =
+    CanopyRootZonePotential(Layer, VType, SType, LocalSoil, Moist);
 
-    for (i = 0; i < VType->NSoilLayers; i++) {
-      Rc[i] = RcPlant;
-      /* Renormalize: Beta limits uptake through Rc, not by shrinking the weights a second time. */
-      if (Beta > 0.0)
-        RootWt[i] /= Beta;
-      else
-        RootWt[i] = VType->RootFract[Layer][i];
-    }
-  } else {
+  if (Options->StomScheme == JARVIS) {
     for (i = 0; i < VType->NSoilLayers; i++) {
       Rc[i] = CanopyResistance(LocalVeg->LAI[Layer], VType->RsMin[Layer],
                                VType->RsMax[Layer], VType->Rpc[Layer],
                                VType->VpdThres[Layer], VType->MoistThres[Layer],
-                               SType->WP[i], SoilTemp[i], Moist[i], Met->Vpd, Rp);
+                               SType->WP[i], SoilTemp[i], Moist[i],
+                               Met->Vpd, Rp);
       RootWt[i] = VType->RootFract[Layer][i];
     }
   }
+  else {
+    RcPlant = CanopyResistanceScheme(Options->StomScheme, Options->Hydraulics,
+                LocalVeg->LAI[Layer], Layer, Rp, NetRad, Met, VType, SType,
+                LocalSoil, Moist, LocalVeg->PhotoDormancy, &Hyd);
+
+    /* ProfitMax, ProfitMax2 and SOX solve transpiration themselves, with a
+       leaf energy balance and the leaf-to-air VPD; the number they return is
+       also the one their leaf water potentials, PLC and root uptake were
+       computed from.  Penman-Monteith below must therefore return that
+       transpiration, not re-derive one from Rc and the AIR VPD -- which is
+       what produced near-potential rates at dawn and dusk whenever the leaf
+       VPD was small.  Invert PM for the resistance that reproduces Escheme
+       (docs/provenance.md departure #1, now implemented).  The Medlyn paths
+       keep conductance as their state variable and leave Rc as computed. */
+    if (Hyd.EConsistent) {
+      float RcMin = (LocalVeg->LAI[Layer] > 0.0)
+                    ? VType->RsMin[Layer] / LocalVeg->LAI[Layer]
+                    : VType->RsMax[Layer];
+      RcPlant = CanopyResistanceFromFlux(Hyd.Escheme, EPot[Layer], Met->Slope,
+                                         Met->Gamma, Ra, RcMin,
+                                         VType->RsMax[Layer]);
+      Hyd.Rc = RcPlant;
+    }
+
+    for (i = 0; i < VType->NSoilLayers; i++) {
+      Rc[i] = RcPlant;
+      RootWt[i] = Hyd.Efrac[i];
+    }
+
+    /* Per canopy layer, so the overstory no longer overwrites the
+       understory (or the other way round). */
+    LocalVeg->PsiLeaf[Layer]       = Hyd.PsiLeaf;
+    LocalVeg->PsiRoot[Layer]       = Hyd.PsiRoot;
+    LocalVeg->PsiSoil[Layer]       = Hyd.Heff;
+    LocalVeg->PLC[Layer]           = Hyd.PLC;
+    LocalVeg->SafetyMargin[Layer]  = Hyd.SafetyMargin;
+    LocalVeg->HydStress[Layer]     = Hyd.Beta;
+    LocalVeg->Tleaf[Layer]         = Hyd.Tleaf;
+    LocalVeg->VpdLeaf[Layer]       = Hyd.VpdLeaf;
+    LocalVeg->AnCanopy[Layer]      = Hyd.An;
+    LocalVeg->Escheme[Layer]       = Hyd.Escheme;
+    LocalVeg->Ecrit[Layer]         = Hyd.Ecrit;
+    LocalVeg->Tsupply[Layer]       = Hyd.Tsupply;
+    LocalVeg->SupplyLimited[Layer] = (Hyd.Tsupply >= 0.0f);
+  }
+
+  LocalVeg->Rc[Layer] = Rc[0]; /* Plant-level under Medlyn/Sperry, layer 0 under Jarvis */
 
   /* Calculate the transpiration rate for the current vegetation layer,
   and adjust the soil moisture content in each of the soil layers */
@@ -194,11 +230,34 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
 
   }
 
+  /* Supply limit.  When the root Dirichlet switch fires (Leitner et al. 2025
+     sec. 2.3) the soil cannot deliver what the atmosphere is demanding, and
+     Penman-Monteith has no way to know that.  Scale the layer fluxes down to
+     what the root system can actually supply.  Without this the model
+     transpires water the hydraulics have already declared unavailable.
+     Tsupply < 0 means unlimited.  Runs AFTER the plant-available-water clamp
+     so the tighter of the two limits wins. */
+  if (Options->StomScheme != JARVIS && Hyd.Tsupply >= 0.0f) {
+    float EDemand = 0.0f, ESupply, Scale;
+    for (i = 0; i < VType->NSoilLayers; i++) EDemand += ESoil[Layer][i];
+    ESupply = Hyd.Tsupply * (float)Dt * F;
+    if (EDemand > ESupply && EDemand > 0.0f) {
+      Scale = ESupply / EDemand;
+      for (i = 0; i < VType->NSoilLayers; i++) {
+        /* Give the water back to the soil that the clamp already removed. */
+        Moist[i] += (ESoil[Layer][i] * (1.0f - Scale)) /
+                    (VType->RootDepth[i] * Adjust[i]);
+        ESoil[Layer][i] *= Scale;
+      }
+    }
+  }
+
   for (i = 0, EAct[Layer] = 0; i < VType->NSoilLayers; i++) {
     *ETot += ESoil[Layer][i];
     EAct[Layer] += ESoil[Layer][i];
   }
   
   free(Rc);
+  free(RootWt);   /* Phase V: was leaking since the Medlyn path went in */
 }
 

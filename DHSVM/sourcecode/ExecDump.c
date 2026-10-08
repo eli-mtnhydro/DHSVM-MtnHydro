@@ -824,6 +824,48 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
     fprintf(OutFile->FilePtr, " SoilEvap ");
 
     for (i = 0; i < NCanopyStory; i++)
+      fprintf(OutFile->FilePtr, " Rc.Story%d ", i);
+    /* Soil water potential prints for EVERY scheme, Jarvis included: it
+       describes the soil state, not the stomatal model, and it is the common
+       axis on which schemes can be compared. */
+    for (i = 0; i < NCanopyStory; i++)
+      fprintf(OutFile->FilePtr, " PsiSoil.Story%d ", i);
+
+    if (Options->StomScheme != JARVIS) {
+      fprintf(OutFile->FilePtr, " PhotoDormancy ");
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " AnCanopy.Story%d ", i);
+
+      if (Options->Hydraulics == HYD_KRSSUF) {
+        /* Plant hydraulic diagnostics, one column per canopy story.
+           PsiSoil -> PsiRoot -> PsiLeaf is the potential gradient down the
+           soil-plant-atmosphere continuum, so the three read together as a
+           profile.  PLC and SafetyMargin are the currencies the drought
+           and thinning literature reports in. */
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " PsiRoot.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " PsiLeaf.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " PLC.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " SafetyMargin.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " HydStress.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " Ecrit.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " Escheme.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " SupplyLimited.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " Tleaf.Story%d ", i);
+        for (i = 0; i < NCanopyStory; i++)
+          fprintf(OutFile->FilePtr, " VpdLeaf.Story%d ", i);
+      }
+    }
+
+    for (i = 0; i < NCanopyStory; i++)
       fprintf(OutFile->FilePtr, " IntRain.Story%d ", i);
     for (i = 0; i < NCanopyStory; i++)
       fprintf(OutFile->FilePtr, " IntSnow.Story%d ", i);
@@ -894,6 +936,40 @@ void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
   /* evaporation from uppper soil */
   fprintf(OutFile->FilePtr, " %g", Evap->EvapSoil);
 
+  for (i = 0; i < NCanopyStory; i++)
+    fprintf(OutFile->FilePtr, " %g", Veg->Rc[i]);
+  for (i = 0; i < NCanopyStory; i++)
+    fprintf(OutFile->FilePtr, " %g", Veg->PsiSoil[i]);
+
+  if (Options->StomScheme != JARVIS) {
+    fprintf(OutFile->FilePtr, " %g", Veg->PhotoDormancy);
+    for (i = 0; i < NCanopyStory; i++)
+      fprintf(OutFile->FilePtr, " %g", Veg->AnCanopy[i]);
+
+    if (Options->Hydraulics == HYD_KRSSUF) {
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->PsiRoot[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->PsiLeaf[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->PLC[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->SafetyMargin[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->HydStress[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->Ecrit[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->Escheme[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %d", Veg->SupplyLimited[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->Tleaf[i]);
+      for (i = 0; i < NCanopyStory; i++)
+        fprintf(OutFile->FilePtr, " %g", Veg->VpdLeaf[i]);
+    }
+  }
+  
   for (i = 0; i < NCanopyStory; i++)
     fprintf(OutFile->FilePtr, " %g", Precip->IntRain[i]);
   for (i = 0; i < NCanopyStory; i++)

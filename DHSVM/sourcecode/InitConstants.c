@@ -71,7 +71,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"OPTIONS", "SHADING DATA EXTENSION", "", ""},
     {"OPTIONS", "SKYVIEW DATA PATH", "", ""},
 	  {"OPTIONS", "VARIABLE LIGHT TRANSMITTANCE", "", "" },
-	  {"OPTIONS", "EVAPOTRANSPIRATION MODE", "", "SIMPLE" },
+	  {"OPTIONS", "STOMATAL SCHEME", "", "JARVIS"},
+	  {"OPTIONS", "PLANT HYDRAULICS", "", "NONE"},
 	  {"OPTIONS", "CANOPY GAPPING", "", "" },
     {"OPTIONS", "SNOW SLIDING", "", "" },
     {"OPTIONS", "PRECIPITATION SEPARATION", "", "FALSE" },
@@ -122,6 +123,8 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
     {"CONSTANTS", "SOIL FIELD CAP ADJUST", "", "1.0" },
     {"CONSTANTS", "VEG LAI ADJUST", "", "1.0" },
     {"CONSTANTS", "VEG TREE COVER ADJUST", "", "1.0" },
+    {"CONSTANTS", "ATMOSPHERIC CO2", "", "420.0" },
+    {"CONSTANTS", "ATMOSPHERIC CO2 FILE", "", "" },
     {NULL, NULL, "", NULL}
   };
 
@@ -312,13 +315,40 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   else
     ReportError(StrEnv[improv_radiation].KeyName, 51);
 
-  /* Determine if the more sophisticated ET scheme will be used */
-  if (strncmp(StrEnv[photoet].VarStr, "PHOTOSYNTHESIS", 5) == 0)
-    Options->PhotoET = TRUE;
-  else if (strncmp(StrEnv[photoet].VarStr, "SIMPLE", 6) == 0)
-    Options->PhotoET = FALSE;
+  /* Stomatal conductance scheme and plant hydraulics -- two orthogonal
+     switches.  See docs/provenance.md sec. 5 for the valid combinations and
+     which published model each one corresponds to. */
+  if      (strncmp(StrEnv[stomatal_scheme].VarStr, "JARVIS", 6)      == 0)
+    Options->StomScheme = JARVIS;
+  else if (strncmp(StrEnv[stomatal_scheme].VarStr, "MEDLYN", 6)      == 0)
+    Options->StomScheme = MEDLYN;
+  else if (strncmp(StrEnv[stomatal_scheme].VarStr, "PROFITMAX2", 10) == 0)
+    Options->StomScheme = PROFITMAX2;   /* MUST precede PROFITMAX */
+  else if (strncmp(StrEnv[stomatal_scheme].VarStr, "PROFITMAX", 9)   == 0)
+    Options->StomScheme = PROFITMAX;
+  else if (strncmp(StrEnv[stomatal_scheme].VarStr, "SPERRY", 6)      == 0)
+    Options->StomScheme = PROFITMAX;    /* accepted alias, pre-Phase-V name */
+  else if (strncmp(StrEnv[stomatal_scheme].VarStr, "SOX", 3)         == 0)
+    Options->StomScheme = SOX;
   else
-    ReportError(StrEnv[photoet].KeyName, 51);
+    ReportError(StrEnv[stomatal_scheme].KeyName, 51);
+
+  if      (strncmp(StrEnv[plant_hydraulics].VarStr, "NONE", 4)   == 0)
+    Options->Hydraulics = HYD_NONE;
+  else if (strncmp(StrEnv[plant_hydraulics].VarStr, "KRSSUF", 6) == 0)
+    Options->Hydraulics = HYD_KRSSUF;
+  else
+    ReportError(StrEnv[plant_hydraulics].KeyName, 51);
+
+  /* Reject combinations that have no published counterpart.  Failing at
+     startup beats discovering it in the output of a multi-decade run. */
+  if (Options->StomScheme == JARVIS && Options->Hydraulics != HYD_NONE)
+    ReportError("OPTIONS: JARVIS requires PLANT HYDRAULICS = NONE", 51);
+  if ((Options->StomScheme == PROFITMAX  ||
+       Options->StomScheme == PROFITMAX2 ||
+       Options->StomScheme == SOX) && Options->Hydraulics != HYD_KRSSUF)
+    ReportError("OPTIONS: PROFITMAX/PROFITMAX2/SOX require "
+                "PLANT HYDRAULICS = KRSSUF", 51);
 
   /* Determine if canopy gapping will be modeled */
   if (strncmp(StrEnv[gapping].VarStr, "TRUE", 4) == 0)
@@ -608,6 +638,40 @@ void InitConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   if (!CopyFloat(&VEG_FC_ADJ, StrEnv[veg_fc_adj].VarStr, 1))
     ReportError(StrEnv[veg_fc_adj].KeyName, 51);
   
+  /* Atmospheric CO2 (umol/mol) for the photosynthesis-based stomatal schemes.
+     Run-level constant; the default reproduces the pre-refactor hard-coded
+     420.  Set it to the period mean of the simulation (e.g. ~380 for
+     2004-2008) or to a scenario value. */
+  if (!CopyFloat(&ATMOS_CO2, StrEnv[atmos_co2].VarStr, 1))
+    ReportError(StrEnv[atmos_co2].KeyName, 51);
+  if (ATMOS_CO2 < 0.0) {
+    /* Negative: CO2 varies by year, read from a two-column text file
+       (year, umol/mol).  ATMOSPHERIC CO2 FILE names it; when that key is
+       absent the file co2.txt is looked for next to the DEM, i.e. with the
+       other inputs. */
+    char DemFile[BUFSIZE + 1], Path[BUFSIZE + 1];
+    if (!IsEmptyStr(StrEnv[atmos_co2_file].VarStr)) {
+      strncpy(Path, StrEnv[atmos_co2_file].VarStr, BUFSIZE);
+      Path[BUFSIZE] = '\0';
+    }
+    else {
+      char *Slash;
+      GetInitString("TERRAIN", "DEM FILE", "", DemFile, (unsigned long) BUFSIZE, Input);
+      strncpy(Path, DemFile, BUFSIZE);
+      Path[BUFSIZE] = '\0';
+      Slash = strrchr(Path, '/');
+      if (Slash != NULL) strcpy(Slash + 1, "co2.txt");
+      else strcpy(Path, "co2.txt");
+    }
+    AtmosCO2ReadFile(Path);
+    AtmosCO2Update(Time->Start.Year);
+  }
+  else if (ATMOS_CO2 < 100.0 || ATMOS_CO2 > 2000.0)
+    ReportError("CONSTANTS: ATMOSPHERIC CO2 must be between 100 and 2000 umol/mol", 51);
+  if (Options->StomScheme != JARVIS)
+    printf("Atmospheric CO2 for the stomatal scheme: %.1f umol/mol%s\n", ATMOS_CO2,
+           AtmosCO2ByYear() ? " (start year; varies by year from file)" : "");
+  
   /* maximum depth of the surface layer in snow water equivalent (m) */
   if (!CopyFloat(&MAX_SURFACE_SWE,
     StrEnv[max_swe].VarStr, 1))
@@ -821,4 +885,91 @@ InitMappedConstants(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
       printf("**********\n\n\n");
     }
   }
+}
+
+/*****************************************************************************
+  Atmospheric CO2 by year.  Active when [CONSTANTS] ATMOSPHERIC CO2 is
+  negative.  The file holds "year value" pairs (umol/mol), one per line,
+  '#' comments allowed, in any order.  Years between listed years are
+  interpolated linearly; years outside the listed range hold the nearest
+  end value (with one warning).  ATMOS_CO2 is refreshed from InitNewMonth().
+*****************************************************************************/
+#define CO2_MAX_YEARS 1000
+static int   CO2N = 0;
+static int   CO2Year[CO2_MAX_YEARS];
+static float CO2Value[CO2_MAX_YEARS];
+static int   CO2LastYear = -1;
+
+int AtmosCO2ByYear(void)
+{
+  return CO2N > 0;
+}
+
+void AtmosCO2ReadFile(const char *Path)
+{
+  FILE *F;
+  char Line[BUFSIZE + 1];
+  int y, i, j;
+  float v;
+
+  F = fopen(Path, "r");
+  if (F == NULL) {
+    printf("Cannot open the atmospheric CO2 file: %s\n", Path);
+    ReportError("CONSTANTS: ATMOSPHERIC CO2 < 0 but the CO2 file cannot be opened", 51);
+  }
+  CO2N = 0;
+  while (fgets(Line, BUFSIZE, F) != NULL) {
+    char *c = Line;
+    while (*c == ' ' || *c == '\t') c++;
+    if (*c == '#' || *c == '\n' || *c == '\r' || *c == '\0') continue;
+    if (sscanf(c, "%d %f", &y, &v) != 2) continue;
+    if (v < 100.0f || v > 2000.0f) {
+      printf("CO2 file %s: value %.1f for year %d is outside 100-2000\n", Path, v, y);
+      ReportError("CONSTANTS: ATMOSPHERIC CO2 FILE", 51);
+    }
+    if (CO2N >= CO2_MAX_YEARS) break;
+    CO2Year[CO2N] = y; CO2Value[CO2N] = v; CO2N++;
+  }
+  fclose(F);
+  if (CO2N == 0)
+    ReportError("CONSTANTS: ATMOSPHERIC CO2 FILE holds no year/value pairs", 51);
+
+  /* sort by year (insertion sort; the list is short) */
+  for (i = 1; i < CO2N; i++) {
+    y = CO2Year[i]; v = CO2Value[i];
+    for (j = i - 1; j >= 0 && CO2Year[j] > y; j--) {
+      CO2Year[j + 1] = CO2Year[j]; CO2Value[j + 1] = CO2Value[j];
+    }
+    CO2Year[j + 1] = y; CO2Value[j + 1] = v;
+  }
+  printf("Atmospheric CO2 read from %s: %d years, %d-%d, %.1f-%.1f umol/mol\n",
+         Path, CO2N, CO2Year[0], CO2Year[CO2N - 1], CO2Value[0], CO2Value[CO2N - 1]);
+}
+
+float AtmosCO2ForYear(int Year)
+{
+  int i;
+
+  if (CO2N == 0) return ATMOS_CO2;
+  if (Year <= CO2Year[0]) return CO2Value[0];
+  if (Year >= CO2Year[CO2N - 1]) return CO2Value[CO2N - 1];
+  for (i = 1; i < CO2N; i++) {
+    if (Year <= CO2Year[i]) {
+      float w = (float)(Year - CO2Year[i - 1]) / (float)(CO2Year[i] - CO2Year[i - 1]);
+      return CO2Value[i - 1] + w * (CO2Value[i] - CO2Value[i - 1]);
+    }
+  }
+  return CO2Value[CO2N - 1];
+}
+
+void AtmosCO2Update(int Year)
+{
+  if (CO2N == 0) return;
+  if (Year == CO2LastYear) return;
+  if (Year < CO2Year[0] || Year > CO2Year[CO2N - 1])
+    printf("WARNING: year %d is outside the CO2 file range %d-%d; holding the end value\n",
+           Year, CO2Year[0], CO2Year[CO2N - 1]);
+  ATMOS_CO2 = AtmosCO2ForYear(Year);
+  CO2LastYear = Year;
+  printf("Atmospheric CO2 for %d: %.1f umol/mol\n", Year, ATMOS_CO2);
 }

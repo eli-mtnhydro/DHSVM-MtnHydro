@@ -190,7 +190,7 @@ Purpose      : Calculate the ET
 void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
   VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil, PIXMET *LocalMet,
   EVAPPIX *LocalEvap, NETSTRUCT *LocalNetwork, int Dt, float UpperRa,
-  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData, int PhotoET)
+  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData, OPTIONSTRUCT *Options)
 {
   float NetRadiation;		/* Total Net long- and shortwave radiation (W/m2) */
   float Rp;					/* radiation flux in visible part of the spectrum (W/m^2) */
@@ -207,8 +207,8 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
       Rp, VType, SType, (*Gap)[Opening].MoistureFlux, (*Gap)[Opening].Moist,
       LocalSoil->Temp, &((*Gap)[Opening].IntRain[0]),
       (*Gap)[Opening].EPot, (*Gap)[Opening].EInt, (*Gap)[Opening].ESoil,
-      (*Gap)[Opening].EAct, &((*Gap)[Opening].ETot), LocalNetwork->Adjust, LowerRa, LocalVeg,
-      PhotoET);
+      (*Gap)[Opening].EAct, &((*Gap)[Opening].ETot), LocalNetwork->Adjust, LowerRa,
+      LocalVeg, LocalSoil, Options);
 
     (*Gap)[Opening].MoistureFlux += (*Gap)[Opening].EAct[1] + (*Gap)[Opening].EInt[1];
 
@@ -379,7 +379,7 @@ Purpose      :
 void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap, 
   SOILTABLE *SType, VEGTABLE *VType, PIXRAD *LocalRad, PIXMET *LocalMet, 
   SOILPIX *LocalSoil, NETSTRUCT *LocalNetwork, float UpperRa, float LowerRa,
-  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData, int PhotoET)
+  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData, OPTIONSTRUCT *Options)
 
 {
   float Rp;
@@ -395,8 +395,8 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
     EvapoTranspiration(0, 1, Dt, LocalMet, NetRadiation,
       Rp, VType, SType, (*Gap)[Forest].MoistureFlux, (*Gap)[Forest].Moist, LocalSoil->Temp,
       &((*Gap)[Forest].IntRain[0]), (*Gap)[Forest].EPot, (*Gap)[Forest].EInt, (*Gap)[Forest].ESoil,
-      (*Gap)[Forest].EAct, &((*Gap)[Forest].ETot), LocalNetwork->Adjust, UpperRa, LocalVeg,
-      PhotoET);
+      (*Gap)[Forest].EAct, &((*Gap)[Forest].ETot), LocalNetwork->Adjust, UpperRa,
+      LocalVeg, LocalSoil, Options);
     
     (*Gap)[Forest].MoistureFlux += (*Gap)[Forest].EAct[0] + (*Gap)[Forest].EInt[0];
 
@@ -410,8 +410,8 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
       EvapoTranspiration(1, 1, Dt, LocalMet, NetRadiation,
         Rp, VType, SType, (*Gap)[Forest].MoistureFlux, (*Gap)[Forest].Moist, LocalSoil->Temp,
         &((*Gap)[Forest].IntRain[1]), (*Gap)[Forest].EPot, (*Gap)[Forest].EInt, (*Gap)[Forest].ESoil,
-        (*Gap)[Forest].EAct, &((*Gap)[Forest].ETot), LocalNetwork->Adjust, LowerRa, LocalVeg,
-        PhotoET);
+        (*Gap)[Forest].EAct, &((*Gap)[Forest].ETot), LocalNetwork->Adjust, LowerRa,
+        LocalVeg, LocalSoil, Options);
       
       (*Gap)[Forest].MoistureFlux += (*Gap)[Forest].EAct[1] + (*Gap)[Forest].EInt[1];
     }
