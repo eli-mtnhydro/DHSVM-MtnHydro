@@ -66,6 +66,8 @@ void channel_grid_inc_inflow(ChannelMapPtr **map, int col, int row, float mass);
 
 void channel_grid_init_table(ChannelMapPtr ** map, int col, int row,
                              float GridTableDepth);
+int channel_grid_max_records(ChannelMapPtr ** map);
+ChannelMapPtr channel_grid_record(ChannelMapPtr ** map, int col, int row, int k);
 float channel_grid_table_depth(ChannelMapPtr ** map, int col, int row, int deltat,
                                float GridTableDepth, float Transmissivity,
                                float SoilDeficit, float DX);

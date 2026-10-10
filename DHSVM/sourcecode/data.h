@@ -26,7 +26,7 @@ typedef struct {
   int N;			/* Number of timesteps for which to dump */
   float MinVal;			/* Lowest value for indexing low resolution */
   float MaxVal;			/* Highest value for indexing low resolution */
-  char FileName[BUFSIZE + 1];	/* File to write dump to */
+  char FileName[BUFSIZE * 2 + 1];	/* File to write dump to */
   char FileLabel[BUFSIZE + 1];	/* File label */
   int NumberType;		/* Number type of variable */
   DATE *DumpDate;		/* Date(s) at which to dump */
@@ -152,9 +152,9 @@ typedef struct {
   char Name[BUFSIZE + 1];		  /* Station name */
   COORD Loc;					        /* Station locations */
   float Elev;					        /* Station elevations */
-  float PrismPrecip[12];		  /* MonthlyPrism Precip for each station if outside=TRUE */
+  float PrismPrecip[12];		  /* Station Precip Normals: PRISM map value at the station for each month */
   float SnowPattern;		      /* Snow pattern average for each station - after re-weighting with precip pattern */
-  float SnowPatternBase;		  /* Snow pattern average for each station */
+  float SnowPatternBase;		  /* Station Snow Normal: snow pattern map value at the station */
   FILES MetFile;				      /* File with observations */
   MET Data;
 } METLOCATION;

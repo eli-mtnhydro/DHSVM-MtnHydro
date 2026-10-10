@@ -54,7 +54,14 @@ static ChannelMapRec *alloc_channel_map_record(void)
 		  "alloc_channel_map_record: %s", strerror(errno));
   }
   p->length = 0.0;
+  p->cut_height = 0.0;
+  p->cut_width = 0.0;
+  p->table_depth = 0.0;
   p->infiltration_rate = 0.0;
+  p->infiltration = 0.0;
+  p->evaporation = 0.0;
+  p->avail_water = 0.0;
+  p->satflow = 0.0;
   p->channel = NULL;
   p->next = NULL;
   p->next_seg = NULL;
@@ -683,6 +690,45 @@ void channel_grid_inc_inflow(ChannelMapPtr ** map, int col, int row, float mass)
     cell->channel->lateral_inflow += mass * cell->length / len;
     cell = cell->next;
   }
+}
+
+/* -------------------------------------------------------------
+ channel_grid_max_records
+ Largest number of channel segments (stream map records) in one cell
+ ------------------------------------------------------------- */
+int channel_grid_max_records(ChannelMapPtr ** map)
+{
+  ChannelMapPtr cell;
+  int col, row, n, max_records = 0;
+
+  if (map == NULL)
+    return 0;
+  for (col = 0; col < channel_grid_cols; col++) {
+    for (row = 0; row < channel_grid_rows; row++) {
+      n = 0;
+      for (cell = map[col][row]; cell != NULL; cell = cell->next)
+        n++;
+      if (n > max_records)
+        max_records = n;
+    }
+  }
+  return max_records;
+}
+
+/* -------------------------------------------------------------
+ channel_grid_record
+ The k-th (from 0) stream map record in a cell, in stream map file order,
+ or NULL if the cell has fewer records
+ ------------------------------------------------------------- */
+ChannelMapPtr channel_grid_record(ChannelMapPtr ** map, int col, int row, int k)
+{
+  ChannelMapPtr cell;
+
+  if (map == NULL)
+    return NULL;
+  for (cell = map[col][row]; cell != NULL && k > 0; k--)
+    cell = cell->next;
+  return cell;
 }
 
 /* -------------------------------------------------------------

@@ -195,10 +195,18 @@ static Channel *alloc_channel_segment(void)
   seg->record = FALSE;
   seg->length = 0.0;
   seg->slope = 0.0;
+  seg->ground_slope = 0.0;
+  seg->top_water_depth = 0.0;
+  seg->bottom_water_depth = 0.0;
+  seg->K = 0.0;
+  seg->X = 0.0;
   seg->class2 = NULL;
+  seg->IntersectsLake = FALSE;
+  seg->lake = NULL;
   seg->lateral_inflow = 0.0;
   seg->last_inflow = 0.0;
   seg->last_outflow = 0.0;
+  seg->last_storage = 0.0;
   seg->inflow = 0.0;
   seg->lake_inflow = 0.0;
   seg->outflow = 0.0;
@@ -206,6 +214,8 @@ static Channel *alloc_channel_segment(void)
   seg->infiltration = 0.0;
   seg->remaining_infil = 0.0;
   seg->evaporation = 0.0;
+  seg->remaining_evap = 0.0;
+  seg->last_lateral_inflow = 0.0;
   seg->outlet = NULL;
   seg->next = NULL;
   seg->grid = NULL;
@@ -701,16 +711,15 @@ int
   float total_error = 0.0;
   float total_infiltration = 0.0;
   float total_evaporation = 0.0;
-  
+  Channel *seg;
+
+  /* Header line on the first time step: walk a copy of the pointer so the
+     data loop below still starts at the head of the network */
   if (flag == 1) {
     fprintf(out2, "DATE ");
-    for (; net != NULL; net = net->next) {
-      total_lateral_inflow += net->lateral_inflow;
-      if (net->outlet == NULL) {
-        total_outflow += net->outflow;
-      }
-      if (net->record)
-        fprintf(out2, "%s ", net->record_name);
+    for (seg = net; seg != NULL; seg = seg->next) {
+      if (seg->record)
+        fprintf(out2, "%s ", seg->record_name);
     }
     fprintf(out2, "\n");
   }

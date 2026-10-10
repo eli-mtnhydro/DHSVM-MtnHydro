@@ -30,6 +30,7 @@ typedef struct _INPUTSTRUCT *LISTPTR;
 
 typedef struct _INPUTSTRUCT {
   char Str[BUFSIZE + 1];
+  unsigned char Read;		/* TRUE once the model has read this key */
   LISTPTR Next;
 } INPUTSTRUCT;
 
@@ -86,5 +87,7 @@ void MakeKeyString(char *Buffer);
 void ReadInitFile(char *TemplateFileName, LISTPTR * Input);
 
 void Strip(char *Buffer);
+
+void WarnUnreadKeys(LISTPTR Input);
 
 #endif

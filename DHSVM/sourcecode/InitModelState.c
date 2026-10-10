@@ -27,18 +27,27 @@
      routine StoreModelState().  Timesteps at which to dump the model state
      can be specified in the file with dump information.
 
+     Extra maps at the end of a state file (StoreModelState) are restored
+     exactly; files without them get the defaults.
  *****************************************************************************/
+static int CountStateMaps(char *FileName, MAPSIZE *Map, int NBase, int NMemory);
+
 void InitModelState(DATE *Start, int StepsPerDay, int Dt,
   MAPSIZE *Map, OPTIONSTRUCT *Options, PRECIPPIX **PrecipMap,
   SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
   VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path, 
-  TOPOPIX **TopoMap, NETSTRUCT **Network, CHANNEL *ChannelData)
+  TOPOPIX **TopoMap, NETSTRUCT **Network, CHANNEL *ChannelData, LAKETABLE *LType)
 {
   const char *Routine = "InitModelState";
   char Str[NAMESIZE + 1];
-  char FileName[NAMESIZE + 20];
+  char FileName[BUFSIZE * 2 + 1];
   int i, j;		         /* counter */
   int CountGap, Count;
+  int Memory;            /* TRUE if the file holds restart memory */
+  int NRecords;          /* Most stream map records in one cell */
+  ChannelMapPtr Cell;
+  float Value;
+  char MemName[] = "Restart memory";
   int x;				 /* counter */
   int y;				 /* counter */
   int NSet;				 /* Number of dataset to be read */
@@ -58,7 +67,7 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
   sprintf(Str, "%02d.%02d.%02d.%02d.%02d.%02d", Start->Month, Start->Day,
     Start->Year, Start->Hour, Start->Min, Start->Sec);
 
-  sprintf(FileName, "%sInterception.State.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sInterception.State.%s%s", Path, Str, fileext);
 
   DMap.ID = 202;
   DMap.Layer = 0;
@@ -138,13 +147,23 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
       }
     }
   }
+  Memory = CountStateMaps(FileName, Map, 2 * Veg.MaxLayers + 1, 1);
+  if (Memory) {
+    Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        if (INBASIN(TopoMap[y][x].Mask))
+          VegMap[y][x].Tcanopy = ((float *)Array)[y * Map->NX + x];
+      }
+    }
+  }
   free(Array);
   /* Restore snow pack conditions */
   NSet = 0;
   if (DEBUG)
     printf("Restoring snow pack conditions\n");
 
-  sprintf(FileName, "%sSnow.State.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sSnow.State.%s%s", Path, Str, fileext);
 
   DMap.ID = 401;
   DMap.Resolution = MAP_OUTPUT;
@@ -256,6 +275,16 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
       }
     }
   }
+  Memory = CountStateMaps(FileName, Map, 8, 2);
+  if (Memory) {
+    Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        if (INBASIN(TopoMap[y][x].Mask))
+          SnowMap[y][x].AccumSeason = (unsigned char)((float *)Array)[y * Map->NX + x];
+      }
+    }
+  }
   free(Array);
   
   /* Calculate current albedo */
@@ -287,13 +316,27 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
       }
     }
   }
+  if (Memory) {
+    if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
+      ReportError((char *)Routine, 1);
+    Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        if (INBASIN(TopoMap[y][x].Mask))
+          SnowMap[y][x].Albedo = ((float *)Array)[y * Map->NX + x];
+      }
+    }
+    free(Array);
+  }
 
   /* Restore soil conditions */
   NSet = 0;
   if (DEBUG)
     printf("Restoring soil conditions\n");
 
-  sprintf(FileName, "%sSoil.State.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sSoil.State.%s%s", Path, Str, fileext);
+  NRecords = (Options->Extent != POINT) ? channel_grid_max_records(ChannelData->stream_map) : 0;
+  Memory = CountStateMaps(FileName, Map, 2 * Soil.MaxLayers + 4, Soil.MaxLayers + 10 + 2 * NRecords);
   DMap.ID = 501;
   DMap.Layer = 0;
   DMap.Resolution = MAP_OUTPUT;
@@ -316,19 +359,19 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
           if (i <= NSoil) {
             SoilMap[y][x].InterFlow[i] = 0.0;
             SoilMap[y][x].Moist[i] = ((float *)Array)[y * Map->NX + x];
-            if (SoilMap[y][x].Moist[i] < 0.0) {
+            if (!Memory && SoilMap[y][x].Moist[i] < 0.0) {
               /* fprintf(stderr, "InitModelState at (x, y) is (%d, %d):\n", x, y);
               fprintf(stderr,
                 "Soil moisture negative in layer %d of max %d ... reset to 0\n", i, Soil.MaxLayers); */
               SoilMap[y][x].Moist[i] = 0.0;
             }
           }
-          if (i == NSoil) {
+          if (!Memory && i == NSoil) {
             if (SoilMap[y][x].Moist[i] < SoilMap[y][x].FCap[i]) {
               SoilMap[y][x].Moist[i] = SoilMap[y][x].FCap[i];
             }
           }
-          if (i < NSoil) {
+          if (!Memory && i < NSoil) {
             if (SoilMap[y][x].Moist[i] < SType[SoilMap[y][x].Soil - 1].WP[i]) {
               SoilMap[y][x].Moist[i] = SType[SoilMap[y][x].Soil - 1].WP[i];
             }
@@ -403,7 +446,9 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
       /* SatFlow needs to be initialized properly in the future.
       For now it will just be set to zero here */
       SoilMap[y][x].SatFlow = 0.0;
-      if (INBASIN(TopoMap[y][x].Mask)) {
+      /* With restart memory the table depth is restored below instead
+         (WaterTableDepth() would move water out of supersaturated layers) */
+      if (INBASIN(TopoMap[y][x].Mask) && !Memory) {
         if ((SoilMap[y][x].TableDepth =
           WaterTableDepth((Soil.NLayers[SoilMap[y][x].Soil - 1]), SoilMap[y][x].Depth,
             VType[VegMap[y][x].Veg - 1].RootDepth, SoilMap[y][x].Porosity,
@@ -528,4 +573,89 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
     TotNumGap = CountGap;
     printf("\n****Canopy Gap****\n%d out of %d cells have a gap structure\n\n", TotNumGap, Count);
   }
+
+  /* Restore the soil and channel cell restart memory, overriding the
+     defaults set above */
+  if (Memory) {
+    NSet = 2 * Soil.MaxLayers + 4;
+    if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
+      ReportError((char *)Routine, 1);
+    for (i = 0; i < Soil.MaxLayers; i++) {
+      Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          if (INBASIN(TopoMap[y][x].Mask) && i < Soil.NLayers[SoilMap[y][x].Soil - 1])
+            SoilMap[y][x].Perc[i] = ((float *)Array)[y * Map->NX + x];
+        }
+      }
+    }
+    for (j = 0; j < 10; j++) {
+      Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          if (INBASIN(TopoMap[y][x].Mask)) {
+            Value = ((float *)Array)[y * Map->NX + x];
+            switch (j) {
+            case 0: SoilMap[y][x].SatFlow = Value; break;
+            case 1: SoilMap[y][x].TableDepth = Value; break;
+            case 2: SoilMap[y][x].WaterLevel = Value;
+                    SoilMap[y][x].WaterLevelLast = Value; break;
+            case 3: SoilMap[y][x].InfiltAcc = Value; break;
+            case 4: SoilMap[y][x].MoistInit = Value; break;
+            case 5: PrecipMap[y][x].PrecipStart = (int)Value; break;
+            case 6: SoilMap[y][x].Runoff = Value; break;
+            case 7: SoilMap[y][x].startRunoff = Value; break;
+            case 8: SoilMap[y][x].DetentionStorage = Value; break;
+            case 9:
+              if (TopoMap[y][x].LakeID > 0 && LType != NULL)
+                LType[TopoMap[y][x].LakeID - 1].Outflow = Value;
+              break;
+            }
+          }
+        }
+      }
+    }
+    for (j = 0; j < 2 * NRecords; j++) {
+      Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          Cell = channel_grid_record(ChannelData->stream_map, x, y, j % NRecords);
+          if (Cell != NULL) {
+            if (j < NRecords)
+              Cell->table_depth = ((float *)Array)[y * Map->NX + x];
+            else
+              Cell->avail_water = ((float *)Array)[y * Map->NX + x];
+          }
+        }
+      }
+    }
+    free(Array);
+  }
+}
+
+/*****************************************************************************
+  CountStateMaps()
+
+  Returns TRUE if the state file holds NBase + NMemory maps (restart memory
+  included), FALSE if it holds NBase maps, and stops otherwise
+*****************************************************************************/
+static int CountStateMaps(char *FileName, MAPSIZE *Map, int NBase, int NMemory)
+{
+  FILE *InFile;
+  long NBytes;
+  long MapBytes = (long) Map->NX * Map->NY * sizeof(float);
+
+  OpenFile(&InFile, FileName, "rb", FALSE);
+  if (fseek(InFile, 0L, SEEK_END))
+    ReportError(FileName, 39);
+  NBytes = ftell(InFile);
+  fclose(InFile);
+
+  if (NBytes == NBase * MapBytes)
+    return FALSE;
+  if (NBytes == (NBase + NMemory) * MapBytes)
+    return TRUE;
+  fprintf(stderr, "\n%s holds %.2f maps; expected %d, or %d with restart memory\n",
+          FileName, (double) NBytes / MapBytes, NBase, NBase + NMemory);
+  exit(EXIT_FAILURE);
 }

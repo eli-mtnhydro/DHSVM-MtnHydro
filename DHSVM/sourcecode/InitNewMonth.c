@@ -44,7 +44,7 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   if (Options->Prism == TRUE) {
     printf("reading in new PRISM field for month %d \n", Time->Current.Month);
-    sprintf(FileName, "%s.%02d.%s", Options->PrismDataPath,
+    snprintf(FileName, sizeof(FileName), "%s.%02d.%s", Options->PrismDataPath,
       Time->Current.Month, Options->PrismDataExt);
     GetVarName(205, 0, VarName);
     GetVarNumberType(205, &NumberType);
@@ -76,7 +76,7 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   if (Options->Shading == TRUE) {
     printf("reading in new shadow map for month %d \n", Time->Current.Month);
-    sprintf(FileName, "%s.%02d.%s", Options->ShadingDataPath,
+    snprintf(FileName, sizeof(FileName), "%s.%02d.%s", Options->ShadingDataPath,
       Time->Current.Month, Options->ShadingDataExt);
     GetVarName(304, 0, VarName);
     GetVarNumberType(304, &NumberType);

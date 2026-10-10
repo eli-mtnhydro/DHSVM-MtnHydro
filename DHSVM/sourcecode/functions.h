@@ -63,7 +63,7 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
 	      DUMPSTRUCT *Dump, TOPOPIX **TopoMap, EVAPPIX **EvapMap, PIXRAD **RadiMap,
 	      PRECIPPIX ** PrecipMap, SNOWPIX **SnowMap, 
           VEGPIX **VegMap, LAYER *Veg, SOILPIX **SoilMap, NETSTRUCT **Network, 
-          CHANNEL *ChannelData, LAYER *Soil, AGGREGATED *Total);
+          CHANNEL *ChannelData, LAYER *Soil, AGGREGATED *Total, LAKETABLE *LType);
 
 unsigned char fequal(float a, float b);
 
@@ -136,7 +136,7 @@ void InitModelState(DATE *Start, int StepsPerDay, int Dt,
 		    SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
 		    VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path,
 		    TOPOPIX **TopoMap,
-		    NETSTRUCT **Network, CHANNEL *ChannelData);
+		    NETSTRUCT **Network, CHANNEL *ChannelData, LAKETABLE *LType);
 
 void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap, 
 		 SOILPIX **SoilMap, VEGPIX **VegMap, VEGTABLE *VType, 
@@ -253,7 +253,7 @@ void quick(ITEM *OrderedCells, int count);
 
 void qs(ITEM *OrderedCells, int left, int right);
 
-void ReadChannelState(char *Path, DATE *Current, Channel *Head);
+void ReadChannelState(char *Path, DATE *Current, int deltat, Channel *Head);
 
 void ReadMetRecord(OPTIONSTRUCT *Options, DATE *Current, int NSoilLayers,
 		   FILES *InFile, MET *MetRecord);
@@ -307,7 +307,7 @@ void StoreModelState(char *Path, DATE *Current, MAPSIZE *Map,
 		     OPTIONSTRUCT *Options, TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, 
              SNOWPIX **SnowMap, VEGPIX **VegMap, 
              LAYER *Veg, SOILPIX **SoilMap, LAYER *Soil, NETSTRUCT **Network, 
-		     CHANNEL *ChannelData);
+		     CHANNEL *ChannelData, LAKETABLE *LType);
 
 void SnowStats(DATE *Now, MAPSIZE *Map, OPTIONSTRUCT *Options, 
         TOPOPIX **TopoMap, SNOWPIX **Snow, int Dt);

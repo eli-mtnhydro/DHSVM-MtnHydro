@@ -241,7 +241,7 @@ void InitSnowPatternMap(float ***SnowPatternMap, float ***SnowPatternMapBase,
   }
   
   printf("\nReading in snow pattern map\n");
-  sprintf(FileName, "%s", Options->SnowPatternDataPath);
+  snprintf(FileName, sizeof(FileName), "%s", Options->SnowPatternDataPath);
   GetVarName(207, 0, VarName);
   GetVarNumberType(207, &NumberType);
   if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))

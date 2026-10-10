@@ -66,7 +66,7 @@ void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLay
   strcpy(Dump->Path, StrEnv[output_path].VarStr);
 
   // delete any previous failure_summary.txt file
-  sprintf(sumoutfile, "%sfailure_summary.txt", Dump->Path);
+  snprintf(sumoutfile, sizeof(sumoutfile), "%sfailure_summary.txt", Dump->Path);
   if (remove(sumoutfile) != -1)
     printf(" - removed old version of failure_summary.txt\n");
 
@@ -91,15 +91,15 @@ void InitDump(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, int MaxSoilLay
   Dump->NMaps = NMapVars;
 
   // Open file for recording aggregated values for entire basin
-  sprintf(Dump->Aggregate.FileName, "%sAggregated.Values", Dump->Path);
+  snprintf(Dump->Aggregate.FileName, sizeof(Dump->Aggregate.FileName), "%sAggregated.Values", Dump->Path);
   OpenFile(&(Dump->Aggregate.FilePtr), Dump->Aggregate.FileName, "w", TRUE);
 
   // Open file for recording mass balance for entire basin
-  sprintf(Dump->Balance.FileName, "%sMass.Balance", Dump->Path);
+  snprintf(Dump->Balance.FileName, sizeof(Dump->Balance.FileName), "%sMass.Balance", Dump->Path);
   OpenFile(&(Dump->Balance.FilePtr), Dump->Balance.FileName, "w", TRUE);
 
 #ifndef SNOW_ONLY
-  sprintf(Dump->FinalBalance.FileName, "%sMass.Final.Balance", Dump->Path);
+  snprintf(Dump->FinalBalance.FileName, sizeof(Dump->FinalBalance.FileName), "%sMass.Final.Balance", Dump->Path);
   OpenFile(&(Dump->FinalBalance.FilePtr), Dump->FinalBalance.FileName, "w", TRUE);
 #endif
 
@@ -340,7 +340,7 @@ int InitPixDump(LISTPTR Input, MAPSIZE *Map, uchar **BasinMask, char *Path,
     else {
       printf("Accepting dump command for pixel named %s \n", temp_name);
       sprintf(Str, "%s", temp_name);
-      sprintf((*Pix)[ok].OutFile.FileName, "%sPixel.%s", Path, Str);
+      snprintf((*Pix)[ok].OutFile.FileName, sizeof((*Pix)[ok].OutFile.FileName), "%sPixel.%s", Path, Str);
       (*Pix)[ok].Loc.N = (*Pix)[i].Loc.N;
       (*Pix)[ok].Loc.E = (*Pix)[i].Loc.E;
       OpenFile(&((*Pix)[ok].OutFile.FilePtr), (*Pix)[ok].OutFile.FileName, "w", TRUE);

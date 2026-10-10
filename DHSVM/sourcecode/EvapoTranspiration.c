@@ -29,6 +29,8 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   float WetEvapRate;	/* evaporation rate from wetted fraction per unit ground area (m/s) */
   float WetEvapTime;	/* amount of time needed to evaporate the amount of water
                         in interception storage (sec) */
+  float MaxInt;			/* Maximum interception storage as if the entire pixel
+                        is covered (m) */
   int i;			    /* counter */
 
 
@@ -39,7 +41,7 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   as if the entire pixel is covered. These depths will be converted back later on. */
   *Int /= F;
   MoistureFlux /= F;
-  LocalVeg->MaxInt[Layer] /= F;
+  MaxInt = LocalVeg->MaxInt[Layer] / F;
 
   /* allocate memory for the canopy resistance array */
   if (!(Rc = (float *)calloc(VType->NSoilLayers, sizeof(float))))
@@ -66,7 +68,7 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
 
   /* WetArea = pow(*Int/VType->MaxInt[Layer], (double) 2.0/3.0); */
 
-  WetArea = cbrt(*Int / LocalVeg->MaxInt[Layer]);
+  WetArea = cbrt(*Int / MaxInt);
   WetArea = MIN(WetArea, 1);
   WetArea = WetArea * WetArea;
   
@@ -117,7 +119,6 @@ void EvapoTranspiration(int Layer, int ImpvRad, int Dt, PIXMET *Met,
   EInt[Layer] *= F;
   *ETot += EInt[Layer];
   *Int *= F;
-  LocalVeg->MaxInt[Layer] *= F;
 
   /* calculate the canopy conductances associated with the conditions in
   each of the soil layers */

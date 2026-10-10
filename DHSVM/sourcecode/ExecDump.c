@@ -20,7 +20,7 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
   PIXRAD **RadMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
   VEGPIX **VegMap, LAYER *Veg, SOILPIX **SoilMap,
   NETSTRUCT **Network, CHANNEL *ChannelData, LAYER *Soil,
-  AGGREGATED *Total)
+  AGGREGATED *Total, LAKETABLE *LType)
 {
   int i;			/* counter */
   int j;			/* counter */
@@ -44,7 +44,7 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
     if (Dump->NStates < 0) {
       StoreModelState(Dump->Path, Current, Map, Options, TopoMap, PrecipMap,
         SnowMap, VegMap, Veg, SoilMap, Soil,
-        Network, ChannelData);
+        Network, ChannelData, LType);
       if (Options->Extent != POINT)
         StoreChannelState(Dump->Path, Current, ChannelData->streams);
     }
@@ -54,7 +54,7 @@ void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
           if (!(Options->DumpExtraStream))
             StoreModelState(Dump->Path, Current, Map, Options, TopoMap,
               PrecipMap, SnowMap, VegMap, Veg,
-              SoilMap, Soil, Network, ChannelData);
+              SoilMap, Soil, Network, ChannelData, LType);
           if (Options->Extent != POINT) {
             if (Options->DumpExtraStream)
               StoreChannelStateExtra(Dump->Path, Current, ChannelData->streams);

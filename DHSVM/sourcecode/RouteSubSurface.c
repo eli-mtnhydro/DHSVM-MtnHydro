@@ -119,7 +119,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   int count, totalcount;
   float mgrid, sat;
   char buffer[32];
-  char satoutfile[100];         /* Character arrays to hold file name. */ 
+  char satoutfile[BUFSIZE * 2 + 1]; /* Character arrays to hold file name. */ 
   FILE *fs;                     /* File pointer. */
   /*****************************************************************************
    Allocate memory 
@@ -557,7 +557,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
  
   sat = 100.*((float)count/(float)totalcount);
   
-  sprintf(satoutfile, "%ssaturation_extent.txt", DumpPath);
+  snprintf(satoutfile, sizeof(satoutfile), "%ssaturation_extent.txt", DumpPath);
   
   if((fs = fopen(satoutfile,"a")) == NULL){
     printf("Cannot open saturation extent output file.\n");

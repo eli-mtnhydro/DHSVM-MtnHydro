@@ -110,14 +110,14 @@ InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *ChannelData,
 void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL * ChannelData, 
 					 char *DumpPath)
 {
-  char buffer[NAMESIZE];
+  char buffer[BUFSIZE * 2 + 1];
 
   if (ChannelData->streams != NULL) {
     if (Options->SaveExtraStreamData) {
-      sprintf(buffer, "%sStream.Flow", DumpPath);
+      snprintf(buffer, sizeof(buffer), "%sStream.Flow", DumpPath);
       OpenFile(&(ChannelData->streamout), buffer, "w", TRUE);
     }
-    sprintf(buffer, "%sStreamflow.Only", DumpPath);
+    snprintf(buffer, sizeof(buffer), "%sStreamflow.Only", DumpPath);
     OpenFile(&(ChannelData->streamflowout), buffer, "w", TRUE);
   }
 }

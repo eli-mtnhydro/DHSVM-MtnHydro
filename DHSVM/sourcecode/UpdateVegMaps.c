@@ -106,7 +106,7 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
     
   /*Update Vegetation Type Map*/
   
-  sprintf(FileName, "%sVegetation.Type.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sVegetation.Type.%s%s", Path, Str, fileext);
 
   if (access(FileName, F_OK) == 0){
     /* Read the vegetation type */
@@ -131,7 +131,7 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
   also needs to be updated, for example: FC, Height and LAI. Note on 03/30/2020*/
 
   /*Update Vegetation Fractional Cover Map*/
-  sprintf(FileName, "%sVegetation.FC.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sVegetation.FC.%s%s", Path, Str, fileext);
   /* Read the vegetation fractional coverage map */
   GetVarName(010, 0, VarName);
   GetVarNumberType(010, &NumberType);
@@ -176,7 +176,7 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
   }
 
   /*Update Vegetation LAI Map*/
-  sprintf(FileName, "%sVegetation.LAI.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sVegetation.LAI.%s%s", Path, Str, fileext);
  
   if (access(FileName, F_OK) == 0) {
     printf("Spatial LAI map provided, updating...\n");
@@ -213,7 +213,7 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
 
 
   /*Update Vegetation Height Map*/
-  sprintf(FileName, "%sVegetation.Height.%s%s", Path, Str, fileext);
+  snprintf(FileName, sizeof(FileName), "%sVegetation.Height.%s%s", Path, Str, fileext);
   
    if (access(FileName, F_OK) == 0) {
     printf("Spatial tree height map provided, updating...\n");
@@ -241,7 +241,7 @@ void UpdateVegMap(DATE *Current, OPTIONSTRUCT * Options, MAPSIZE * Map,
    
   if (Options->CanopyGapping) {
     /*Update Vegetation Gap Map*/
-    sprintf(FileName, "%sVegetation.Gap.%s%s", Path, Str, fileext);
+    snprintf(FileName, sizeof(FileName), "%sVegetation.Gap.%s%s", Path, Str, fileext);
    
     if (access(FileName, F_OK) == 0) {
       printf("Spatial GAP map provided, updating...\n");

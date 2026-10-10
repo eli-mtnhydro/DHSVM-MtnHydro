@@ -194,7 +194,7 @@ void CalcCanopyGapET(CanopyGapStruct **Gap, int NSoil, VEGTABLE *VType,
 {
   float NetRadiation;		/* Total Net long- and shortwave radiation (W/m2) */
   float Rp;					/* radiation flux in visible part of the spectrum (W/m^2) */
-  float DryChannelEvap;
+  float DryChannelEvap = 0.0;
 
   /********************** for gap **********************/
   if ((*Gap)[Opening].HasSnow != TRUE && VType->UnderStory == TRUE) {
@@ -382,7 +382,7 @@ void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
 {
   float Rp;
   float NetRadiation;
-  float DryChannelEvap;
+  float DryChannelEvap = 0.0;
 
   if (VType->OverStory == TRUE) {
     Rp = VISFRACT * (*Gap)[Forest].NetShort[0];

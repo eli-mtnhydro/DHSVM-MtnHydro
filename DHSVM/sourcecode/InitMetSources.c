@@ -38,14 +38,9 @@ void InitMetSources(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
   int *NStats, METLOCATION **Stat)
 {
   
-  if (Options->Outside == TRUE) {
+  if (Options->Outside == TRUE)
     printf("\nAll met stations in list will be included \n");
-    if (Options->Prism == TRUE) {
-      printf("WARNING: PRISM Option is also on\n");
-      printf("Make sure file .prism files exist\n\n");
-    }
-  }
-  
+
   InitStations(Input, Map, Time->NDaySteps, Options, NStats, Stat);
 }
 
@@ -70,8 +65,9 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
   int i;
   int j;
   int k;
-  char tempfilename[BUFSIZE * 2 + 7];
   char KeyName[station_file + 1][BUFSIZE + 1];
+  char NormalsKey[BUFSIZE + 1];
+  char NormalsStr[BUFSIZE + 1];
   char *KeyStr[] = {
     "STATION NAME",
     "NORTH COORDINATE",
@@ -83,8 +79,6 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
   char VarStr[station_file + 1][BUFSIZE + 1];
   float East;
   float North;
-  FILE *PrismStatFile;
-  FILE *SnowPatternStatFile;
 
   /* Get the number of different stations */
   GetInitString(SectionName, "NUMBER OF STATIONS", "", VarStr[0],
@@ -138,6 +132,27 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
 
     OpenFile(&((*Stat)[k].MetFile.FilePtr), (*Stat)[k].MetFile.FileName, "r", FALSE);
 
+    if (Options->Prism == TRUE) {
+      snprintf(NormalsKey, sizeof(NormalsKey), "STATION PRECIP NORMALS %d", i + 1);
+      GetInitString(SectionName, NormalsKey, "", NormalsStr,
+        (unsigned long)BUFSIZE, Input);
+      if (!CopyFloat((*Stat)[k].PrismPrecip, NormalsStr, 12)) {
+        printf("\nPRISM = TRUE: station %d (%s) needs 12 monthly values (January to December)\n",
+          i + 1, (*Stat)[k].Name);
+        ReportError(NormalsKey, 51);
+      }
+    }
+    if (Options->SnowPattern == TRUE) {
+      snprintf(NormalsKey, sizeof(NormalsKey), "STATION SNOW NORMAL %d", i + 1);
+      GetInitString(SectionName, NormalsKey, "", NormalsStr,
+        (unsigned long)BUFSIZE, Input);
+      if (!CopyFloat(&((*Stat)[k].SnowPatternBase), NormalsStr, 1)) {
+        printf("\nSnow Pattern = TRUE: station %d (%s) needs one value\n",
+          i + 1, (*Stat)[k].Name);
+        ReportError(NormalsKey, 51);
+      }
+    }
+
     /* check to see if the stations are inside the bounding box */
     if (((*Stat)[k].Loc.N >= Map->NY || (*Stat)[k].Loc.N < 0 ||
       (*Stat)[k].Loc.E >= Map->NX || (*Stat)[k].Loc.E < 0)
@@ -153,27 +168,4 @@ void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
   else
     printf("Forced to include all %d stations \n", k);
   *NStats = k;
-
-  if (Options->Outside == TRUE && Options->Prism == TRUE) {
-
-    for (i = 0; i < *NStats; i++) {
-      sprintf(tempfilename, "%s.prism", (*Stat)[i].MetFile.FileName);
-      OpenFile(&PrismStatFile, tempfilename, "rt", FALSE);
-      for (k = 0; k < 12; k++) {
-        if (fscanf(PrismStatFile, "%f ", &(*Stat)[i].PrismPrecip[k]) == EOF)
-          ReportError(tempfilename, 2);
-      }
-      fclose(PrismStatFile);
-    }
-  }
-  
-  if (Options->SnowPattern == TRUE) {
-    for (i = 0; i < *NStats; i++) {
-      sprintf(tempfilename, "%s.snowpattern", (*Stat)[i].MetFile.FileName);
-      OpenFile(&SnowPatternStatFile, tempfilename, "rt", FALSE);
-      if (fscanf(SnowPatternStatFile, "%f ", &(*Stat)[i].SnowPatternBase) == EOF)
-        ReportError(tempfilename, 2);
-      fclose(SnowPatternStatFile);
-    }
-  }
 }

@@ -347,7 +347,7 @@ void GetVarFileName(int ID, int Layer, unsigned char Resolution, char *FileName)
 {
   char *Routine = "GetVarFileName";
   char Name[BUFSIZE + 1];
-  char Str[BUFSIZE + 7];
+  char Str[BUFSIZE * 2 + 1];
   int i;
 
   i = 0;
@@ -355,11 +355,11 @@ void GetVarFileName(int ID, int Layer, unsigned char Resolution, char *FileName)
     if (varinfo[i].ID == ID) {
       GetVarName(ID, Layer, Name);
       if (Resolution == MAP_OUTPUT) {
-	sprintf(Str, "%sMap.%s%s", FileName, Name, fileext);
+	snprintf(Str, sizeof(Str), "%sMap.%s%s", FileName, Name, fileext);
       }
       else
 	ReportError((char *) Routine, 21);
-      strncpy(FileName, Str, BUFSIZE + 7);
+      strcpy(FileName, Str);
       return;
     }
     i++;

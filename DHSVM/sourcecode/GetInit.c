@@ -121,6 +121,7 @@ unsigned char LocateKey(const char *Key, char *Entry, LISTPTR Input)
 	MakeKeyString(KeyBuffer);
 	if (strcmp(Key, KeyBuffer) == 0) {
 	  Found = TRUE;
+	  Input->Read = TRUE;
 	  Strip(EntryBuffer);
 	  /* strcpy(Entry, EntryBuffer); */
 	  memmove(Entry, EntryBuffer, strlen(EntryBuffer)+1);
@@ -448,6 +449,34 @@ void DeleteList(LISTPTR Head)
   }
 
   return;
+}
+/*#####################################################################################
+ Warns about every key in the input file that was never read.
+ Call after initialization, before DeleteList().
+ #####################################################################################*/
+void WarnUnreadKeys(LISTPTR Input)
+{
+  char Section[BUFSIZE + 1] = "";
+  char Key[BUFSIZE + 1];
+  char *StrPtr = NULL;
+  int NUnread = 0;
+
+  for (; Input != NULL; Input = Input->Next) {
+    if (IsSection(Input->Str)) {
+      strncpy(Section, Input->Str, BUFSIZE + 1);
+      continue;
+    }
+    if (!Input->Read && IsKeyEntryPair(Input->Str)) {
+      strncpy(Key, Input->Str, BUFSIZE + 1);
+      StrPtr = strchr(Key, SEPARATOR);
+      *StrPtr = '\0';
+      Strip(Key);
+      printf("WARNING: config key not used: %s %s\n", Section, Key);
+      NUnread++;
+    }
+  }
+  if (NUnread > 0)
+    printf("WARNING: %d config keys not used (misspelled, duplicated, in the wrong section, or for an option that is off)\n\n", NUnread);
 }
 /*#####################################################################################*/
 int CountLines(FILE * InFile)

@@ -26,7 +26,7 @@
 /* GLOBAL VARIABLES */
 /******************************************************************************/
 
-char *version = "Version X.2.2";    /* store version string */
+char *version = "Version X.2.3";    /* store version string */
 char commandline[BUFSIZE + 1] = "";	/* store command line */
 char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */
@@ -103,9 +103,13 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
   
-  sprintf(commandline, "%s %s", argv[0], argv[1]);
+  snprintf(commandline, sizeof(commandline), "%s %s", argv[0], argv[1]);
   printf("%s \n", commandline);
   fprintf(stderr, "%s \n", commandline);
+  if (strlen(argv[1]) > BUFSIZE) {
+    fprintf(stderr, "\nConfig file path longer than %d characters: %s\n", BUFSIZE, argv[1]);
+    exit(EXIT_FAILURE);
+  }
   strcpy(InFiles.Const, argv[1]);
   
   printf("\nRunning DHSVM %s\n", version);
@@ -142,20 +146,22 @@ int main(int argc, char **argv) {
   InitInterpolationWeights(&Map, &Options, TopoMap, &MetWeights, Stat, NStats);
   InitDump(Input, &Options, &Map, Soil.MaxLayers, Veg.MaxLayers, Time.Dt,
 	   TopoMap, &Dump);
-  /* Done with initialization, delete the list with input strings */
+  /* Done with initialization, warn about keys nothing read and delete the
+     list with input strings */
+  WarnUnreadKeys(Input);
   DeleteList(Input);
   
 #ifndef SNOW_ONLY
   if (Options.Extent != POINT) {
     InitChannelDump(&Options, &ChannelData, Dump.Path);
-    ReadChannelState(Dump.InitStatePath, &(Time.Start), ChannelData.streams);
+    ReadChannelState(Dump.InitStatePath, &(Time.Start), Time.Dt, ChannelData.streams);
   }
 #endif
   
   InitAggregated(&Options, Veg.MaxLayers, Soil.MaxLayers, &Total);
   InitModelState(&(Time.Start), Time.NDaySteps, Time.Dt, &Map, &Options, PrecipMap, SnowMap, SoilMap,
 		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
-		 TopoMap, Network, &ChannelData);
+		 TopoMap, Network, &ChannelData, LType);
   InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
 	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
   InitNewDay(Time.Current.JDay, &SolarGeo);
@@ -273,7 +279,7 @@ int main(int argc, char **argv) {
     
     ExecDump(&Map, &(Time.Current), &(Time.Start), &Options, &Dump, TopoMap,
              EvapMap, RadiationMap, PrecipMap, SnowMap, VegMap, &Veg,
-             SoilMap, Network, &ChannelData, &Soil, &Total);
+             SoilMap, Network, &ChannelData, &Soil, &Total, LType);
     
     IncreaseTime(&Time);
 	  t += 1;
@@ -281,7 +287,7 @@ int main(int argc, char **argv) {
   
   ExecDump(&Map, &(Time.Current), &(Time.Start), &Options, &Dump, TopoMap,
 	   EvapMap, RadiationMap, PrecipMap, SnowMap, VegMap, &Veg, SoilMap,
-	   Network, &ChannelData, &Soil, &Total);
+	   Network, &ChannelData, &Soil, &Total, LType);
   
 #ifndef SNOW_ONLY
   FinalMassBalance(&(Dump.FinalBalance), &Total, &Mass, &Options);
