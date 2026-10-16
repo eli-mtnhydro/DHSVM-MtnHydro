@@ -34,7 +34,6 @@ Reference:
    Purpose      : Calculate the radiation balance for the individual canopy layers
 
    Required     :
-     int HeatFluxOption - TRUE if surface temperature is being calculated
      float Rs           - Incoming shortwave radiation adjusted by topo shading
                           if shading option is on (W/m2)
      float Rsb          - Incoming direct shortwave radiation separated from Rs
@@ -43,7 +42,6 @@ Reference:
      float Ld           - Incoming longwave radiation (W/m2)
      float Tair         - Ambient air temperature (C)
      float Tcanopy      - Canopy temperature from the previous timestep (C)
-     float Tsoil        - soil surface temperature from the previous timestep (C)
      int NAct           - Number of vegetation layers above the snow
      VEGTABLE VType     - Information about number of veg layers
      SNOWPIX LocalSnow  - Information about snow conditions at current pixel
@@ -51,13 +49,10 @@ Reference:
 
    Comments     :
      This routine is implemented according to Wigmosta et al. (1994), with a
-     small change for the soil surface temperature if a sensible heat flux is
-     calculated, and the canopy surface temperature.
+     small change for the canopy surface temperature.
      The following assumptions are made:
        - No snow:
-         soil temperature is TSurf from last timestep if HeatFluxOption ==
-         TRUE, otherwise the soil temperature is the same as the air
-         temperature
+         the soil temperature is the same as the air temperature
        - Snow:
          soil temperature is the snow surface temperature
        - Canopy temperature is equal to the air temperature is there is no snow
@@ -65,11 +60,11 @@ Reference:
        - There are at most two vegetation layers
 
  *****************************************************************************/
-void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
+void RadiationBalance(OPTIONSTRUCT *Options,
   int CanopyRadAttOption, int OverStory, int Understory,
   float SineSolarAltitude, float VIC_Rs, float Rs,
   float Rsb, float Rsd, float Ld,
-  float Tair, float Tcanopy, float Tsoil, float SoilAlbedo,
+  float Tair, float Tcanopy, float SoilAlbedo,
   VEGTABLE *VType, SNOWPIX *LocalSnow, PIXRAD *LocalRad, VEGPIX *LocalVeg)
 {
   float F;			    /* Fraction of pixel covered by top canopy layer [0-1] */
@@ -128,9 +123,9 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
       Taub = exp(-LocalVeg->LAI[0] / VType->ClumpingFactor *
         (VType->LeafAngleA / SineSolarAltitude + VType->LeafAngleB));
 
-      /* transmittance for diffuse radiation (cacluated in CheckOut.c as a function of
-         LeafAngleA and LeafAngleB and solar altitude) */
-      Taud = VType->Taud;
+      /* transmittance for diffuse radiation of the cell (from LeafAngleA,
+         LeafAngleB and the cell's LAI of the month, InitNewMonth) */
+      Taud = LocalVeg->Taud;
 
       /* cacluate the total canopy transimittance for shortwave radiation (adjusted to
          scattering and multiple reflection */
@@ -146,13 +141,11 @@ void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
     }
   }
 
-  ShortwaveBalance(Options, OverStory, F, Rs, Rsb, Rsd, Tau, 
-    VType->Taud, Albedo, LocalRad);
+  ShortwaveBalance(Options, OverStory, F, Rs, Rsb, Rsd, Tau,
+    (CanopyRadAttOption == VARIABLE) ? LocalVeg->Taud : VType->Taud, Albedo, LocalRad);
 
   if (LocalSnow->HasSnow == TRUE)
     Tsurf = LocalSnow->TSurf;
-  else if (HeatFluxOption == TRUE)
-    Tsurf = Tsoil;
   else
     Tsurf = Tair;
 

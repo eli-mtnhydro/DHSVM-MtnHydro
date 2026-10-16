@@ -36,18 +36,18 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
                         METLOCATION *Stat, uchar *MetWeights,
                         float LocalElev, PIXRAD *RadMap,
                         PRECIPPIX *PrecipMap, float **PrismMap, float **SnowPatternMap,
-                        SNOWPIX *LocalSnow, CanopyGapStruct **Gap, VEGPIX *VegMap,
-                        float precipMultiplier, int Month, float skyview,
-                        unsigned char shadow, float SunMax,
-                        float SineSolarAltitude)
+                        SNOWPIX *LocalSnow,
+                        float precipMultiplier, int Month, double ShadeFactor,
+                        float SkyView)
 {
   float CurrentWeight;		/* weight for current station */
   float Temp;			/* Temporary variable */
   float WeightSum = 0.0;		/* sum of the weights */
-  int i,j;			/* counter */
+  int i;			/* counter */
   float TempLapseRate;
   PIXMET LocalMet;		/* local met data */
   float ContribPrecip, ContribSnow, ContribRain;
+  float SnowfallRate;		/* snowfall of the step as a daily rate (m/d) */
 
   LocalMet.Tair = 0.0;
   LocalMet.Rh = 0.0;
@@ -96,44 +96,14 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   else
     LocalMet.Press = 101300.;
 
-  /* Here is how the following section works */
-  /* Arc-Info (through use of the hillshade command) will give */
-  /* an output file that ranges from 0 to 255 (the shade factor) */
-  /* These correspond to the reflectance of the direct beam radiation */
-  /* for a given sun position (altitude and azimuth) taking */
-  /* into account the slope and aspect and topographic shading */
-  /* of the local pixel.  If we wanted to use this value directly */
-  /* then the correction to the observed beam w.r.t. a horizontal plane */
-  /* would be */
-  /*        actual = horizontal*shadefactor/255/sin(solar_altitude) */
-  /* the sin(solar_altitude) is necessary to convert horizontal into the maximum */
-  /* possible flux */
-
-  /* We can either have DHSVM make the solar_altitude calculation, which */
-  /* is not all that hard, but is prone to user error (e.g. GMT time shifts, etc) */
-  /* or we can simply include the solar_altitude info in the shade_factor */
-  /* the question is how do we include the sin(solar_altitude) while */
-  /* keeping new_shade_factor = shadefactor/255/sin(solar_altitude) defined */
-  /* as a unsigned character */
-  /* Answer:  At sal = 5 degrees max_new_shadefactor = 11.47 */
-  /* i.e. the actual flux normal to sal is 11.47*observed_horizontal_flux */
-  /* if we adopt this 5 degree value as a cutoff, we can then be assured that */
-  /*    0<=newshadefactor<=11.47      and then scale it between 0 and 255 */
-  /* the final calculation becomes,  */
-  /*       actual = horizontal*(float)shadefactor/255.0*11.47 or simply
-           actual = horizontal*(float)shadefactor/22.23191               */
-  /* thus radiation increases from 0 to 11.47 times the observed value in */
-  /* increments of 4.5 percent */
-  /* a finer resolution than this would require a higher min angle or more memory */
-
+  /* Terrain shading: the beam on the cell (its slope, aspect and horizon)
+     relative to the beam on a flat, unshaded surface, the diffuse scaled by
+     the sky view factor; where beam and diffuse together would exceed the
+     solar constant the beam is reduced */
   if (Options->Shading == TRUE) {
-    /* commented by Ning. the program script used to generate the shadow files
-    are update to produce shadow factors ranging from 0 to 255 consistent with 
-    arcinfo */
-    LocalMet.SinBeam *= (float) shadow / 22.23191;
+    LocalMet.SinBeam *= ShadeFactor;
+    LocalMet.SinDiffuse *= SkyView;
 
-    LocalMet.SinDiffuse *= skyview;
-    
     if (LocalMet.SinBeam + LocalMet.SinDiffuse > SOLARCON)
       LocalMet.SinBeam = SOLARCON - LocalMet.SinDiffuse;
   }
@@ -155,10 +125,6 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     for (i = 0; i < NStats; i++) {
       CurrentWeight = ((float) MetWeights[i]) / WeightSum;
       PrecipMap->Precip += CurrentWeight * Stat[i].Data.Precip * precipMultiplier;
-      if (Options->PrecipSepr) {
-        PrecipMap->SnowFall += CurrentWeight * Stat[i].Data.Snow * precipMultiplier;
-        PrecipMap->RainFall += CurrentWeight * Stat[i].Data.Rain * precipMultiplier;
-      }
     }
   }
   else if (Options->Prism == TRUE) {
@@ -193,8 +159,6 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
         
         PrecipMap->Precip += (ContribSnow + ContribRain);
       } /* End of snow pattern weighting */
-        else if (Options->Outside == FALSE)
-          PrecipMap->Precip += (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / PrismMap[Stat[i].Loc.N][Stat[i].Loc.E]);
         else
           PrecipMap->Precip += (CurrentWeight * Stat[i].Data.Precip) * (PrismMap[y][x] / Stat[i].PrismPrecip[Month - 1]);
     }
@@ -203,19 +167,9 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     PrecipMap->RainFall *= precipMultiplier;
   }
 
-  /* due to the nature of the interpolation scheme in DHSVM and the */
-  /* interpolation scheme to handle the mess of different formats of met stations */
-  /* relative humidities can be quite low when precip is occuring */
-  /* at times this will results in PET being greater than precip */
-  /* allow an option in DHSVM to override RH if Precip is occuring */
-  if (Options->Rhoverride == TRUE) {
-    if (PrecipMap->Precip > 0.0)
-      LocalMet.Rh = 100.0;
-  }
-  
-  /* Separate precipitation into rainfall and snowfall if rain and snow are not input
-  separately such as in WRF output */
-  if (Options->PrecipSepr == FALSE && Options->SnowPattern == FALSE) {
+  /* Separate precipitation into rainfall and snowfall by air temperature
+  (with a snow pattern the split was made per station above) */
+  if (Options->SnowPattern == FALSE) {
     if (PrecipMap->Precip > 0.0 && LocalMet.Tair < LocalSnow->Ts) {
       if (LocalMet.Tair > LocalSnow->Tr)
         PrecipMap->SnowFall = PrecipMap->Precip *
@@ -227,15 +181,7 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
       PrecipMap->SnowFall = 0.0;
     PrecipMap->RainFall = PrecipMap->Precip - PrecipMap->SnowFall;
   }
-  
-  if (VegMap->Gapping > 0.0 ) {
-    for (j = 0; j < CELL_PARTITION; j++) {
-      (*Gap)[j].SnowFall = PrecipMap->SnowFall;
-      (*Gap)[j].RainFall = PrecipMap->RainFall;
-      (*Gap)[j].Precip = PrecipMap->Precip;
-    }
-  }
-  
+
   /* Local heat of vaporization, Eq. 4.2.1, Shuttleworth (1993) */
   LocalMet.Lv = 2501000 - 2361 * LocalMet.Tair;
 
@@ -265,25 +211,25 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
     else if (fequal(LocalSnow->TSurf, 0.0))
       LocalSnow->AccumSeason = FALSE;
     
-    if (PrecipMap->SnowFall > MIN_SNOW_RESET_ALBEDO)
+    /* The step's snowfall as a daily rate r: above the reset rate R it resets
+       the days since snowfall; 0 < r <= R scales them by 1 - r/R per day,
+       (1 - r/R)^(1/NDaySteps) per step */
+    SnowfallRate = PrecipMap->SnowFall * (float) NDaySteps;
+    if (SnowfallRate > MIN_SNOW_RESET_ALBEDO)
       LocalSnow->LastSnow = 0.0;
-    else if (PrecipMap->SnowFall > 0.0)
-      LocalSnow->LastSnow *= (1.0 - PrecipMap->SnowFall / MIN_SNOW_RESET_ALBEDO);
+    else if (SnowfallRate > 0.0)
+      LocalSnow->LastSnow *= pow(1.0 - SnowfallRate / MIN_SNOW_RESET_ALBEDO, 1.0 / NDaySteps);
     else
       LocalSnow->LastSnow += (1.0 / (float) NDaySteps);
     
-    LocalSnow->Albedo = CalcSnowAlbedo(LocalSnow, NDaySteps);
+    LocalSnow->Albedo = CalcSnowAlbedo(LocalSnow, PrecipMap->SnowFall);
   }
+  /* Snowfall on a snow-free cell starts a new pack at age 0; the ground below
+     it is blended in by depth (CalcSnowAlbedo) */
+  else if (PrecipMap->SnowFall > 0.0)
+    LocalSnow->LastSnow = 0.0;
   else
     LocalSnow->LastSnow += (1.0 / (float) NDaySteps);
-  
-  /* if canopy gap is present */
-  if (VegMap->Gapping > 0.0) {
-    for (j = 0; j < CELL_PARTITION; j++) {
-      if ((*Gap)[j].HasSnow)
-        (*Gap)[j].Albedo = CalcSnowAlbedo(LocalSnow, NDaySteps);
-    }
-  }
-  
+
   return LocalMet;
 }

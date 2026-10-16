@@ -19,17 +19,11 @@
  *****************************************************************************/
 void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
   SOILPIX **SoilMap, VEGPIX **VegMap, VEGTABLE *VType,
-  NETSTRUCT ***Network, CHANNEL *ChannelData,
-  LAYER Veg, OPTIONSTRUCT *Options)
+  NETSTRUCT ***Network, CHANNEL *ChannelData)
 {
   const char *Routine = "InitNetwork";
-  int i;			/* counter */
   int x;			/* column counter */
   int y;			/* row counter */
-  int sx, sy;
-  int minx, miny;
-  int doimpervious;
-  FILE *inputfile;
   /* Allocate memory for network structure */
 
   if (!(*Network = (NETSTRUCT **)calloc(NY, sizeof(NETSTRUCT *))))
@@ -54,86 +48,25 @@ void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
     }
   }
   
-  /* If a channel Network is imposed on the area, read the Network
-     information, and calculate the storage adjustment factors; 
-     also limit overstory/understory fractional cover to 1 - channelfrac */
-  if (Options->Extent != POINT) {
-    for (y = 0; y < NY; y++) {
-      for (x = 0; x < NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          ChannelCut(y, x, ChannelData, &((*Network)[y][x]));
-          
-          ChannelLimitVegFC(y, x, (DX*DY), ChannelData,
-            &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]));
-          
-          AdjustStorage(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-            SoilMap[y][x].Depth,
-            VType[VegMap[y][x].Veg - 1].RootDepth,
-            (*Network)[y][x].Area, DX, DY,
-            (*Network)[y][x].BankHeight,
-            (*Network)[y][x].PercArea,
-            (*Network)[y][x].Adjust,
-            &((*Network)[y][x].CutBankZone));
-        }
-      }
-    }
-  }
-  /* if no channel Network is imposed, set the adjustment factors to the
-     values they have in the absence of an imposed network */
-  else {
-    for (y = 0; y < NY; y++) {
-      for (x = 0; x < NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          for (i = 0; i <= VType[VegMap[y][x].Veg - 1].NSoilLayers; i++) {
-            (*Network)[y][x].Adjust[i] = 1.0;
-            (*Network)[y][x].PercArea[i] = 1.0;
-            (*Network)[y][x].CutBankZone = NO_CUT;
-          }
-        }
-      }
-    }
-  }
+  /* Read the channel Network information, and calculate the storage
+     adjustment factors; also limit overstory/understory fractional cover
+     to 1 - channelfrac */
+  for (y = 0; y < NY; y++) {
+    for (x = 0; x < NX; x++) {
+      if (INBASIN(TopoMap[y][x].Mask)) {
+        ChannelCut(y, x, ChannelData, &((*Network)[y][x]));
 
-  /* this all pertains to the impervious surface */
+        ChannelLimitVegFC(y, x, (DX*DY), ChannelData,
+          &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]));
 
-  doimpervious = 0;
-  for (i = 0; i < Veg.NTypes; i++)
-    if (VType[i].ImpervFrac > 0.0)
-      doimpervious = 1;
-
-  if (doimpervious) {
-    if (!(inputfile = fopen(Options->ImperviousFilePath, "rt"))) {
-      fprintf(stderr,
-        "User has specified a percentage impervious area \n");
-      fprintf(stderr,
-        "To incorporate impervious area, DHSVM needs a file\n");
-      fprintf(stderr,
-        "identified by the key: \"IMPERVIOUS SURFACE ROUTING FILE\",\n");
-      fprintf(stderr,
-        "in the \"VEGETATION\" section.  This file is used to \n");
-      fprintf(stderr,
-        "determine the fate of surface runoff, i.e. where does it go \n");
-      fprintf(stderr,
-        "This file was not found: see InitNetwork.c \n");
-      fprintf(stderr,
-        "The code find_nearest_channel.c will make the file\n");
-      ReportError(Options->ImperviousFilePath, 3);
-    }
-    for (y = 0; y < NY; y++) {
-      for (x = 0; x < NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          if (fscanf(inputfile, "%d %d %d %d \n", &sy, &sx, &miny, &minx) !=
-            EOF) {
-            TopoMap[y][x].drains_x = minx;
-            TopoMap[y][x].drains_y = miny;
-          }
-          else {
-            ReportError(Options->ImperviousFilePath, 63);
-          }
-          if (sx != x || sy != y) {
-            ReportError(Options->ImperviousFilePath, 64);
-          }
-        }
+        AdjustStorage(VType[VegMap[y][x].Veg - 1].NSoilLayers,
+          SoilMap[y][x].Depth,
+          VType[VegMap[y][x].Veg - 1].RootDepth,
+          (*Network)[y][x].Area, DX, DY,
+          (*Network)[y][x].BankHeight,
+          (*Network)[y][x].PercArea,
+          (*Network)[y][x].Adjust,
+          &((*Network)[y][x].CutBankZone));
       }
     }
   }

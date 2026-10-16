@@ -22,9 +22,12 @@ struct _channel_map_rec_ {
   float avail_water; /* amount of water (m^3) in segment that is derived from uphill */
   float satflow; /* amount of water (m^3) flowing laterally into channel from soil */
   Channel *channel;		/* pointer to segment record */
+  int row;			/* grid row of the cell (from 0) */
+  int col;			/* grid column of the cell (from 0) */
 
   struct _channel_map_rec_ *next;
   struct _channel_map_rec_ *next_seg; /* Subset of cells in a particular segment only */
+  struct _channel_map_rec_ *next_row; /* Next record in the order of the channel cell table */
 };
 typedef struct _channel_map_rec_ ChannelMapRec;
 typedef struct _channel_map_rec_ *ChannelMapPtr;
@@ -37,8 +40,11 @@ typedef struct _channel_map_rec_ *ChannelMapPtr;
 				
 void channel_grid_init(int cols, int rows);
 
-ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
-				      SOILTABLE *SType, SOILPIX **SoilMap, VEGTABLE *VType, VEGPIX **VegMap);
+ChannelMapPtr **channel_grid_create_records(Channel *net, int N, int *Row, int *Column,
+                                            int *Segment, float *Length, float *CutHeight,
+                                            float *CutWidth, SOILTABLE *SType,
+                                            SOILPIX **SoilMap, VEGTABLE *VType,
+                                            VEGPIX **VegMap);
 
 void channel_combine_map_network(Channel * net, ChannelMapPtr ** map, MAPSIZE * Map);
 
@@ -66,8 +72,7 @@ void channel_grid_inc_inflow(ChannelMapPtr **map, int col, int row, float mass);
 
 void channel_grid_init_table(ChannelMapPtr ** map, int col, int row,
                              float GridTableDepth);
-int channel_grid_max_records(ChannelMapPtr ** map);
-ChannelMapPtr channel_grid_record(ChannelMapPtr ** map, int col, int row, int k);
+ChannelMapPtr channel_grid_first_row(void);
 float channel_grid_table_depth(ChannelMapPtr ** map, int col, int row, int deltat,
                                float GridTableDepth, float Transmissivity,
                                float SoilDeficit, float DX);

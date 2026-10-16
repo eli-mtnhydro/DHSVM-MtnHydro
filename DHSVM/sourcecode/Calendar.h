@@ -31,13 +31,13 @@ typedef struct {
 
 typedef struct {
   int Dt;			/* Timestep (in sec) */
-  DATE Start;		/* Starting date of run */
-  DATE End;			/* Ending date of run */
+  DATE Start;		/* Start of the first time step */
+  DATE End;			/* End of the last time step */
   DATE Current;		/* Current date in run */
   int Step;			/* Timestep since start */
   int DayStep;		/* Time step since midnight */
   int NDaySteps;	/* Number of timesteps per day */
-  int NTotalSteps;	/* Total number of steps in run */
+  int NSteps;		/* Number of time steps from Start to End */
 } TIMESTRUCT;
 
 /* -------------------------------------------------------------
@@ -46,27 +46,23 @@ typedef struct {
 uchar After(DATE *Day1, DATE *Day2);
 uchar Before(DATE *Day1, DATE *Day2);
 void CopyDate(DATE *Copy, DATE *Original);
+int DayOfWaterYear(DATE *Day);
 int DayOfYear(int Year, int Month, int Day);
 void IncreaseTime(TIMESTRUCT *Time);
 void IncreaseVariableTime(TIMESTRUCT *Time, float VariableDT, TIMESTRUCT *NextTime);
-int InitTime(TIMESTRUCT *Time, DATE *Start, DATE *End, int Dt);
+void InitTime(TIMESTRUCT *Time, DATE *Start, DATE *End, int Dt);
 uchar IsEqualTime(DATE *Day1, DATE *Day2);
 uchar IsLeapYear(int Year);
 uchar IsNewDay(int DayStep);
 uchar IsNewMonth(DATE *Now, int Interval);
 uchar IsNewWaterYear(DATE *Now);
-DATE NextDate(DATE *Current, int Interval);
-int NumberOfSteps(DATE *Start, DATE *End, int Interval);
-void PrintDate(DATE *Day, FILE *OutFile);
-void PrintRBMStartDate(int Dt, DATE *Day, FILE *OutFile);
-void SPrintDate(DATE *Day, char *buffer);
-int ScanDate(FILE *InFile, DATE *Day);
-int SScanDate(char *Str, DATE *Day);
-int SScanMonthDay(char *Str, DATE *Day);
+long long MinutesOf(DATE *Day);
+void SPrintIsoDate(DATE *Day, char *Buffer);
+void SPrintIsoStamp(DATE *Day, char *Buffer);
+int SScanIsoDate(const char *Str, DATE *Day);
 void JulianDayToGregorian(double jd, int *y, int *m, int *d, int *h, int *mi,
 			  double *sec);
 double GregorianToJulianDay(int year, int mon, int day, int h, int mi,
 			    double se);
-int DayOfWeek(double j);
 
 #endif

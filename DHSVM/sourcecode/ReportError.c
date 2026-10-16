@@ -1,4 +1,5 @@
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "settings.h"
@@ -7,7 +8,7 @@
 
 static char *ErrorMessage[] = {
   "Cannot allocate enough memory in function:",	/* 1 */
-  "Error while reading file:",	/* 2 */
+  "",	/* 2 */
   "Cannot open file:",		/* 3 */
   "File already exists, and should not be overwritten:",	/* 4 */
   "Error reading input in file:",	/* 5 */
@@ -15,7 +16,7 @@ static char *ErrorMessage[] = {
   "Hourly timestep does not divide 24 in function:",	/* 7 */
   "No types defined in file: ",	/* 8 */
   "Invalid starting time and timestep combination.\nFirst timestep of the day will not coincide with midnight: ",	/* 9 */
-  "Met Station Outside Basin Bounding Box:",	/* 10 */
+  "",	/* 10 */
   "Soil Porosity, Field Capacity, Wilting Point mismatch: ",	/* 11 */
   "Canopy Radiation Transmission less than 5%: ",	/* 12 */
   "Below canopy windspeed less than 5% of above canopy value: ",	/* 13 */
@@ -32,7 +33,7 @@ static char *ErrorMessage[] = {
   "Invalid time interval for map dumps in:",	/* 24 */
   "Invalid period for map dumps in:",	/* 25 */
   "Invalid variable ID in:",	/* 26 */
-  "Invalid heat flux option specifier: ",	/* 27 */
+  "",	/* 27 */
   "Date in met file does not correspond to current model time:",	/* 28 */
   "Too many vegetation layers: ",	/* 29 */
   "Incorrect flag (valid flags: T, F): ",	/* 30 */
@@ -44,10 +45,10 @@ static char *ErrorMessage[] = {
   "Grid NOT square, resulting in problems with flow width calculation:",	/* 36 */
   "",	/* 37 */
   "Invalid file format specifier:",	/* 38 */
-  "Error setting file pointer:",	/* 39 */
+  "",	/* 39 */
   "Unknown number type:",	/* 40 */
   "Error writing to file:",	/* 41 */
-  "Bad met interpolation combination",	/* 42 */
+  "",	/* 42 */
   "Invalid radiation type specifier:",	/* 43 */
   "Invalid channel network specifier:",	/* 44 */
   "Invalid flow gradient specifier:",	/* 45 */
@@ -68,8 +69,8 @@ static char *ErrorMessage[] = {
   "Wrong X dimension:",		/* 60 */
   "Can't byteswap that elements size:",	/*61 */
   "", /*62*/
-  "Ran out of data in surface routing file:", /* 63 */
-  "Row column mismatch in surface routing file:", /* 64 */
+  "", /* 63 */
+  "", /* 64 */
   "Current version does not support this setup:", /* 65 */
   "Invalid Map->Resolution value for dumping map or image of variable ID:", /* 66 */
   "The options set in the input file do not support plotting variable ID:", /* 67 */
@@ -79,14 +80,79 @@ static char *ErrorMessage[] = {
   NULL
 };
 
+static int VerboseMessages = FALSE;	/* [RUN] Verbose */
+
+/*****************************************************************************
+  ReportError()
+
+  A runtime error of the model code: "DHSVM ERROR <code>: <message>" on
+  stderr, exit with the code (1-70)
+*****************************************************************************/
 void ReportError(char *ErrorString, int ErrorCode)
 {
-  printf("%s %s\n", ErrorMessage[ErrorCode - 1], ErrorString);
+  fflush(stdout);
+  fprintf(stderr, "DHSVM ERROR %d: %s %s\n", ErrorCode, ErrorMessage[ErrorCode - 1], ErrorString);
   exit(ErrorCode);
 }
 
 void ReportWarning(char *ErrorString, int ErrorCode)
 {
-  fprintf(stderr, "%s %s\n", ErrorMessage[ErrorCode - 1], ErrorString);
+  Warning("%s %s", ErrorMessage[ErrorCode - 1], ErrorString);
 }
 
+/*****************************************************************************
+  Warning()
+
+  "DHSVM WARNING: <message>" on stderr; the run continues
+*****************************************************************************/
+void Warning(const char *Format, ...)
+{
+  va_list Args;
+
+  fflush(stdout);
+  fprintf(stderr, "DHSVM WARNING: ");
+  va_start(Args, Format);
+  vfprintf(stderr, Format, Args);
+  va_end(Args);
+  fprintf(stderr, "\n");
+}
+
+/*****************************************************************************
+  SetVerbose(), Message()
+
+  Progress messages on stdout, written only with [RUN] Verbose = TRUE
+*****************************************************************************/
+void SetVerbose(int Verbose)
+{
+  VerboseMessages = Verbose;
+}
+
+void Message(const char *Format, ...)
+{
+  va_list Args;
+
+  if (!VerboseMessages)
+    return;
+  va_start(Args, Format);
+  vprintf(Format, Args);
+  va_end(Args);
+}
+
+
+/*****************************************************************************
+  ReportErrorCode()
+
+  Prints "DHSVM ERROR <Code>: <message>" on stderr and exits with Code
+*****************************************************************************/
+void ReportErrorCode(int Code, const char *Format, ...)
+{
+  va_list Args;
+
+  fflush(stdout);
+  fprintf(stderr, "DHSVM ERROR %d: ", Code);
+  va_start(Args, Format);
+  vfprintf(stderr, Format, Args);
+  va_end(Args);
+  fprintf(stderr, "\n");
+  exit(Code);
+}

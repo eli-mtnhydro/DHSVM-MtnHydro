@@ -8,12 +8,11 @@
 #include "DHSVMerror.h"
 #include "functions.h"
 #include "constants.h"
-#include "fifobin.h"
 #include "fileio.h"
 #include "rad.h"
 #include "slopeaspect.h"
 #include "sizeofnt.h"
-#include "varid.h"
+#include "mapio.h"
 
  /*****************************************************************************
    InitNewMonth()
@@ -21,36 +20,28 @@
    (diffuse and direct beam), and potentially a new LAI value.
  *****************************************************************************/
 void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
-  TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase, unsigned char ***ShadowMap, 
+  TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase,
   INPUTFILES *InFiles, int NVegs, VEGTABLE *VType, int NStats,
   METLOCATION *Stat, char *Path, VEGPIX ***VegMap, SNOWPIX **SnowMap)
 {
   const char *Routine = "InitNewMonth";
-  char FileName[BUFSIZE * 2 + 5];
-  char VarName[BUFSIZE + 1];	/* Variable name */
   int i;
-  int j, jj;
+  int j;
   int y, x;
   float a, b, l;
-  int NumberType;
   float *Array = NULL;
-  unsigned char *Array1 = NULL;
-  
+
   if (DEBUG)
-    printf("Initializing new month\n");
+    Message("Initializing new month\n");
 
   /* If PRISM precipitation fields are being used to interpolate the
      observed precipitation fields, then read in the new months field */
 
   if (Options->Prism == TRUE) {
-    printf("reading in new PRISM field for month %d \n", Time->Current.Month);
-    snprintf(FileName, sizeof(FileName), "%s.%02d.%s", Options->PrismDataPath,
-      Time->Current.Month, Options->PrismDataExt);
-    GetVarName(205, 0, VarName);
-    GetVarNumberType(205, &NumberType);
+    Message("reading in new PRISM field for month %d \n", Time->Current.Month);
     if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
       ReportError((char *)Routine, 1);
-    Read2DMatrix(FileName, Array, NumberType, Map, 0, VarName, 0);
+    ReadMapLayer(&(Options->PrecipPattern), Time->Current.Month - 1, Array, Map);
 
     for (y = 0, i = 0; y < Map->NY; y++)
       for (x = 0; x < Map->NX; x++, i++)
@@ -74,33 +65,7 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
     
   }
 
-  if (Options->Shading == TRUE) {
-    printf("reading in new shadow map for month %d \n", Time->Current.Month);
-    snprintf(FileName, sizeof(FileName), "%s.%02d.%s", Options->ShadingDataPath,
-      Time->Current.Month, Options->ShadingDataExt);
-    GetVarName(304, 0, VarName);
-    GetVarNumberType(304, &NumberType);
-    if (!(Array1 = (unsigned char *)calloc(Map->NY * Map->NX, sizeof(unsigned char))))
-      ReportError((char *)Routine, 1);
-    for (i = 0; i < Time->NDaySteps; i++) {
-	  /* if computational time step is finer than hourly, make the shade factor equal within
-	  the hourly interval */
-	  if (Time->NDaySteps > 24) {
-		jj = round(i / (Time->NDaySteps / 24));
-		Read2DMatrix(FileName, Array1, NumberType, Map, jj, VarName, jj);
-	  }
-	  else   
-      Read2DMatrix(FileName, Array1, NumberType, Map, i, VarName, i);
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          ShadowMap[i][y][x] = Array1[y * Map->NX + x];
-        }
-      }
-    }
-    free(Array1);
-  }
-
-  printf("changing LAI, albedo and diffuse transmission parameters\n");
+  Message("changing LAI, albedo and diffuse transmission parameters\n");
 
   for (y = 0; y < Map->NY; y++) {
 		for (x = 0; x < Map->NX; x++) {
@@ -109,6 +74,24 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
           (*VegMap)[y][x].LAI[j] = (*VegMap)[y][x].LAIMonthly[j][Time->Current.Month - 1];
           /*Due to LAI and FC change, have to change MaxInt to spatial as well*/
           (*VegMap)[y][x].MaxInt[j] = (*VegMap)[y][x].LAI[j] * (*VegMap)[y][x].Fract[j] * LAI_WATER_MULTIPLIER;
+        }
+
+        /* Diffuse transmittance of the overstory from the cell's LAI of the
+           month (VARIABLE attenuation) */
+        if (Options->CanopyRadAtt == VARIABLE) {
+          if (VType[(*VegMap)[y][x].Veg - 1].OverStory) {
+            a = VType[(*VegMap)[y][x].Veg - 1].LeafAngleA;
+            b = VType[(*VegMap)[y][x].Veg - 1].LeafAngleB;
+            l = (*VegMap)[y][x].LAI[0] / VType[(*VegMap)[y][x].Veg - 1].ClumpingFactor;
+            if (l == 0)
+              (*VegMap)[y][x].Taud = 1.0;
+            else
+              (*VegMap)[y][x].Taud = exp(-b * l) * ((1 - a * l) * exp(-a * l) +
+                (a * l) * (a * l) * evalexpint(1, a * l));
+          }
+          else {
+            (*VegMap)[y][x].Taud = 0.0;
+          }
         }
       }
 		}
@@ -137,22 +120,6 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
             }
           }
         }
-      }
-    }
-    
-	if (Options->CanopyRadAtt == VARIABLE) {
-      if (VType[i].OverStory) {
-        a = VType[i].LeafAngleA;
-        b = VType[i].LeafAngleB;
-        l = VType[i].LAI[0] / VType[i].ClumpingFactor;
-        if (l == 0)
-          VType[i].Taud = 1.0;
-        else
-          VType[i].Taud = exp(-b * l) * ((1 - a * l) * exp(-a * l) +
-            (a * l) * (a * l) * evalexpint(1, a * l));
-      }
-      else {
-        VType[i].Taud = 0.0;
       }
     }
   }
@@ -203,7 +170,7 @@ void InitNewDay(int DayOfYear, SOLARGEOMETRY * SolarGeo)
   Comments     : To be executed at the beginning of each time step
 *****************************************************************************/
 void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
-                 int NSoilLayers, OPTIONSTRUCT *Options, int NStats,
+                 OPTIONSTRUCT *Options, int NStats,
                  METLOCATION *Stat, SOLARGEOMETRY *SolarGeo,
                  TOPOPIX **TopoMap, SOILPIX **SoilMap)
 {
@@ -220,7 +187,7 @@ void InitNewStep(INPUTFILES *InFiles, MAPSIZE *Map, TIMESTRUCT *Time,
             &(SolarGeo->SolarTimeStep), &(SolarGeo->SunMax),
             &(SolarGeo->SolarAzimuth));
 
-  GetMetData(Options, Time, NSoilLayers, NStats, SolarGeo->SunMax, Stat);
+  GetMetData(Options, Time, NStats, SolarGeo->SunMax, Stat);
 }
 
 /*****************************************************************************
@@ -232,7 +199,7 @@ void InitNewWaterYear(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
 {
   int y, x;
   if (DEBUG)
-    printf("Initializing new water year \n");
+    Message("Initializing new water year \n");
   
   
   for (y = 0; y < Map->NY; y++) {
@@ -243,18 +210,14 @@ void InitNewWaterYear(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
     }
   }
   
-  /* If PRISM precipitation fields are being used to interpolate the
-     observed precipitation fields, then read in the new months field */
-
-  if (Options->SnowStats == TRUE) {
-    printf("resetting SWE stats map %d \n", Time->Current.Year);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          SnowMap[y][x].MaxSwe = 0.0;
-          SnowMap[y][x].MaxSweDate = 0;
-          SnowMap[y][x].MeltOutDate = 0;
-        }
+  /* Reset the snow statistics of the water year */
+  Message("resetting SWE stats map %d \n", Time->Current.Year);
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN(TopoMap[y][x].Mask)) {
+        SnowMap[y][x].MaxSwe = 0.0;
+        SnowMap[y][x].MaxSweDate = 0;
+        SnowMap[y][x].MeltOutDate = 0;
       }
     }
   }

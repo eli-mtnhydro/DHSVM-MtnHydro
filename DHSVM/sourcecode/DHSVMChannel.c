@@ -1,5 +1,5 @@
-
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #include <string.h>
 #include "constants.h"
@@ -10,116 +10,173 @@
 #include "settings.h"
 #include "errorhandler.h"
 #include "fileio.h"
+#include "tables.h"
+
+/* -----------------------------------------------------------------------------
+   ReadChannelTables
+   Reads the channel class, segment and cell tables ([INPUTS] Channel Class
+   Table, Channel Segment Table, Channel Cell Table); their contents are
+   checked by ValidateChannels()
+   -------------------------------------------------------------------------- */
+void ReadChannelTables(LISTPTR Input, CHANNELTABLES *Tables)
+{
+  const char *Routine = "ReadChannelTables";
+  TABLE T;
+  int i, c[7];
+
+  memset(Tables, 0, sizeof(CHANNELTABLES));
+
+  /* Channel classes */
+  RequireConfigValue(Input, "INPUTS", "Channel Class Table", Tables->ClassPath);
+  ReadTable(Tables->ClassPath, &T);
+  c[0] = TableColumn(&T, "Class", "-", TRUE);
+  c[1] = TableColumn(&T, "Width", "m", TRUE);
+  c[2] = TableColumn(&T, "BankHeight", "m", TRUE);
+  c[3] = TableColumn(&T, "ManningsN", "-", TRUE);
+  TableWarnUnknown(&T);
+  Tables->NClasses = T.NRows;
+  if (!(Tables->ClassID = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->Width = calloc(T.NRows + 1, sizeof(float))) ||
+      !(Tables->BankHeight = calloc(T.NRows + 1, sizeof(float))) ||
+      !(Tables->Friction = calloc(T.NRows + 1, sizeof(float))))
+    ReportError((char *) Routine, 1);
+  for (i = 0; i < T.NRows; i++) {
+    Tables->ClassID[i] = TableInt(&T, i, c[0]);
+    Tables->Width[i] = TableFloat(&T, i, c[1]);
+    Tables->BankHeight[i] = TableFloat(&T, i, c[2]);
+    Tables->Friction[i] = TableFloat(&T, i, c[3]);
+  }
+  FreeTable(&T);
+
+  /* Channel segments, in routing order within each stream order */
+  RequireConfigValue(Input, "INPUTS", "Channel Segment Table", Tables->SegmentPath);
+  ReadTable(Tables->SegmentPath, &T);
+  c[0] = TableColumn(&T, "Segment", "-", TRUE);
+  c[1] = TableColumn(&T, "Order", "-", TRUE);
+  c[2] = TableColumn(&T, "Slope", "m/m", TRUE);
+  c[3] = TableColumn(&T, "Length", "m", TRUE);
+  c[4] = TableColumn(&T, "Class", "-", TRUE);
+  c[5] = TableColumn(&T, "Outlet", "-", TRUE);
+  c[6] = TableColumn(&T, "SaveName", "-", TRUE);
+  TableWarnUnknown(&T);
+  Tables->NSegments = T.NRows;
+  if (!(Tables->SegmentID = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->Order = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->Slope = calloc(T.NRows + 1, sizeof(float))) ||
+      !(Tables->Length = calloc(T.NRows + 1, sizeof(float))) ||
+      !(Tables->Class = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->Outlet = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->SaveName = calloc(T.NRows + 1, sizeof(char *))))
+    ReportError((char *) Routine, 1);
+  for (i = 0; i < T.NRows; i++) {
+    Tables->SegmentID[i] = TableInt(&T, i, c[0]);
+    Tables->Order[i] = TableInt(&T, i, c[1]);
+    Tables->Slope[i] = TableFloat(&T, i, c[2]);
+    Tables->Length[i] = TableFloat(&T, i, c[3]);
+    Tables->Class[i] = TableInt(&T, i, c[4]);
+    Tables->Outlet[i] = TableInt(&T, i, c[5]);
+    if (!(Tables->SaveName[i] = strdup(T.Fields[i][c[6]])))
+      ReportError((char *) Routine, 1);
+  }
+  FreeTable(&T);
+
+  /* Channel cells, in the order the records of a cell are kept */
+  RequireConfigValue(Input, "INPUTS", "Channel Cell Table", Tables->CellPath);
+  ReadTable(Tables->CellPath, &T);
+  c[0] = TableColumn(&T, "Row", "-", TRUE);
+  c[1] = TableColumn(&T, "Column", "-", TRUE);
+  c[2] = TableColumn(&T, "Segment", "-", TRUE);
+  c[3] = TableColumn(&T, "Length", "m", TRUE);
+  c[4] = TableColumn(&T, "CutHeight", "m", TRUE);
+  c[5] = TableColumn(&T, "CutWidth", "m", TRUE);
+  TableWarnUnknown(&T);
+  Tables->NCells = T.NRows;
+  if (!(Tables->Row = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->Column = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->Segment = calloc(T.NRows + 1, sizeof(int))) ||
+      !(Tables->CellLength = calloc(T.NRows + 1, sizeof(float))) ||
+      !(Tables->CutHeight = calloc(T.NRows + 1, sizeof(float))) ||
+      !(Tables->CutWidth = calloc(T.NRows + 1, sizeof(float))))
+    ReportError((char *) Routine, 1);
+  for (i = 0; i < T.NRows; i++) {
+    Tables->Row[i] = TableInt(&T, i, c[0]);
+    Tables->Column[i] = TableInt(&T, i, c[1]);
+    Tables->Segment[i] = TableInt(&T, i, c[2]);
+    Tables->CellLength[i] = TableFloat(&T, i, c[3]);
+    Tables->CutHeight[i] = TableFloat(&T, i, c[4]);
+    Tables->CutWidth[i] = TableFloat(&T, i, c[5]);
+  }
+  FreeTable(&T);
+}
 
 /* -----------------------------------------------------------------------------
    InitChannel
-   Reads stream files and builds the network
+   Builds the network from the channel tables (checked by ValidateChannels())
+   and binds it to the grid cells
    -------------------------------------------------------------------------- */
 void
-InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *ChannelData,
+InitChannel(MAPSIZE *Map, int deltat, CHANNEL *ChannelData, CHANNELTABLES *Tables,
 	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
 	    LAKETABLE *LType, TOPOPIX **TopoMap,
-	    int *MaxStreamID,  OPTIONSTRUCT *Options)
+	    int *MaxStreamID, OPTIONSTRUCT *Options)
 {
   int i, x, y;
   ChannelMapPtr cell;
-  STRINIENTRY StrEnv[] = {
-    {"ROUTING", "STREAM NETWORK FILE", "", ""},
-    {"ROUTING", "STREAM MAP FILE", "", ""},
-    {"ROUTING", "STREAM CLASS FILE", "", ""},
-    {NULL, NULL, "", NULL}
-  };
 
-  printf("\nInitializing Stream Networks\n");
-
-  /* Read the key-entry pairs from the ROUTING section in the input file */
-  for (i = 0; StrEnv[i].SectionName; i++) {
-    GetInitString(StrEnv[i].SectionName, StrEnv[i].KeyName, StrEnv[i].Default,
-      StrEnv[i].VarStr, (unsigned long)BUFSIZE, Input);
-    if (IsEmptyStr(StrEnv[i].VarStr))
-      ReportError(StrEnv[i].KeyName, 51);
-  }
+  Message("\nInitializing Stream Networks\n");
 
   ChannelData->stream_class = NULL;
   ChannelData->streams = NULL;
   ChannelData->stream_map = NULL;
-  
+
   channel_grid_init(Map->NX, Map->NY);
 
-  if (strncmp(StrEnv[stream_class].VarStr, "none", 4)) {
-    
-    printf("\tReading Stream data\n");
+  Message("\tReading Stream data\n");
 
-    if ((ChannelData->stream_class =
-	 channel_read_classes(StrEnv[stream_class].VarStr, stream_class)) == NULL) {
-      ReportError(StrEnv[stream_class].VarStr, 5);
-    }
-    if ((ChannelData->streams =
-	 channel_read_network(StrEnv[stream_network].VarStr,
-			      ChannelData->stream_class, MaxStreamID)) == NULL) {
-      ReportError(StrEnv[stream_network].VarStr, 5);
-    }
-    if ((ChannelData->stream_map =
-	 channel_grid_read_map(ChannelData->streams,
-			       StrEnv[stream_map].VarStr, SType, SoilMap, VType, VegMap)) == NULL) {
-      ReportError(StrEnv[stream_map].VarStr, 5);
-    }
-    
-    /* Associate each channel segment with its constituent map cells */
-    channel_combine_map_network(ChannelData->streams, ChannelData->stream_map, Map);
-    
-    if (Options->LakeDynamics) {
-      
-      /* Find channel segments that intersect lake cells */
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          cell = ChannelData->stream_map[x][y];
-          while (cell != NULL) {
-            if (TopoMap[y][x].LakeID != 0) {
-              cell->channel->IntersectsLake = TRUE;
-              cell->channel->lake = &(LType[TopoMap[y][x].LakeID - 1]);
-            }
-            cell = cell->next;
-      }
-      }
-      }
-      
-      /* Find outlets from lakes */
-      for (i = 0; i < Map->NumLakes; i++) {
-        if (LType[i].OutletID != 0) {
-          LType[i].outlet = channel_find_segment(ChannelData->streams, LType[i].OutletID);
-          if (LType[i].outlet == NULL) {
-            printf("ERROR! cannot find outlet (%d) for lake %d", LType[i].OutletID, i);
-          } else {
-            LType[i].outlet->IntersectsLake = FALSE;
-            LType[i].outlet->lake = NULL;
+  ChannelData->stream_class =
+    channel_create_classes(Tables->NClasses, Tables->ClassID, Tables->Width,
+                           Tables->BankHeight, Tables->Friction);
+  ChannelData->streams =
+    channel_create_network(Tables->NSegments, Tables->SegmentID, Tables->Order, Tables->Slope,
+                           Tables->Length, Tables->Class, Tables->Outlet, Tables->SaveName,
+                           ChannelData->stream_class, MaxStreamID);
+  ChannelData->stream_map =
+    channel_grid_create_records(ChannelData->streams, Tables->NCells, Tables->Row,
+                                Tables->Column, Tables->Segment, Tables->CellLength,
+                                Tables->CutHeight, Tables->CutWidth, SType, SoilMap,
+                                VType, VegMap);
+
+  /* Associate each channel segment with its constituent map cells */
+  channel_combine_map_network(ChannelData->streams, ChannelData->stream_map, Map);
+
+  if (Options->LakeDynamics) {
+
+    /* Find channel segments that intersect lake cells */
+    for (y = 0; y < Map->NY; y++) {
+      for (x = 0; x < Map->NX; x++) {
+        cell = ChannelData->stream_map[x][y];
+        while (cell != NULL) {
+          if (TopoMap[y][x].LakeID != 0) {
+            cell->channel->IntersectsLake = TRUE;
+            cell->channel->lake = &(LType[TopoMap[y][x].LakeID - 1]);
           }
+          cell = cell->next;
         }
       }
-    } /* End of lake dynamics */
-    
-    error_handler(ERRHDL_STATUS,
-		  "InitChannel: computing stream network routing coefficients");
-    channel_routing_parameters(ChannelData->streams, (double) deltat);
-  }
-}
-
-/* -------------------------------------------------------------
-   InitChannelDump
-   ------------------------------------------------------------- */
-void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL * ChannelData, 
-					 char *DumpPath)
-{
-  char buffer[BUFSIZE * 2 + 1];
-
-  if (ChannelData->streams != NULL) {
-    if (Options->SaveExtraStreamData) {
-      snprintf(buffer, sizeof(buffer), "%sStream.Flow", DumpPath);
-      OpenFile(&(ChannelData->streamout), buffer, "w", TRUE);
     }
-    snprintf(buffer, sizeof(buffer), "%sStreamflow.Only", DumpPath);
-    OpenFile(&(ChannelData->streamflowout), buffer, "w", TRUE);
-  }
+
+    /* Find outlets from lakes */
+    for (i = 0; i < Map->NumLakes; i++) {
+      LType[i].OutletID = (SegmentID) LType[i].Outlet;
+      LType[i].outlet = channel_find_segment(ChannelData->streams, LType[i].OutletID);
+      LType[i].outlet->IntersectsLake = FALSE;
+      LType[i].outlet->lake = NULL;
+    }
+  } /* End of lake dynamics */
+
+  error_handler(ERRHDL_STATUS,
+		"InitChannel: computing stream network routing coefficients");
+  channel_routing_parameters(ChannelData->streams, (double) deltat);
 }
 
 /* -------------------------------------------------------------
@@ -127,13 +184,11 @@ void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL * ChannelData,
    ------------------------------------------------------------- */
 void
 RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
-	    TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
+	    TOPOPIX **TopoMap, SOILPIX **SoilMap,
 	     OPTIONSTRUCT *Options, NETSTRUCT **Network, SOILTABLE *SType,
 	     VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType)
 {
   int k, x, y;
-  int flag;
-  char buffer[32];
   float max_bank_height = 0.0;
   float AdjTableDepth;
   float Transmissivity;
@@ -143,9 +198,6 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
   float MaxInfiltrationCap;
   int i;
   float StreamInfiltration, StreamEvap;
-  
-  SPrintDate(&(Time->Current), buffer);
-  flag = IsEqualTime(&(Time->Current), &(Time->Start));
   
   /* Add IExcess and ChannelInt to stream channels (by descending elevation) */
   for (k = (Map->NumCells - 1); k > -1;  k--) {
@@ -247,12 +299,6 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
       Evap[y][x].EvapChannel = StreamEvap;
     }
   }
-  
-  channel_save_outflow_text(buffer, ChannelData->streams,
-                            ChannelData->streamout,
-                            ChannelData->streamflowout, flag,
-                            Options->SaveExtraStreamData);
-  
 }
 
 /* -------------------------------------------------------------

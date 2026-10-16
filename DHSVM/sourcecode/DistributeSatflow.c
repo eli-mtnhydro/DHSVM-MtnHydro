@@ -40,8 +40,8 @@ void DistributeSatflow(int Dt, float DX, float DY, float SatFlow,
   float DeepExtracWater;
   float Depth;
 
-  DeepPorosity = Porosity[NSoilLayers - 1];
-  DeepFCap = FCap[NSoilLayers - 1];
+  DeepPorosity = Porosity[NSoilLayers];
+  DeepFCap = FCap[NSoilLayers];
   
   DeepLayerDepth = TotalDepth;
   for (i = 0; i < NSoilLayers; i++)

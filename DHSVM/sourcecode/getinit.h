@@ -1,4 +1,3 @@
-
 #ifndef GETINIT_H
 #define GETINIT_H
 
@@ -19,13 +18,6 @@
 #define OPENSECTION  '['
 #define CLOSESECTION ']'
 
-typedef struct _INTINIENTRY {
-  char *SectionName;
-  char *KeyName;
-  long *Var;
-  long Default;
-} INTINIENTRY;
-
 typedef struct _INPUTSTRUCT *LISTPTR;
 
 typedef struct _INPUTSTRUCT {
@@ -34,43 +26,24 @@ typedef struct _INPUTSTRUCT {
   LISTPTR Next;
 } INPUTSTRUCT;
 
-typedef struct _DBLINIENTRY {
-  char *SectionName;
-  char *KeyName;
-  double *Var;
-  double Default;
-} DBLINIENTRY;
-
-typedef struct _STRINIENTRY {
-  char *SectionName;
-  char *KeyName;
-  char VarStr[BUFSIZE + 1];
-  char *Default;
-} STRINIENTRY;
+int ConfigBool(const char *Section, const char *Key, char *Value);
+double ConfigDouble(const char *Section, const char *Key, char *Value);
+float ConfigFloat(const char *Section, const char *Key, char *Value);
+int ConfigInt(const char *Section, const char *Key, char *Value);
 
 int CopyDouble(double *Value, char *Str, const int NValues);
 int CopyFloat(float *Value, char *Str, const int NValues);
 int CopyInt(int *Value, char *Str, const int NValues);
-int CopyLong(long *Value, char *Str, const int NValues);
-int CopyShort(short *Value, char *Str, const int NValues);
 int CopyUChar(unsigned char *Value, char *Str, const int NValues);
-int CopyLCase(char *Value, char *Str, const int maxlen);
-
-int CountLines(FILE * InFile);
 
 LISTPTR CreateNode(void);
 
 void DeleteList(LISTPTR StartNode);
 
-double GetInitDouble(const char *Section, const char *Key, double Default,
-		     LISTPTR Input);
+int GetConfigValue(LISTPTR Input, const char *Section, const char *Key, char *Value);
 
-long GetInitLong(const char *Section, const char *Key, long Default,
-		 LISTPTR Input);
 
-unsigned long GetInitString(const char *Section, const char *Key,
-			    const char *Default, char *ReturnBuffer,
-			    unsigned long BufferSize, LISTPTR Input);
+int IsChoice(const char *Value, const char *Choice);
 
 int IsEmptyStr(char *Str);
 
@@ -85,6 +58,8 @@ LISTPTR LocateSection(const char *Section, LISTPTR Input);
 void MakeKeyString(char *Buffer);
 
 void ReadInitFile(char *TemplateFileName, LISTPTR * Input);
+
+void RequireConfigValue(LISTPTR Input, const char *Section, const char *Key, char *Value);
 
 void Strip(char *Buffer);
 

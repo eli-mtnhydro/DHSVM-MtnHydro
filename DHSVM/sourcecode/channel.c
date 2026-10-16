@@ -9,7 +9,6 @@
 #include "channel.h"
 #include "channel_grid.h"
 #include "constants.h"
-#include "tableio.h"
 #include "settings.h"
 
 /* -------------------------------------------------------------
@@ -63,50 +62,17 @@ static ChannelClass *find_channel_class(ChannelClass * list, ClassID id)
 }
 
 /* -------------------------------------------------------------
-channel_read_classes
-This function opens and reads the specified file and returns a
-linked list of ChannelClass structs.  If anything goes wrong, NULL
-is returned and any ChannelClass structs are destroyed.
+channel_create_classes
+Builds the linked list of ChannelClass structs from the rows of the
+channel class table (in table order)
 ------------------------------------------------------------- */
-ChannelClass *channel_read_classes(const char *file, int ChanType)
+ChannelClass *channel_create_classes(int N, int *ID, float *Width, float *BankHeight,
+                                     float *Friction)
 {
   ChannelClass *head = NULL, *current = NULL;
-  static const int fields = 4;
-  int done;
-  int err = 0;
+  int i;
 
-  static TableField class_fields[4] = {
-    {"ID", TABLE_INTEGER, TRUE, FALSE, {0}, "", NULL},
-    {"Channel Width", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Bank Cut Height", TABLE_REAL, TRUE, FALSE, {0.0}, "",
-    NULL},
-    {"Friction Coefficient (Manning's n)", TABLE_REAL, TRUE, FALSE, {0.0}, "",
-    NULL}
-  };
-  
-  error_handler(ERRHDL_STATUS,
-    "channel_read_classes: reading file \"%s\"", file);
-
-  if (table_open(file) != 0) {
-    error_handler(ERRHDL_ERROR,
-      "channel_read_classes: unable to open file \"%s\": %s",
-      file, strerror(errno));
-    return NULL;
-  }
-
-  done = FALSE;
-  while (!done) {
-    int i;
-    done = (table_get_fields(fields, class_fields) < 0);
-    if (done) {
-      for (i = 0; i < fields; i++) {
-        if (class_fields[i].read)
-          break;
-      }
-      if (i >= fields)
-        continue;
-    }
-
+  for (i = 0; i < N; i++) {
     if (head == NULL) {
       head = alloc_channel_class();
       current = head;
@@ -115,59 +81,10 @@ ChannelClass *channel_read_classes(const char *file, int ChanType)
       current->next = alloc_channel_class();
       current = current->next;
     }
-
-    for (i = 0; i < fields; i++) {
-      if (class_fields[i].read) {
-        switch (i) {
-        case 0:
-          current->id = class_fields[i].value.integer;
-          if (current->id <= 0) {
-            error_handler(ERRHDL_ERROR,
-              "%s: class %d: class id invalid", file, current->id);
-            err++;
-          }
-          break;
-          // We do not want these 3 values to be 0.0 EVER
-          // Exit if this is the case.
-        case 1:
-          if (class_fields[i].value.real>0.0)
-            current->width = class_fields[i].value.real;
-          else error_handler(ERRHDL_FATAL,
-            "channel_read_classes: %s: width cannot be 0.0", file);
-          break;
-        case 2:
-          if (class_fields[i].value.real>0.0)
-            current->bank_height = class_fields[i].value.real;
-          else error_handler(ERRHDL_FATAL,
-            "channel_read_classes: %s: bank cannot be 0.0", file);
-          break;
-        case 3:
-          if (class_fields[i].value.real>0.0)
-            current->friction = class_fields[i].value.real;
-          else error_handler(ERRHDL_FATAL,
-            "channel_read_classes: %s: friction cannot be 0.0", file);
-          break;
-        default:
-          error_handler(ERRHDL_FATAL,
-            "channel_read_classes: this should not happen");
-        }
-      }
-    }
-  }
-  error_handler(ERRHDL_STATUS,
-    "channel_read_classes: %s: %d errors, %d warnings",
-    file, table_errors, table_warnings);
-
-  table_close();
-
-  error_handler(ERRHDL_STATUS,
-    "channel_read_classes: done reading file \"%s\"", file);
-
-  if (table_errors) {
-    error_handler(ERRHDL_ERROR,
-      "channel_read_classes: %s: too many errors", file);
-    channel_free_classes(head);
-    head = NULL;
+    current->id = (ClassID) ID[i];
+    current->width = Width[i];
+    current->bank_height = BankHeight[i];
+    current->friction = Friction[i];
   }
 
   return (head);
@@ -199,7 +116,6 @@ static Channel *alloc_channel_segment(void)
   seg->top_water_depth = 0.0;
   seg->bottom_water_depth = 0.0;
   seg->K = 0.0;
-  seg->X = 0.0;
   seg->class2 = NULL;
   seg->IntersectsLake = FALSE;
   seg->lake = NULL;
@@ -261,7 +177,6 @@ void channel_routing_parameters(Channel *network, int deltat)
     Rh = segment->class2->bank_height * 0.75;
     segment->K = sqrt(segment->slope) * pow((double) Rh, 2.0 / 3.0) /
                  (segment->class2->friction * segment->length);
-    segment->X = exp(-segment->K * deltat);
   }
 }
 
@@ -322,11 +237,6 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
         
         /* Use moving average to prevent numeric oscillation across timesteps */
         segment->K = (segment->K + Kold) / 2.0;
-        
-        if (segment->K < MINSTORAGEK)
-          segment->K = MINSTORAGEK;
-        
-        segment->X = exp(-segment->K * deltat);
       }
       segment = segment->next;
     }
@@ -334,54 +244,20 @@ void channel_update_routing_parameters(Channel *network, int deltat, int max_ord
 }
 
 /* -------------------------------------------------------------
-channel_read_network
+channel_create_network
+Builds the linked list of channel segments from the rows of the channel
+segment table (in table order); a segment with a save name is recorded
+in the outputs under that name
 ------------------------------------------------------------- */
-Channel *channel_read_network(const char *file, ChannelClass *class_list, int *MaxID)
+Channel *channel_create_network(int N, int *ID, int *Order, float *Slope, float *Length,
+                                int *Class, int *Outlet, char **SaveName,
+                                ChannelClass *class_list, int *MaxID)
 {
   Channel *head = NULL, *current = NULL;
-  int err = 0;
-  int done;
-  static const int fields = 8;
-  static char *save_words[2] = {
-    "SAVE", "\0"
-  };
-  static TableField chan_fields[8] = {
-    {"ID", TABLE_INTEGER, TRUE, FALSE, {0}, "", NULL},
-    {"Order", TABLE_INTEGER, TRUE, FALSE, {0}, "", NULL},
-    {"Slope", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Length", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Class", TABLE_INTEGER, TRUE, FALSE, {0}, "", NULL},
-    {"Outlet ID", TABLE_INTEGER, FALSE, FALSE, {0}, "", NULL},
-    {"Save Flag", TABLE_WORD, FALSE, FALSE, {0}, "", save_words},
-    {"Save Name", TABLE_STRING, FALSE, FALSE, {0.0}, "", NULL}
-  };
-
-  error_handler(ERRHDL_STATUS,
-    "channel_read_network: reading file \"%s\"", file);
-
-  if (table_open(file) != 0) {
-    error_handler(ERRHDL_ERROR,
-      "channel_read_network: unable to open file \"%s\": %s",
-      file, strerror(errno));
-    return NULL;
-  }
+  int i;
 
   *MaxID = 0;
-  done = FALSE;
-  while (!done) {
-    int i;
-
-    done = (table_get_fields(fields, chan_fields) < 0);
-
-    if (done) {
-      for (i = 0; i < fields; i++) {
-        if (chan_fields[i].read)
-          break;
-      }
-      if (i >= fields)
-        continue;
-    }
-
+  for (i = 0; i < N; i++) {
     if (head == NULL) {
       head = alloc_channel_segment();
       current = head;
@@ -390,111 +266,26 @@ Channel *channel_read_network(const char *file, ChannelClass *class_list, int *M
       current->next = alloc_channel_segment();
       current = current->next;
     }
-    
+
     current->IntersectsLake = FALSE;
-
-    for (i = 0; i < fields; i++) {
-      if (chan_fields[i].read) {
-        switch (i) {
-        case 0:
-          current->id = chan_fields[i].value.integer;
-          if(current->id > *MaxID) *MaxID = current->id;
-          if (current->id <= 0) {
-            error_handler(ERRHDL_ERROR,
-              "%s: segment %d: channel id invalid",
-              file, current->id);
-            err++;
-          }
-          break;
-        case 1:
-          if (chan_fields[i].value.integer > 0) {
-            current->order = chan_fields[i].value.integer;
-          }
-          else {
-            error_handler(ERRHDL_ERROR,
-              "%s: segment %d: channel order (%d) invalid",
-              file, current->id, chan_fields[i].value.integer);
-            err++;
-          }
-          break;
-        case 2:
-          if (chan_fields[i].value.real > 0) {
-            current->ground_slope = chan_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR,
-              "%s: segment %d: channel slope (%f) invalid",
-              file, current->id, chan_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 3:
-          if (chan_fields[i].value.real > 0) {
-            current->length = chan_fields[i].value.real;
-          }
-          else {
-            error_handler(ERRHDL_ERROR,
-              "%s: segment %d: channel length (%f) invalid",
-              file, current->id, chan_fields[i].value.real);
-            err++;
-          }
-          break;
-        case 4:
-          if ((current->class2 =
-            find_channel_class(class_list, chan_fields[i].value.integer)
-            ) == NULL) {
-              error_handler(ERRHDL_ERROR,
-                "%s: segment %d: channel class %d not found",
-                file, current->id, chan_fields[i].value.integer);
-              err++;
-          }
-          break;
-        case 5:
-          current->outid = chan_fields[i].value.integer;
-          break;
-        case 6:
-          current->record = TRUE;
-          break;
-        case 7:
-          current->record_name = (char *) strdup(chan_fields[i].field);
-          break;
-        default:
-          error_handler(ERRHDL_FATAL,
-            "channel_read_network: what is this field %d?", i);
-          break;
-        }
-      }
+    current->id = (SegmentID) ID[i];
+    if (current->id > *MaxID)
+      *MaxID = current->id;
+    current->order = Order[i];
+    current->ground_slope = Slope[i];
+    current->length = Length[i];
+    current->class2 = find_channel_class(class_list, (ClassID) Class[i]);
+    current->outid = (SegmentID) Outlet[i];
+    if (SaveName[i][0] != '\0') {
+      current->record = TRUE;
+      current->record_name = (char *) strdup(SaveName[i]);
     }
   }
 
-  table_close();
-
-  /* find segment outlet segments, if
-  specified */
-
+  /* find segment outlet segments, if specified */
   for (current = head; current != NULL; current = current->next) {
-    if (current->outid != 0) {
+    if (current->outid != 0)
       current->outlet = channel_find_segment(head, current->outid);
-      if (current->outlet == NULL) {
-        error_handler(ERRHDL_ERROR,
-          "%s: cannot find outlet (%d) for segment %d",
-          file, current->outid, current->id);
-        err++;
-      }
-    }
-  }
-
-  table_errors += err;
-
-  error_handler(ERRHDL_STATUS,
-    "channel_read_network: %s: %d errors, %d warnings",
-    file, table_errors, table_warnings);
-
-  if (table_errors) {
-    error_handler(ERRHDL_ERROR,
-      "channel_read_network: %s: too many errors", file);
-    channel_free_network(head);
-    head = NULL;
   }
 
   return (head);
@@ -576,6 +367,7 @@ channel_route_segment
 static int channel_route_segment(Channel * segment, int deltat)
 {
   float net_balance, outflow, storage, storage_loss;
+  double k, s0;
   int err = 0;
   
   segment->inflow += segment->lake_inflow;
@@ -602,11 +394,14 @@ static int channel_route_segment(Channel * segment, int deltat)
   (segment->infiltration + segment->evaporation - storage_loss);
   net_balance /= deltat;
   
-  if (segment->K > 1e-10)
-    storage = (net_balance / segment->K) +
-      (segment->storage - net_balance / segment->K) * segment->X;
+  /* Linear reservoir over the step, S0 exp(-K dt) + net (1 - exp(-K dt)) / K,
+     in a form without cancellation for small K; K = 0 keeps the net inflow */
+  k = segment->K;
+  s0 = segment->storage;
+  if (k > 0.0)
+    storage = (float) (s0 + ((double) net_balance - k * s0) * (-expm1(-k * deltat) / k));
   else
-    storage = net_balance;
+    storage = (float) (s0 + (double) net_balance * deltat);
   
   if (storage < 0.0)
     storage = 0.0;
@@ -682,119 +477,6 @@ int channel_step_initialize_network(Channel *net)
     channel_step_initialize_network(net->next);
   }
   return (0);
-}
-
-/* -------------------------------------------------------------
-channel_save_outflow
-This routine saves the channel output
-------------------------------------------------------------- */
-int channel_save_outflow(double time, Channel * net, FILE * out, FILE * out2)
-{
-  char buffer[16];
-  sprintf(buffer, "%12.5g", time);
-  return (channel_save_outflow_text(buffer, net, out, out2, 0, 1));
-}
-
-/* -------------------------------------------------------------
-channel_save_outflow_text
-Saves the channel outflow using a text string as the time field
-------------------------------------------------------------- */
-int
-  channel_save_outflow_text(char *tstring, Channel * net, FILE * out,
-  FILE * out2, int flag, int SaveExtraStreamData)
-{
-  int err = 0;
-  float total_outflow = 0.0;
-  float total_lateral_inflow = 0.0;
-  float total_storage = 0.0;
-  float total_storage_change = 0.0;
-  float total_error = 0.0;
-  float total_infiltration = 0.0;
-  float total_evaporation = 0.0;
-  Channel *seg;
-
-  /* Header line on the first time step: walk a copy of the pointer so the
-     data loop below still starts at the head of the network */
-  if (flag == 1) {
-    fprintf(out2, "DATE ");
-    for (seg = net; seg != NULL; seg = seg->next) {
-      if (seg->record)
-        fprintf(out2, "%s ", seg->record_name);
-    }
-    fprintf(out2, "\n");
-  }
-  
-  /* tsstring = date in the form of 01.01.1915-00:00:00 */
-  if (fprintf(out2, "%15s ", tstring) == EOF) {
-    error_handler(ERRHDL_ERROR,
-      "channel_save_outflow: write error:%s", strerror(errno));
-    err++;
-  }
-  
-  for (; net != NULL; net = net->next) {
-    if (SaveExtraStreamData) {
-      total_lateral_inflow += (net->lateral_inflow + net->lake_inflow);
-      if (net->outlet == NULL) {
-        total_outflow += net->outflow;
-      }
-      total_storage += net->storage;
-      total_storage_change += net->storage - net->last_storage;
-      total_infiltration += net->infiltration;
-      total_evaporation += net->evaporation;
-    }
-    
-    if (net->record) {
-      /* Streamflow.Only file */
-      if (fprintf(out2, "%12.5g ", net->outflow) == EOF) {
-        error_handler(ERRHDL_ERROR,
-                      "channel_save_outflow: write error:%s", strerror(errno));
-        err++;
-      }
-      
-      /* Stream.Flow file */
-      if (SaveExtraStreamData) {
-        if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g",
-                    tstring, net->id, net->inflow, net->lateral_inflow,
-                    net->outflow, net->storage - net->last_storage, net->infiltration, net->evaporation) == EOF) {
-          error_handler(ERRHDL_ERROR,
-                        "channel_save_outflow: write error:%s", strerror(errno));
-          err++;
-        }
-        if (net->record_name != NULL) {
-          if (fprintf(out, "   \"%s\"\n", net->record_name) == EOF) {
-            error_handler(ERRHDL_ERROR,
-                          "channel_save_outflow: write error:%s",
-                          strerror(errno));
-            err++;
-          }
-        }
-        else {
-          if (fprintf(out, "\n") == EOF) {
-            error_handler(ERRHDL_ERROR,
-                          "channel_save_outflow: write error:%s",
-                          strerror(errno));
-            err++;
-          }
-        }
-      } /* End of Stream.Flow */
-      
-
-    }
-  }
-  if (SaveExtraStreamData) {
-    total_error = total_storage_change - total_lateral_inflow + total_outflow + total_infiltration + total_evaporation;
-    if (fprintf(out, "%15s %10d %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g %12.5g \"Totals\"\n",
-                tstring, 0, total_lateral_inflow,
-                total_outflow, total_storage,
-                total_storage_change, total_infiltration, total_evaporation, total_error) == EOF) {
-      error_handler(ERRHDL_ERROR,
-                    "channel_save_outflow: write error:%s", strerror(errno));
-      err++;
-    }
-  }
-  fprintf(out2, "\n");
-  
-  return (err);
 }
 
 /* -------------------------------------------------------------

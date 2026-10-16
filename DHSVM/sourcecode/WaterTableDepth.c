@@ -56,8 +56,8 @@ float WaterTableDepth(int NRootLayers, float TotalDepth, float *RootDepth,
 
   MoistureTransfer = 0.0;
   DeepLayerDepth = TotalDepth;
-  DeepPorosity = Porosity[NRootLayers - 1];
-  DeepFCap = FCap[NRootLayers - 1];
+  DeepPorosity = Porosity[NRootLayers];
+  DeepFCap = FCap[NRootLayers];
   
   for (i = 0; i < NRootLayers; i++)
     DeepLayerDepth -= RootDepth[i];

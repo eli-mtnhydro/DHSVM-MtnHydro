@@ -15,21 +15,52 @@ typedef struct {
   ChannelClass *stream_class;
   Channel *streams;
   ChannelMapPtr **stream_map;
-  FILE *streamout;
-  FILE *streamflowout;
 } CHANNEL;
+
+/* -------------------------------------------------------------
+   struct CHANNELTABLES
+   The channel class, segment and cell tables as read (rows in table
+   order; cell rows and columns from 1)
+   ------------------------------------------------------------- */
+typedef struct {
+  char ClassPath[BUFSIZE + 1];
+  char SegmentPath[BUFSIZE + 1];
+  char CellPath[BUFSIZE + 1];
+  int NClasses;
+  int *ClassID;
+  float *Width;
+  float *BankHeight;
+  float *Friction;
+  int NSegments;
+  int *SegmentID;
+  int *Order;
+  float *Slope;
+  float *Length;
+  int *Class;
+  int *Outlet;
+  char **SaveName;
+  int NCells;
+  int *Row;
+  int *Column;
+  int *Segment;
+  float *CellLength;
+  float *CutHeight;
+  float *CutWidth;
+} CHANNELTABLES;
 
 /* -------------------------------------------------------------
    available functions
    ------------------------------------------------------------- */
-void InitChannel(LISTPTR Input, MAPSIZE *Map, int deltat, CHANNEL *channel,
+void ReadChannelTables(LISTPTR Input, CHANNELTABLES *Tables);
+void ValidateChannels(OPTIONSTRUCT *Options, MAPSIZE *Map, TOPOPIX **TopoMap,
+                      SOILPIX **SoilMap, CHANNELTABLES *Tables, LAKETABLE *LType);
+void InitChannel(MAPSIZE *Map, int deltat, CHANNEL *channel, CHANNELTABLES *Tables,
 	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
 	    LAKETABLE *LType, TOPOPIX **TopoMap,
 	    int *MaxStreamID, OPTIONSTRUCT *Options);
-void InitChannelDump(OPTIONSTRUCT *Options, CHANNEL *channel, char *DumpPath);
 double ChannelCulvertFlow(int y, int x, CHANNEL *ChannelData);
 void RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
-		  TOPOPIX **TopoMap, SOILPIX **SoilMap, AGGREGATED *Total, 
+		  TOPOPIX **TopoMap, SOILPIX **SoilMap,
 		  OPTIONSTRUCT *Options, NETSTRUCT **Network, SOILTABLE *SType,
 		  VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType);
 void ChannelCut(int y, int x, CHANNEL *ChannelData, NETSTRUCT *Network);

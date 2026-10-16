@@ -1,0 +1,6 @@
+# Build products and local notes
+*.o
+*.exe
+DHSVM/sourcecode/DHSVM_X.*
+Note.txt
+CommitMsg.txt

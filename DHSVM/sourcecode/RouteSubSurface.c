@@ -84,8 +84,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 		     VEGTABLE *VType, VEGPIX **VegMap,
 		     NETSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, CHANNEL *ChannelData,
-		     TIMESTRUCT *Time, OPTIONSTRUCT *Options, 
-		     char *DumpPath)
+		     TIMESTRUCT *Time, OPTIONSTRUCT *Options)
 {
   const char *Routine = "RouteSubSurface";
   int x, nx;			/* counters */
@@ -116,11 +115,6 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   unsigned int **SubTotalDir;	/* Sum of Dir array */
   ITEM kOrdered[NDIRS];
 
-  int count, totalcount;
-  float mgrid, sat;
-  char buffer[32];
-  char satoutfile[BUFSIZE * 2 + 1]; /* Character arrays to hold file name. */ 
-  FILE *fs;                     /* File pointer. */
   /*****************************************************************************
    Allocate memory 
   ****************************************************************************/
@@ -170,6 +164,9 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       for (k = 0; k < NDIRS; k++) {
         nx = xdirection[k] + x;
         ny = ydirection[k] + y;
+        /* Neighbors outside the grid or the mask take no flow */
+        if (!valid_cell(Map, nx, ny) || !INBASIN(TopoMap[ny][nx].Mask))
+          continue;
         if (SoilMap[y][x].WaterLevel > SoilMap[ny][nx].WaterLevel) {
           flag = 1;
           /* Use time-averaged WaterLevel if the change in local water level
@@ -241,12 +238,14 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       
       OutFlow = (Transmissivity * fract_used * SubFlowGrad[y][x] * Dt) / (Map->DX * Map->DY);
       
-      /* Determine TOTAL amount of water available for redistribution */
+      /* Determine TOTAL amount of water available for redistribution: from the
+         moisture and the actual table depth, the state DistributeSatflow
+         extracts it from (the averaged water level sets only the head) */
       TotalAvailableWater =
       CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
                          SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
                          SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
-                         AdjTableDepth, Adjust);
+                         SoilMap[y][x].TableDepth, Adjust);
     } else {
       OutFlow = 0.0;
       TotalAvailableWater = 0.0;
@@ -274,7 +273,10 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                              ChannelWaterLevel, VType[VegMap[y][x].Veg - 1].RootDepth,
                              SoilMap[y][x].Porosity,
                              SoilMap[y][x].FCap, SoilMap[y][x].Moist,
-                             AdjTableDepth, Adjust);
+                             SoilMap[y][x].TableDepth, Adjust);
+        /* No more than the cell can give in total */
+        if (AvailableWater > TotalAvailableWater)
+          AvailableWater = TotalAvailableWater;
         
         /* New method: contribute lateral inflow to each channel segment individually */
         water_out_stream = channel_grid_calc_satflow(ChannelData->stream_map, x, y,
@@ -536,44 +538,13 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
   free(SubDir);
   free(SubTotalDir);
   free(SubFlowGrad);
-
-  /**********************************************************************/
-  /* Dump saturation extent file to screen.
-     Saturation extent is based on the number of pixels with a water table 
-     that is at least MTHRESH of soil depth. */ 
-  
-  count =0;
-  totalcount = 0;
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-	     mgrid = (SoilMap[y][x].Depth - SoilMap[y][x].TableDepth)/SoilMap[y][x].Depth;
-	     if (mgrid > MTHRESH) 
-		   count += 1;
-		 totalcount += 1;
-      }
-    }
-  }
- 
-  sat = 100.*((float)count/(float)totalcount);
-  
-  snprintf(satoutfile, sizeof(satoutfile), "%ssaturation_extent.txt", DumpPath);
-  
-  if((fs = fopen(satoutfile,"a")) == NULL){
-    printf("Cannot open saturation extent output file.\n");
-    exit(0);
-  }
-  
-  SPrintDate(&(Time->Current), buffer);
-  fprintf(fs, "%-20s %.4f \n", buffer, sat); 
-  fclose(fs);    
 }
 
 /*******************************************************************************
   Simplified/condensed subsurface routing scheme used during spinup
 *******************************************************************************/
 
-void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
+void RouteSubSurfaceSpinup(int Dt, int DeepFluxSteps, MAPSIZE *Map, TOPOPIX **TopoMap,
 		     VEGTABLE *VType, VEGPIX **VegMap,
 		     NETSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, OPTIONSTRUCT *Options,
@@ -652,8 +623,8 @@ void RouteSubSurfaceSpinup(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
       TotalAvailableWater = 0.0;
     }
     
-    /* Add or subtract deep groundwater flux */
-    DeepFlux = SoilMap[y][x].MaxDeepFlux;
+    /* Add or subtract deep groundwater flux (DeepFluxSteps time steps of it) */
+    DeepFlux = SoilMap[y][x].MaxDeepFlux * DeepFluxSteps;
     if (DeepFlux < 0.0) {
       /* Only subtract as much water as available in saturated zone */
       DeepFlux = ((TotalAvailableWater + DeepFlux) < 0.0) ? (TotalAvailableWater * -1.0) : DeepFlux;

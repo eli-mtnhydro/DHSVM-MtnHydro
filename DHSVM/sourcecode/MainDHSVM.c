@@ -21,14 +21,14 @@
 #include "getinit.h"
 #include "DHSVMChannel.h"
 #include "channel.h"
+#include "output.h"
 
 /******************************************************************************/
 /* GLOBAL VARIABLES */
 /******************************************************************************/
 
-char *version = "Version X.2.3";    /* store version string */
+char *version = "Version " DHSVM_VERSION;    /* store version string */
 char commandline[BUFSIZE + 1] = "";	/* store command line */
-char fileext[BUFSIZ + 1] = "";			/* file extension */
 char errorstr[BUFSIZ + 1] = "";			/* error message */
 
 /******************************************************************************/
@@ -39,33 +39,20 @@ int main(int argc, char **argv) {
   float **PrismMap = NULL;
   float **SnowPatternMap = NULL;
   float **SnowPatternMapBase = NULL;
-  unsigned char ***ShadowMap = NULL;
-  float **SkyViewMap = NULL;
-  float **PptMultiplierMap = NULL;                                  
-  float **MeltMultiplierMap = NULL;                                  
   int MaxStreamID;
-  clock_t start, finish1;
-  double runtime = 0.0;
-  int t = 0;
+  time_t WallStart;
   int i, x, y;
   int NStats;
   uchar ***MetWeights = NULL;
-  
-  AGGREGATED Total = {			/* Total or average value of a  variable over the entire basin */
-    {0.0, NULL, NULL, NULL, NULL, 0.0, 0.0},												/* EVAPPIX */
-    {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, 0.0, 0},								/* PRECIPPIX */
-    {{0.0, 0.0}, {0.0, 0.0}, {0.0, 0.0}, 0.0, {0.0, 0.0}, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0}, /* PIXRAD */
-    {0, 0, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-	  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0},     /* SNOWPIX */ 
-	  {0, 0.0, NULL, NULL, NULL, 0.0, 0.0, 0.0, 0.0, NULL, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL}, /* SOILPIX */
-    {0, 0.0, 0.0, 0.0, 0.0, NULL, NULL, NULL, NULL, NULL, 0.0, NULL},                             /* VEGPIX */
-    0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0l, 0.0
-  };
-  CHANNEL ChannelData = {NULL, NULL, NULL, NULL, NULL};
+
+  TOTALS Totals;			/* Basin and class means, water balance */
+  MODELVIEW Model;			/* The model state the outputs read */
+  CHANNEL ChannelData = {NULL, NULL, NULL};
+  CHANNELTABLES ChannelTables;
   DUMPSTRUCT Dump;
   EVAPPIX **EvapMap = NULL;
   INPUTFILES InFiles;
+  INPUTMAPS Raw;
   LAYER Soil;
   LAYER Veg;
   LISTPTR Input = NULL;
@@ -80,137 +67,167 @@ int main(int argc, char **argv) {
   SOILPIX **SoilMap = NULL;
   SOILTABLE *SType = NULL;
   SOLARGEOMETRY SolarGeo;
+  SHADE Shade;
+  double ShadeFactorCell = 0.0;
+  float SkyViewCell = 1.0;
   TIMESTRUCT Time;
   TOPOPIX **TopoMap = NULL;
   LAKETABLE *LType = NULL;
   VEGPIX **VegMap = NULL;
   VEGTABLE *VType = NULL;
-  DYNAVEG DVeg;
-  WATERBALANCE Mass =	{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
-  
+    
 /******************************************************************************/
 /* INITIALIZATION */
 /******************************************************************************/
 
-  if (argc != 2) {
-    fprintf(stderr, "\nUsage: %s inputfile\n\n", argv[0]);
-    fprintf(stderr, "DHSVM uses two output streams: \n");
-    fprintf(stderr, "Standard Out, for the majority of output \n");
-    fprintf(stderr, "Standard Error, for the final mass balance \n");
-    fprintf(stderr, "\nTo pipe output correctly to files: \n");
-    fprintf(stderr, "(cmd > f1) >& f2 \n");
-    fprintf(stderr, "where f1 is stdout_file and f2 is stderror_file\n");
-    exit(EXIT_FAILURE);
-  }
-  
+  if (argc != 2)
+    ReportErrorCode(101, "usage: DHSVM_%s <config file>", DHSVM_VERSION);
+
   snprintf(commandline, sizeof(commandline), "%s %s", argv[0], argv[1]);
-  printf("%s \n", commandline);
-  fprintf(stderr, "%s \n", commandline);
-  if (strlen(argv[1]) > BUFSIZE) {
-    fprintf(stderr, "\nConfig file path longer than %d characters: %s\n", BUFSIZE, argv[1]);
-    exit(EXIT_FAILURE);
-  }
+  if (strlen(argv[1]) > BUFSIZE)
+    ReportErrorCode(101, "%s: config file path longer than %d characters", argv[1], BUFSIZE);
   strcpy(InFiles.Const, argv[1]);
-  
-  printf("\nRunning DHSVM %s\n", version);
-  printf("\nMountain Hydrology Version Copyright Eli Boardman\n");
-  printf("\nLICENSE: CC BY-NC-SA 4.0 (Non-Commercial Use Only!)\n");
-#ifdef SNOW_ONLY
-  printf("----------------------------------\n");
-  printf("WARNING: USING SNOW ONLY MODULES (prescribed in makefile)!\n");
-  printf("----------------------------------\n");
-#endif
-  printf("\nSTARTING INITIALIZATION PROCEDURES\n\n");
-  
-  start = clock();
-  
+
+  WallStart = time(NULL);
+
+  /* Config (every key), time steps, output requests and output directory */
+  InitValueCodes();
   ReadInitFile(InFiles.Const, &Input);
-  InitConstants(Input, &Options, &Map, &SolarGeo, &Time);
-  InitFileIO();
+  InitConstants(Input, &Options, &Map, &SolarGeo, &Time, &Dump);
+
+  Message("%s \n", commandline);
+  Message("\nRunning DHSVM %s\n", version);
+  Message("\nMountain Hydrology Version Copyright Eli Boardman\n");
+  Message("\nLICENSE: CC BY-NC-SA 4.0 (Non-Commercial Use Only!)\n");
+#ifdef SNOW_ONLY
+  Message("----------------------------------\n");
+  Message("WARNING: USING SNOW ONLY MODULES (prescribed in makefile)!\n");
+  Message("----------------------------------\n");
+#endif
+  Message("\nSTARTING INITIALIZATION PROCEDURES\n\n");
+  PrintRunSettings(&Options);
+
+  /* Input files: maps, tables (with their [PARAMETERS] rows T1-T5), station
+     data */
+  CheckInputFiles(Input, &Options, OutputListNamesAny(&(Dump.List[OUT_POINT])));
+  ReadInputMaps(Input, &Options, &Map, &Raw);
   InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg, &LType, &Time);
-  InitTerrainMaps(Input, &Options, &Map, &Soil, &Veg, &TopoMap, SType, &SoilMap, VType, &VegMap, &DVeg, LType);
+  ApplyTableParameters(&Options, Time.NDaySteps, SType, Soil.NTypes, VType, Veg.NTypes, LType,
+                       Map.NumLakes);
+  ReadChannelTables(Input, &ChannelTables);
+  ReadPointTable(Input, &Dump);
+  InitMetSources(Input, &Options, &Map, &Time, &NStats, &Stat);
+
+  /* The input maps as given, then the parameters */
+  ValidateInputs(Input, &Options, &Map, &Raw, &Soil, SType, &Veg, VType, NStats, Stat);
+  InitTopoMap(&Options, &Map, &Raw, &TopoMap, LType);
   InitSnowMap(&Map, &SnowMap, &Time);
-  InitMappedConstants(Input, &Options, &Map, &SnowMap, VType, &VegMap);
-  CheckOut(&Options, Veg, Soil, VType, SType, &Map, TopoMap, VegMap, SoilMap);
-  if (Options.Extent != POINT)
-    InitChannel(Input, &Map, Time.Dt, &ChannelData, SType, SoilMap, VType, VegMap,
-                LType, TopoMap, &MaxStreamID, &Options);
-  InitNetwork(Map.NY, Map.NX, Map.DX, Map.DY, TopoMap, SoilMap, 
-	      VegMap, VType, &Network, &ChannelData, Veg, &Options);
-  InitMetSources(Input, &Options, &Map, TopoMap, Soil.MaxLayers, &Time,
-		 &InFiles, &NStats, &Stat);
-  InitMetMaps(Input, Time.NDaySteps, &Map, &Options,
+  ApplyParameters(&Options, &Map, &Raw, TopoMap, &Soil, SType, VType, &SoilMap, &VegMap,
+                  SnowMap, Time.Dt);
+  ValidateParameters(&Map, TopoMap, SoilMap);
+  PrintClassSummary(&Options, Veg, Soil, VType, SType, &Map, TopoMap, VegMap, SoilMap);
+
+  /* Channels bound to the cells, channel limit on the cover, storage
+     adjustment */
+  ValidateChannels(&Options, &Map, TopoMap, SoilMap, &ChannelTables, LType);
+  InitChannel(&Map, Time.Dt, &ChannelData, &ChannelTables, SType, SoilMap, VType, VegMap,
+              LType, TopoMap, &MaxStreamID, &Options);
+  InitNetwork(Map.NY, Map.NX, Map.DX, Map.DY, TopoMap, SoilMap,
+	      VegMap, VType, &Network, &ChannelData);
+
+  /* Station weights, meteorological maps, outputs */
+  InitMetMaps(&Map, &Options, &Raw,
 	      &PrismMap, &SnowPatternMap, &SnowPatternMapBase,
-	      &ShadowMap, &SkyViewMap, &EvapMap, &PrecipMap, &PptMultiplierMap,
-	      &MeltMultiplierMap, &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap);
+	      &EvapMap, &PrecipMap, &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap);
   InitInterpolationWeights(&Map, &Options, TopoMap, &MetWeights, Stat, NStats);
-  InitDump(Input, &Options, &Map, Soil.MaxLayers, Veg.MaxLayers, Time.Dt,
-	   TopoMap, &Dump);
+  ValidateWeights(&Map, TopoMap, MetWeights, NStats);
+
+  /* Impervious surface routing, horizon angles of the shading */
+  if (Options.Impervious)
+    InitSurfaceRouting(&Map, TopoMap, &ChannelData);
+  if (Options.Shading)
+    InitShading(&Options, &Map, TopoMap, &Raw, Time.Dt, &Shade);
+
+  /* Output requests checked, output files created */
+  ValidateRequests(Input, &Options, &Map, TopoMap, VegMap, &Veg, ChannelData.streams, &Dump);
+  CreateOutputs(&Map, &Time, ChannelData.streams, &Dump);
+
   /* Done with initialization, warn about keys nothing read and delete the
      list with input strings */
   WarnUnreadKeys(Input);
   DeleteList(Input);
-  
-#ifndef SNOW_ONLY
-  if (Options.Extent != POINT) {
-    InitChannelDump(&Options, &ChannelData, Dump.Path);
-    ReadChannelState(Dump.InitStatePath, &(Time.Start), Time.Dt, ChannelData.streams);
-  }
-#endif
-  
-  InitAggregated(&Options, Veg.MaxLayers, Soil.MaxLayers, &Total);
-  InitModelState(&(Time.Start), Time.NDaySteps, Time.Dt, &Map, &Options, PrecipMap, SnowMap, SoilMap,
+
+  InitModelState(&Time, &Map, &Options, PrecipMap, SnowMap, SoilMap,
 		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
 		 TopoMap, Network, &ChannelData, LType);
-  InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
+  InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase,
 	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
   InitNewDay(Time.Current.JDay, &SolarGeo);
-  
-  /* Setup for mass balance calculations */
-  Aggregate(&Map, &Options, TopoMap, &Soil, &Veg, VegMap, EvapMap, PrecipMap,
-	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, Time.Dt, Time.NDaySteps);
-  Mass.StartWaterStorage = Total.Soil.IExcess + Total.CanopyWater +
-                           Total.SoilWater + Total.Snow.Swq + Total.Soil.SatFlow;
-  Mass.OldWaterStorage = Mass.StartWaterStorage;
-  
+
+  /* What the outputs read */
+  Model.Map = &Map;
+  Model.Topo = TopoMap;
+  Model.Soil = SoilMap;
+  Model.SType = SType;
+  Model.Veg = VegMap;
+  Model.VType = VType;
+  Model.Snow = SnowMap;
+  Model.Precip = PrecipMap;
+  Model.Evap = EvapMap;
+  Model.Rad = RadiationMap;
+  Model.Network = Network;
+  Model.Streams = ChannelData.streams;
+  Model.Dt = Time.Dt;
+  Model.NumLakes = Map.NumLakes;
+  Model.LakeLevel = NULL;
+  Model.LakeCells = NULL;
+  if (Model.NumLakes > 0 &&
+      (!(Model.LakeLevel = (float *) calloc(Model.NumLakes, sizeof(float))) ||
+       !(Model.LakeCells = (int *) calloc(Model.NumLakes, sizeof(int)))))
+    ReportError("MainDHSVM", 1);
+
+  /* Basin storage and means at Start, the series values at Start, the Start
+     snapshots and map layers */
+  InitTotals(&Map, TopoMap, VegMap, &Veg, &Dump, &Totals);
+  Aggregate(&Model, &Totals);
+  StartBalance(&Totals);
+#ifndef SNOW_ONLY
+  StartNetworkStorage(&Model, Totals.Basin.NCells, &Totals);
+#endif
+  HoldStartValues(&Model, &Totals, &Dump);
+  StoreSnapshots(0, &Map, &Dump, TopoMap, PrecipMap, SnowMap, VegMap, VType,
+                 SoilMap, &ChannelData, LType);
+  WriteMapLayers(0, &Model, &Dump);
+
 /******************************************************************************/
 /* CALCULATIONS */
 /******************************************************************************/
 
-  while (Before(&(Time.Current), &(Time.End)) ||
-  IsEqualTime(&(Time.Current), &(Time.End))) {
-    
-    ResetAggregate(&Soil, &Veg, &Total, &Options);
-    
-    if (Options.SnowSlide)
-	    Avalanche(&Map, TopoMap, &Time, &Options, SnowMap);
-    
-    if (Options.DynamicVeg){
-      if (IsVegDate(&(Time.Current), &DVeg))        
-        UpdateVegMap(&(Time.Current), &Options, &Map, &Veg, &VegMap, VType, &DVeg);
-    }
-    
+  while (Time.Step < Time.NSteps) {
+
     if (IsNewWaterYear(&(Time.Current)))
       InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
     if (IsNewMonth(&(Time.Current), Time.Dt))
-      InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase, ShadowMap,
+      InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase,
 		   &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
     if (IsNewDay(Time.DayStep)) {
       InitNewDay(Time.Current.JDay, &SolarGeo);
-      PrintDate(&(Time.Current), stdout);
-      printf("\n");
+      Message("%04d-%02d-%02d\n", Time.Current.Year, Time.Current.Month, Time.Current.Day);
     }
-    InitNewStep(&InFiles, &Map, &Time, Soil.MaxLayers, &Options, NStats, Stat,
+    InitNewStep(&InFiles, &Map, &Time, &Options, NStats, Stat,
                 &SolarGeo, TopoMap, SoilMap);
-    if (Options.Extent != POINT) {
-      channel_step_initialize_network(ChannelData.streams);
-    }
-    
+    channel_step_initialize_network(ChannelData.streams);
+    if (Options.Shading)
+      ShadeStep(&Shade, &SolarGeo, Time.DayStep, Time.Dt);
+
     for (y = 0; y < Map.NY; y++) {
       for (x = 0; x < Map.NX; x++) {
         if (INBASIN(TopoMap[y][x].Mask)) {
           for (i = 0; i <= SType[SoilMap[y][x].Soil - 1].NLayers; i++)
             SoilMap[y][x].InterFlow[i] = 0.0;
+          SoilMap[y][x].ChannelInt = 0.0;
+          SoilMap[y][x].ChannelInfiltration = 0.0;
+          SnowMap[y][x].OldSwq = SnowMap[y][x].Swq;
         }
       }
     }
@@ -218,16 +235,18 @@ int main(int argc, char **argv) {
     for (y = 0; y < Map.NY; y++) {
       for (x = 0; x < Map.NX; x++) {
   	    if (INBASIN(TopoMap[y][x].Mask)) {
+  	      /* Beam factor of the terrain shading and the sky view of the cell */
+  	      if (Options.Shading) {
+  	        ShadeFactorCell = ShadeFactor(&Shade, &(TopoMap[y][x]), y, x);
+  	        SkyViewCell = Shade.SkyView[y * Map.NX + x];
+  	      }
   	      LocalMet =
   	        MakeLocalMetData(y, x, &Map, Time.DayStep, Time.NDaySteps, &Options, NStats,
                             Stat, MetWeights[y][x], TopoMap[y][x].Dem,
                             &(RadiationMap[y][x]), &(PrecipMap[y][x]),
                             PrismMap, SnowPatternMap, &(SnowMap[y][x]),
-                            &(VegMap[y][x].Type), &(VegMap[y][x]),
-                            PptMultiplierMap[y][x], Time.Current.Month,
-                            (Options.Shading ? SkyViewMap[y][x] : 0.0),
-                            (Options.Shading ? ShadowMap[Time.DayStep][y][x] : 0.0),
-                            SolarGeo.SunMax, SolarGeo.SineSolarAltitude);
+                            PRECIP_MULTIPLIER, Time.Current.Month, ShadeFactorCell,
+                            SkyViewCell);
   	      
   		    /* Get surface temperature of each soil layer */
     		  for (i = 0; i < Soil.MaxLayers; i++) {
@@ -236,14 +255,14 @@ int main(int argc, char **argv) {
     		  
     		  MassEnergyBalance(&Options, y, x, SolarGeo.SineSolarAltitude,
                           Map.DX, Map.DY, Time.Dt,
-                          Options.HeatFlux, Options.CanopyRadAtt,
+                          Options.CanopyRadAtt,
                           Options.Infiltration, Soil.MaxLayers,
                           Veg.MaxLayers, &LocalMet, &(Network[y][x]),
-                          &(PrecipMap[y][x]), MeltMultiplierMap[y][x],
+                          &(PrecipMap[y][x]),
                           &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]),
                           &(SType[SoilMap[y][x].Soil - 1]), &(SoilMap[y][x]),
                           &(SnowMap[y][x]), &(RadiationMap[y][x]),
-                          &(EvapMap[y][x]), &(Total.Rad), &ChannelData, SkyViewMap,
+                          &(EvapMap[y][x]), &ChannelData,
                           VType, VegMap, Network, SoilMap,
                           &(TopoMap[y][x]), TopoMap, &Map);
           
@@ -256,52 +275,44 @@ int main(int argc, char **argv) {
     
 #ifndef SNOW_ONLY
     
-    RouteSubSurface(Time.Dt, &Map, TopoMap, VType, VegMap, Network, 
-		    SType, SoilMap, &ChannelData, &Time, &Options, Dump.Path);
-    
-    if (Options.Extent != POINT)
-      RouteChannel(&ChannelData, &Time, &Map, TopoMap, SoilMap, &Total, 
-		   &Options, Network, SType, VType, VegMap, EvapMap, LType);
-    
-    if (Options.Extent == BASIN)
-      RouteSurface(&Map, &Time, TopoMap, SoilMap, &Options,
-        &Dump, VegMap, VType, LType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
-    
+    RouteSubSurface(Time.Dt, &Map, TopoMap, VType, VegMap, Network,
+		    SType, SoilMap, &ChannelData, &Time, &Options);
+
+    RouteChannel(&ChannelData, &Time, &Map, TopoMap, SoilMap,
+		 &Options, Network, SType, VType, VegMap, EvapMap, LType);
+
+    RouteSurface(&Map, &Time, TopoMap, SoilMap, &Options,
+      &Dump, VegMap, VType, LType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
+
 #endif
-    
-    Aggregate(&Map, &Options, TopoMap, &Soil, &Veg, VegMap, EvapMap, PrecipMap,
-	      RadiationMap, SnowMap, SoilMap, &Total, VType, Network, &ChannelData, Time.Dt, Time.NDaySteps);
-    
-    if (Options.SnowStats)
-      SnowStats(&(Time.Current), &Map, &Options, TopoMap, SnowMap, Time.Dt);
-    
-    MassBalance(&(Time.Current), &(Time.Start), &(Dump.Balance), &Total, &Mass);
-    
-    ExecDump(&Map, &(Time.Current), &(Time.Start), &Options, &Dump, TopoMap,
-             EvapMap, RadiationMap, PrecipMap, SnowMap, VegMap, &Veg,
-             SoilMap, Network, &ChannelData, &Soil, &Total, LType);
-    
-    IncreaseTime(&Time);
-	  t += 1;
-  } /* End of calculation loop over time steps */
-  
-  ExecDump(&Map, &(Time.Current), &(Time.Start), &Options, &Dump, TopoMap,
-	   EvapMap, RadiationMap, PrecipMap, SnowMap, VegMap, &Veg, SoilMap,
-	   Network, &ChannelData, &Soil, &Total, LType);
-  
+
+    /* Basin and class means (and the root zone moisture >= 0), snow
+       statistics, water balance, outputs */
+    Aggregate(&Model, &Totals);
+
+    SnowStats(&(Time.Current), &Map, &Options, TopoMap, SnowMap, Time.Dt);
+
+    MassBalance(&Totals);
 #ifndef SNOW_ONLY
-  FinalMassBalance(&(Dump.FinalBalance), &Total, &Mass, &Options);
+    NetworkSums(&Model, Totals.Basin.NCells, &Totals);
 #endif
-  
-  printf("\nEND OF MODEL RUN\n\n");
-  
-  /* Record the total simulation run time */
-  finish1 = clock();
-  runtime = (finish1-start)/CLOCKS_PER_SEC;
-  printf("***********************************************************************************");
-  printf("\nRuntime Summary:\n");
-  printf("%6.2f hours elapsed for the simulation period of %d hours (%.1f days) \n", 
-	  runtime/3600, t*Time.Dt/3600, (float)t*Time.Dt/3600/24);
-  
+
+    ExecDump(&Map, &(Time.Current), Time.Step + 1, &Model, &Totals, &Dump, PrecipMap,
+             SnowMap, &ChannelData, LType);
+
+    IncreaseTime(&Time);
+  } /* End of calculation loop over time steps */
+
+  CloseOutputs(&Dump);
+  Message("\nEND OF MODEL RUN\n");
+#ifndef SNOW_ONLY
+  FinalMassBalance(&Totals);
+#endif
+
+  /* Wall clock time of the run in whole seconds, also with Verbose = FALSE */
+  fflush(stderr);
+  printf("Wall clock time (s)              %.0f\n", difftime(time(NULL), WallStart));
+  fflush(stdout);
+
   return EXIT_SUCCESS;
 }

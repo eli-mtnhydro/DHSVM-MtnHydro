@@ -44,7 +44,7 @@ void SolarDay(int DayOfYear, float Longitude, float Latitude,
 
   LongitudeAdjust = (MINPDEG * DEGPRAD) * (StandardMeridian - Longitude);
 
-  /* equation of time */
+  /* equation of time: apparent minus mean solar time (min) */
   B = (2.0 * PI * (DayOfYear - 81)) / 364.;
   EqnOfTime = 9.87 * sin(2 * B) - 7.53 * cos(B) - 1.5 * sin(B);
 
@@ -52,7 +52,7 @@ void SolarDay(int DayOfYear, float Longitude, float Latitude,
      solar time = local time + TimeAdjustment  */
      /* for example from GMT to the west coast of the us (PST) */
      /* is a -8 hour shift, i.e. PST = GMT-8 */
-  *TimeAdjustment = -(LongitudeAdjust + EqnOfTime) / MINPHOUR;
+  *TimeAdjustment = (EqnOfTime - LongitudeAdjust) / MINPHOUR;
 
   /* work in solar time  */
   *NoonHour = 12.0;
@@ -191,133 +191,4 @@ void SolarHour(float Latitude, float LocalHour, float Dt, float NoonHour,
 
     *SunMax = SOLARCON * SunEarthDist * *SineSolarAltitude;
   }
-}
-
-/*****************************************************************************
-  Function name: SolarAngle()
-
-  Purpose      : this subroutine uses solar radiation measured on a horizontal
-                 surface to calculate direct, diffuse, and incoming reflected
-                 solar radiation for a sloping surface.
-
-  Required     :
-    float Latitude	        - site laditude (rad)
-    float Albedo                - surface Albedo
-    float Declination	        - solar Declination (rad)
-    float CellAspect	        - cell aspect (rads eastward from north)
-    float CellSlope	        - ground surface slope (rads)
-    float SineSolarAltitude	- sine of sun's SolarAltitudede
-    float SunMax                - calculated solar radiation at the top of
-                                  the atmosphere (W/m^2)
-    float SolarTimeStep         - fraction of the timestep the sun is above
-                                  the horizon
-    int DayLight	        - FALSE: measured solar radiation and the sun
-                                  is below the horizon.
-                                  TRUE: sun is above the horizon
-     float SolarAzimuth    -  solar azimuth (rads eastward from north)
-    float Dt			- length of current timestep (hr)
-
-  Modifies     :
-    float *Direct  - direct beam solar radiation (W/m^2)
-    float *Diffuse - diffuse solar radiation (W/m^2)
-
-  Comments     : EXECUTE EACH TIMESTEP FOR EACH GRID CELL
-                 Source:  Gates, D.M., "Biophysical ecology",
-                 Springer-Verlag,  New York, etc.,  1980.
-                 Especially Chapter 6, p. 136 ->
-*****************************************************************************/
-void SolarAngle(float Latitude, float Albedo, float Declination,
-  float CellAspect, float CellSlope, float SunMax,
-  float SineSolarAltitude, float SolarTimeStep, int DayLight,
-  float SolarAzimuth, float Dt, float *Direct, float *Diffuse)
-{
-  float SolarAltitude;		/* SolarAltitude of sun from horizon (rads) */
-  float CosineIncidenceAngle;	/* cosine of the incidence angle between
-                   solar rays and the normal to the surface */
-  float DiffuseSkyView;		/* sky view factor for diffuse radation
-                   (0.0 - 1.0)  */
-  float ReflectedSkyView;	/* view factor for incoming refected solar
-                   radiation (0.0 - 1.0) */
-  float Reflect;		/* incoming reflected solar radiation (W/m^2)
-                 */
-
-                 /* NOTE THAT HERE Dt IS IN HOURS, NOT IN SECONDS */
-
-  if (DayLight == TRUE) {
-
-    /* calculate shortwave components horizontal surface */
-
-    if (fequal(CellSlope, 0.0)) {
-      *Direct = SunMax;
-      *Diffuse = SunMax;
-      Reflect = 0.0;
-    }
-    else {
-      /*  sloping surface  */
-      DiffuseSkyView = (PI - CellSlope) / PI;
-      ReflectedSkyView = CellSlope / PI;
-      SolarAltitude = asin(SineSolarAltitude);
-
-      CosineIncidenceAngle = cos(SolarAltitude) * sin(CellSlope) *
-        cos(SolarAzimuth - CellAspect) + cos(CellSlope) * sin(SolarAltitude);
-
-      *Direct = SunMax * CosineIncidenceAngle / SineSolarAltitude;
-      if (CosineIncidenceAngle <= 0.0)
-        *Direct = 0.0;
-
-      *Diffuse = SunMax * DiffuseSkyView;
-      Reflect = Albedo * SunMax * ReflectedSkyView;
-    }			/* end sloping surface */
-  }				/* end daylight is true */
-  else {
-    /* sun is below the horizon */
-
-    /* all measured solar radiation is diffuse, thus total rad on CellSlope
-       is (measured)*DiffuseSkyView */
-    *Direct = 0.0;
-    Reflect = 0.0;
-    *Diffuse = (PI - CellSlope) / PI;
-  }
-
-  /* Average over timestep */
-  if (Dt > 0.0) {
-
-    /* The assumption is made that the incoming reflected radiation is diffuse
-       radiation for the "receiving" gridcell */
-
-    *Diffuse += Reflect;
-    *Direct *= SolarTimeStep / (Dt * RADPHOUR);
-    *Diffuse *= SolarTimeStep / (Dt * RADPHOUR);
-  }
-}
-
-/*****************************************************************************
-  Function name: SolarConst()
-
-  Purpose      : this subroutine reads in site data, calculates constants,
-                 and converts data from degrees to radians.
-
-  Required     :
-    float lat_deg           - latitude of site in degrees
-    float lat_min           - latitude of site in minutes
-    float lng_deg           - longitude of site in degrees
-    float lng_min           - longitude of site in minutes
-    float *StandardMeridian - standard meridian for local time zone in
-                              degrees
-
-  Modifies     :
-    float *Latitude         - latitude of site in radians
-    float *Longitude        - longitude of site in radians
-    float *StandardMeridian - standard meridian for local time zone (rads)
-
-  Comments     : EXECUTE ONCE BEFORE TIME LOOP
-*****************************************************************************/
-void SolarConst(float lat_deg, float lat_min, float lng_deg,
-  float lng_min, float *StandardMeridian, float *Latitude,
-  float *Longitude)
-{
-  /*  convert to radians  */
-  *Latitude = (lat_deg + (lat_min / 60.)) * PI / 180.;
-  *Longitude = (lng_deg + (lng_min / 60.)) * PI / 180.;
-  *StandardMeridian = *StandardMeridian * PI / 180.;
 }

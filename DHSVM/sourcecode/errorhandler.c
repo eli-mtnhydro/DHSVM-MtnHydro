@@ -54,7 +54,13 @@ void error_handler(ErrorLevel debug_level, const char *fmt, ...)
   if (Level < debug_level)
     return;
 
-  sprintf(buffer, "%s: %s\n", Program, fmt);
+  /* Errors stop the run with exit code 1 */
+  if (debug_level <= ERRHDL_ERROR)
+    snprintf(buffer, sizeof(buffer), "DHSVM ERROR 1: %s\n", fmt);
+  else if (debug_level == ERRHDL_WARNING)
+    snprintf(buffer, sizeof(buffer), "DHSVM WARNING: %s\n", fmt);
+  else
+    snprintf(buffer, sizeof(buffer), "%s: %s\n", Program, fmt);
 
   va_start(ap, fmt);
   if (vfprintf(out, buffer, ap) <= 0) {
@@ -66,11 +72,10 @@ void error_handler(ErrorLevel debug_level, const char *fmt, ...)
       abort();
   }
   va_end(ap);
-  if (debug_level <= ERRHDL_FATAL) {
-    fprintf(out, "Fatal Error!, Aborting ...");
+  if (debug_level <= ERRHDL_ERROR) {
     fflush(out);
     error_handler_done();
-    abort();
+    exit(1);
   }
   fflush(out);
 

@@ -10,652 +10,318 @@
 #include "constants.h"
 #include "sizeofnt.h"
 #include "soilmoisture.h"
-#include "varid.h"
 #include "channel_grid.h"
 #include "Calendar.h"
+#include "mapio.h"
 
  /*****************************************************************************
    Function name: InitModelState()
 
-   Purpose      : Initialize the state of the model using initial conditions
-                  or a saved state from an earlier model run
+   Purpose      : Initialize the state of the model: a cold start
+                  (Initial State = NONE) or the snapshot valid at Start
+                  (StoreModelState(), ReadModelState())
 
    Comments :
-     Initialize the model state, by reading the state variables from a series
-     of files.  This allows restarts of the model from any timestep for which
-     the model state is known.  These model states can be stored using the
-     routine StoreModelState().  Timesteps at which to dump the model state
-     can be specified in the file with dump information.
-
-     Extra maps at the end of a state file (StoreModelState) are restored
-     exactly; files without them get the defaults.
+     Cold start: no interception, snow only where the initial snow water
+     equivalent map has some (its liquid water at capacity), every soil
+     layer at its porosity with the
+     water table at the surface, every channel segment filled to the initial
+     channel depth. The groundwater spin-up, if any, follows the cold start.
+     Snapshot: the values as read; with Recompute Derived State, the states
+     that follow from other states are then rebuilt from them
+     (RecomputeDerivedState()).
  *****************************************************************************/
-static int CountStateMaps(char *FileName, MAPSIZE *Map, int NBase, int NMemory);
+static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
+                           PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
+                           SOILPIX **SoilMap, VEGPIX **VegMap, LAYER Veg,
+                           TOPOPIX **TopoMap);
+static void RecomputeDerivedState(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **SnowMap,
+                                  SOILPIX **SoilMap, SOILTABLE *SType, VEGPIX **VegMap,
+                                  VEGTABLE *VType, NETSTRUCT **Network,
+                                  CHANNEL *ChannelData);
 
-void InitModelState(DATE *Start, int StepsPerDay, int Dt,
-  MAPSIZE *Map, OPTIONSTRUCT *Options, PRECIPPIX **PrecipMap,
-  SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil, SOILTABLE *SType,
-  VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path, 
+void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
+  PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil,
+  SOILTABLE *SType, VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path,
   TOPOPIX **TopoMap, NETSTRUCT **Network, CHANNEL *ChannelData, LAKETABLE *LType)
 {
   const char *Routine = "InitModelState";
-  char Str[NAMESIZE + 1];
-  char FileName[BUFSIZE * 2 + 1];
   int i, j;		         /* counter */
-  int CountGap, Count;
-  int Memory;            /* TRUE if the file holds restart memory */
-  int NRecords;          /* Most stream map records in one cell */
-  ChannelMapPtr Cell;
-  float Value;
-  char MemName[] = "Restart memory";
   int x;				 /* counter */
   int y;				 /* counter */
-  int NSet;				 /* Number of dataset to be read */
-  int NSoil = 0;			 /* Number of soil layers for current pixel */
-  int NVeg;				 /* Number of veg layers for current pixel */
-  float remove;
-  void *Array;
-  MAPDUMP DMap;			 /* Dump Info */
+  VEGTABLE *LocalVType;
 
-  printf("Restoring model state\n");
-
-  /* Restore canopy interception */
-  NSet = 0;
-  if (DEBUG)
-    printf("Restoring canopy conditions\n");
-
-  sprintf(Str, "%02d.%02d.%02d.%02d.%02d.%02d", Start->Month, Start->Day,
-    Start->Year, Start->Hour, Start->Min, Start->Sec);
-
-  snprintf(FileName, sizeof(FileName), "%sInterception.State.%s%s", Path, Str, fileext);
-
-  DMap.ID = 202;
-  DMap.Layer = 0;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  if (!(Array = calloc(Map->NY * Map->NX, SizeOfNumberType(DMap.NumberType))))
-    ReportError((char *)Routine, 1);
-  for (i = 0; i < Veg.MaxLayers; i++) {
-    DMap.ID = 202;
-    DMap.Layer = i;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          PrecipMap[y][x].IntRain[i] = 0.0;
-          NVeg = Veg.NLayers[(VegMap[y][x].Veg - 1)];
-          if (i < NVeg) {
-            PrecipMap[y][x].IntRain[i] = ((float *)Array)[y * Map->NX + x];
-            if (PrecipMap[y][x].IntRain[i] < 0.0) {
-              /* fprintf(stderr, "InitModelState at (x, y) is (%d, %d):\n", x, y);
-              fprintf(stderr,
-                "\tRain interception negative on layer %d of max %d ... reset to 0\n", i, Veg.MaxLayers); */
-              PrecipMap[y][x].IntRain[i] = 0.0;
-            }
-          }
-        }
-      }
-    }
+  /* Channel segments and cells */
+  if (Options->ColdStart) {
+    Message("Initializing the model state (cold start)\n");
+#ifndef SNOW_ONLY
+    ColdStartChannelState(Options->InitChannelDepth, ChannelData->streams);
+#endif
+    ColdStartCells(Map, Options, PrecipMap, SnowMap, SoilMap, VegMap, Veg, TopoMap);
+  }
+  else {
+    ReadModelState(Path, &(Time->Start), Time->Dt, Map, TopoMap, PrecipMap, SnowMap,
+                   VegMap, VType, SoilMap, ChannelData, LType);
+    if (Options->RecomputeDerived)
+      RecomputeDerivedState(Map, TopoMap, SnowMap, SoilMap, SType, VegMap, VType, Network,
+                            ChannelData);
   }
 
-  for (i = 0; i < Veg.MaxLayers; i++) {
-    DMap.ID = 203;
-    DMap.Layer = i;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          PrecipMap[y][x].IntSnow[i] = 0.0;
-          NVeg = Veg.NLayers[(VegMap[y][x].Veg - 1)];
-          if (i < NVeg) {
-            PrecipMap[y][x].IntSnow[i] = ((float *)Array)[y * Map->NX + x];
-            if (PrecipMap[y][x].IntSnow[i] < 0.0) {
-              /* fprintf(stderr, "InitModelState at (x, y) is (%d, %d):\n", x, y);
-              fprintf(stderr,
-                "Snow interception negative on layer %d of max %d ... reset to 0\n", i, Veg.MaxLayers); */
-              PrecipMap[y][x].IntSnow[i] = 0.0;
-            }
-          }
-        }
-      }
-    }
-  }
-
-  DMap.ID = 204;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
+  /* Albedo of the ground or understory under the snow for the month of
+     Start; at a cold start also the snow albedo */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        PrecipMap[y][x].TempIntStorage = ((float *)Array)[y * Map->NX + x];
-        if (PrecipMap[y][x].TempIntStorage < 0.0) {
-          /* fprintf(stderr, "InitModelState at (x, y) is (%d, %d):\n", x, y);
-          fprintf(stderr,
-            "Total intercepted precipitation negative on layer %d of max %d ... reset to 0\n",
-            i, Veg.MaxLayers); */
-          PrecipMap[y][x].TempIntStorage = 0.0;
-        }
-      }
-    }
-  }
-  Memory = CountStateMaps(FileName, Map, 2 * Veg.MaxLayers + 1, 1);
-  if (Memory) {
-    Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask))
-          VegMap[y][x].Tcanopy = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-  free(Array);
-  /* Restore snow pack conditions */
-  NSet = 0;
-  if (DEBUG)
-    printf("Restoring snow pack conditions\n");
-
-  snprintf(FileName, sizeof(FileName), "%sSnow.State.%s%s", Path, Str, fileext);
-
-  DMap.ID = 401;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  if (!(Array = (float *)calloc(Map->NY * Map->NX, SizeOfNumberType(DMap.NumberType))))
-    ReportError((char *)Routine, 1);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].HasSnow = (unsigned char)((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 403;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].LastSnow = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 404;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].Swq = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 406;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].PackWater = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 407;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].TPack = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 408;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].SurfWater = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 409;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].TSurf = ((float *)Array)[y * Map->NX + x];
-        if (SnowMap[y][x].TSurf < 0.0)
-          SnowMap[y][x].AccumSeason = TRUE;
-        else
-          SnowMap[y][x].AccumSeason = FALSE;
-      }
-    }
-  }
-
-  DMap.ID = 410;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SnowMap[y][x].ColdContent = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-  Memory = CountStateMaps(FileName, Map, 8, 2);
-  if (Memory) {
-    Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask))
-          SnowMap[y][x].AccumSeason = (unsigned char)((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-  free(Array);
-  
-  /* Calculate current albedo */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        
-        /* Determine albedo of ground/understory */
-        if (VType[VegMap[y][x].Veg - 1].UnderStory == TRUE) {
-          if (VType[VegMap[y][x].Veg - 1].OverStory == TRUE) {
-            SnowMap[y][x].AlbedoGround = VType[VegMap[y][x].Veg - 1].AlbedoMonthly[1][Start->Month - 1];
+        LocalVType = &(VType[VegMap[y][x].Veg - 1]);
+        if (LocalVType->UnderStory == TRUE) {
+          if (LocalVType->OverStory == TRUE) {
+            SnowMap[y][x].AlbedoGround = LocalVType->AlbedoMonthly[1][Time->Start.Month - 1];
           } else {
-            SnowMap[y][x].AlbedoGround = VType[VegMap[y][x].Veg - 1].AlbedoMonthly[0][Start->Month - 1];
+            SnowMap[y][x].AlbedoGround = LocalVType->AlbedoMonthly[0][Time->Start.Month - 1];
           }
         } else {
           SnowMap[y][x].AlbedoGround = SType[SoilMap[y][x].Soil - 1].Albedo;
         }
-        
-        if (Options->CanopyGapping) {
-          for (i = 0; i < CELL_PARTITION; i++)
-            VegMap[y][x].Type[i].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
-        }
-        else {
+
+        if (Options->ColdStart) {
           if (SnowMap[y][x].HasSnow)
-            SnowMap[y][x].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), StepsPerDay);
+            SnowMap[y][x].Albedo = CalcSnowAlbedo(&(SnowMap[y][x]), 0.0);
           else
             SnowMap[y][x].Albedo = 0;
         }
       }
     }
   }
-  if (Memory) {
-    if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
-      ReportError((char *)Routine, 1);
-    Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask))
-          SnowMap[y][x].Albedo = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-    free(Array);
-  }
 
-  /* Restore soil conditions */
-  NSet = 0;
-  if (DEBUG)
-    printf("Restoring soil conditions\n");
-
-  snprintf(FileName, sizeof(FileName), "%sSoil.State.%s%s", Path, Str, fileext);
-  NRecords = (Options->Extent != POINT) ? channel_grid_max_records(ChannelData->stream_map) : 0;
-  Memory = CountStateMaps(FileName, Map, 2 * Soil.MaxLayers + 4, Soil.MaxLayers + 10 + 2 * NRecords);
-  DMap.ID = 501;
-  DMap.Layer = 0;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-
-  if (!(Array = (float *)calloc(Map->NY * Map->NX, SizeOfNumberType(DMap.NumberType))))
-    ReportError((char *)Routine, 1);
-  for (i = 0; i < Soil.MaxLayers + 1; i++) {
-    DMap.ID = 501;
-    DMap.Layer = i;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          NSoil = Soil.NLayers[(SoilMap[y][x].Soil - 1)];
-          if (i <= NSoil) {
-            SoilMap[y][x].InterFlow[i] = 0.0;
-            SoilMap[y][x].Moist[i] = ((float *)Array)[y * Map->NX + x];
-            if (!Memory && SoilMap[y][x].Moist[i] < 0.0) {
-              /* fprintf(stderr, "InitModelState at (x, y) is (%d, %d):\n", x, y);
-              fprintf(stderr,
-                "Soil moisture negative in layer %d of max %d ... reset to 0\n", i, Soil.MaxLayers); */
-              SoilMap[y][x].Moist[i] = 0.0;
-            }
-          }
-          if (!Memory && i == NSoil) {
-            if (SoilMap[y][x].Moist[i] < SoilMap[y][x].FCap[i]) {
-              SoilMap[y][x].Moist[i] = SoilMap[y][x].FCap[i];
-            }
-          }
-          if (!Memory && i < NSoil) {
-            if (SoilMap[y][x].Moist[i] < SType[SoilMap[y][x].Soil - 1].WP[i]) {
-              SoilMap[y][x].Moist[i] = SType[SoilMap[y][x].Soil - 1].WP[i];
-            }
-          }
-        }
-      }
-    }
-  }
-
-  DMap.ID = 505;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SoilMap[y][x].TSurf = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  for (i = 0; i < Soil.MaxLayers; i++) {
-    DMap.ID = 511;
-    DMap.Layer = i;
-    DMap.Resolution = MAP_OUTPUT;
-    strcpy(DMap.FileName, "");
-    GetVarAttr(&DMap);
-    Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          NSoil = Soil.NLayers[(SoilMap[y][x].Soil - 1)];
-          if (i < NSoil)
-            SoilMap[y][x].Temp[i] = ((float *)Array)[y * Map->NX + x];
-        }
-      }
-    }
-  }
-  DMap.ID = 510;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SoilMap[y][x].Qst = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-
-  DMap.ID = 512;
-  DMap.Resolution = MAP_OUTPUT;
-  strcpy(DMap.FileName, "");
-  GetVarAttr(&DMap);
-  Read2DMatrix(FileName, Array, DMap.NumberType, Map, NSet++, DMap.Name, 0);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        SoilMap[y][x].IExcess = ((float *)Array)[y * Map->NX + x];
-      }
-    }
-  }
-  free(Array);
-
-  /* Calculate the water table depth at each point based on the soil moisture profile. Give an error message if the water
-  ponds on the surface since that should not be allowed at this point */
-  remove = 0.0;
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      /* SatFlow needs to be initialized properly in the future.
-      For now it will just be set to zero here */
-      SoilMap[y][x].SatFlow = 0.0;
-      /* With restart memory the table depth is restored below instead
-         (WaterTableDepth() would move water out of supersaturated layers) */
-      if (INBASIN(TopoMap[y][x].Mask) && !Memory) {
-        if ((SoilMap[y][x].TableDepth =
-          WaterTableDepth((Soil.NLayers[SoilMap[y][x].Soil - 1]), SoilMap[y][x].Depth,
-            VType[VegMap[y][x].Veg - 1].RootDepth, SoilMap[y][x].Porosity,
-            SoilMap[y][x].FCap, Network[y][x].Adjust, SoilMap[y][x].Moist)) < 0.0)
-          /* ReportError((char *) Routine, 35); */ {
-            remove -= SoilMap[y][x].TableDepth * Map->DX * Map->DY;
-            SoilMap[y][x].TableDepth = 0.0;
-        }
-        SoilMap[y][x].WaterLevel = TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
-        SoilMap[y][x].WaterLevelLast = SoilMap[y][x].WaterLevel;
-      }
-      else {
-        SoilMap[y][x].TableDepth = 0;
-      }
-      
-      /* Initialize water table depth below stream channels */
-      if (Options->Extent != POINT)
-        channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
-    }
-  }
-  if (remove > 0.0) {
-    printf("WARNING:excess water in soil profile is %f m^3 \n", remove);
-    printf("Expect possible large flood wave during first timesteps \n\n");
-  }
-  
-  /* Spinup groundwater state (optional, not included in mass balance) */
-  if (Options->GW_SPINUP == TRUE) {
-    
-    Options->GW_SPINUP_RECHARGE /= DAYPYEAR; /* Convert m/yr to m/day */
-    
-    float **SubFlowGrad;	        /* Magnitude of subsurface flow gradient slope * width */
-    unsigned char ***SubDir;      /* Fraction of flux moving in each direction*/ 
-    unsigned int **SubTotalDir;	/* Sum of Dir array */
-    
-    if (!(SubFlowGrad = (float **)calloc(Map->NY, sizeof(float *))))
-      ReportError((char *) Routine, 1);
-    for(i=0; i<Map->NY; i++) {
-      if (!(SubFlowGrad[i] = (float *)calloc(Map->NX, sizeof(float))))
-        ReportError((char *) Routine, 1);
-    }
-    
-    if (!((SubDir) = (unsigned char ***) calloc(Map->NY, sizeof(unsigned char **))))
-      ReportError((char *) Routine, 1);
-    for (i=0; i<Map->NY; i++) {
-      if (!((SubDir)[i] = (unsigned char **) calloc(Map->NX, sizeof(unsigned char*))))
-  	  ReportError((char *) Routine, 1);
-  	for (j=0; j<Map->NX; j++) {
-        if (!(SubDir[i][j] = (unsigned char *)calloc(NDIRS, sizeof(unsigned char ))))
-  		ReportError((char *) Routine, 1);
-      }
-    }
-  
-    if (!(SubTotalDir = (unsigned int **)calloc(Map->NY, sizeof(unsigned int *))))
-      ReportError((char *) Routine, 1);
-    for (i=0; i<Map->NY; i++) {
-      if (!(SubTotalDir[i] = (unsigned int *)calloc(Map->NX, sizeof(unsigned int))))
-        ReportError((char *) Routine, 1);
-    }
-    
-    for (i = 0; i < Options->GW_SPINUP_YRS; i++) {
-      printf("Groundwater spinup: year %d\n",i+1);
-      for (j = 0; j < DAYPYEAR; j++) {
-        RouteSubSurfaceSpinup(Dt * StepsPerDay, Map, TopoMap, VType, VegMap, Network, SType, SoilMap, Options,
-                              SubFlowGrad, SubDir, SubTotalDir);
-      }
-    }
-    printf("Groundwater spinup complete\n\n");
-    
+  if (Options->ColdStart) {
+    /* Water table at the surface; the channel cells take the table depth of
+       their cell */
     for (y = 0; y < Map->NY; y++) {
       for (x = 0; x < Map->NX; x++) {
         SoilMap[y][x].SatFlow = 0.0;
+        SoilMap[y][x].TableDepth = 0.0;
         if (INBASIN(TopoMap[y][x].Mask)) {
-          if (Options->Extent != POINT)
+          SoilMap[y][x].WaterLevel = TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
+          SoilMap[y][x].WaterLevelLast = SoilMap[y][x].WaterLevel;
+        }
+        channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
+      }
+    }
+
+    /* Spinup groundwater state (optional, not included in mass balance) */
+    if (Options->GW_SPINUP == TRUE) {
+
+      Options->GW_SPINUP_RECHARGE /= DAYPYEAR; /* Convert m/yr to m/day */
+
+      float **SubFlowGrad;	        /* Magnitude of subsurface flow gradient slope * width */
+      unsigned char ***SubDir;      /* Fraction of flux moving in each direction*/
+      unsigned int **SubTotalDir;	/* Sum of Dir array */
+
+      if (!(SubFlowGrad = (float **)calloc((unsigned int) Map->NY, sizeof(float *))))
+        ReportError((char *) Routine, 1);
+      for(i=0; i<Map->NY; i++) {
+        if (!(SubFlowGrad[i] = (float *)calloc(Map->NX, sizeof(float))))
+          ReportError((char *) Routine, 1);
+      }
+
+      if (!((SubDir) = (unsigned char ***) calloc((unsigned int) Map->NY, sizeof(unsigned char **))))
+        ReportError((char *) Routine, 1);
+      for (i=0; i<Map->NY; i++) {
+        if (!((SubDir)[i] = (unsigned char **) calloc(Map->NX, sizeof(unsigned char*))))
+          ReportError((char *) Routine, 1);
+        for (j=0; j<Map->NX; j++) {
+          if (!(SubDir[i][j] = (unsigned char *)calloc(NDIRS, sizeof(unsigned char ))))
+            ReportError((char *) Routine, 1);
+        }
+      }
+
+      if (!(SubTotalDir = (unsigned int **)calloc((unsigned int) Map->NY, sizeof(unsigned int *))))
+        ReportError((char *) Routine, 1);
+      for (i=0; i<Map->NY; i++) {
+        if (!(SubTotalDir[i] = (unsigned int *)calloc(Map->NX, sizeof(unsigned int))))
+          ReportError((char *) Routine, 1);
+      }
+
+      /* Each spin-up day adds one day of deep flux */
+      for (i = 0; i < Options->GW_SPINUP_YRS; i++) {
+        Message("Groundwater spinup: year %d\n",i+1);
+        for (j = 0; j < DAYPYEAR; j++) {
+          RouteSubSurfaceSpinup(Time->Dt * Time->NDaySteps, Time->NDaySteps, Map, TopoMap,
+                                VType, VegMap, Network, SType, SoilMap, Options,
+                                SubFlowGrad, SubDir, SubTotalDir);
+        }
+      }
+      Message("Groundwater spinup complete\n\n");
+
+      for (i = 0; i < Map->NY; i++) {
+        for (j = 0; j < Map->NX; j++)
+          free(SubDir[i][j]);
+        free(SubDir[i]);
+        free(SubFlowGrad[i]);
+        free(SubTotalDir[i]);
+      }
+      free(SubDir);
+      free(SubFlowGrad);
+      free(SubTotalDir);
+
+      /* The water level, and its time-averaging memory, from the table
+         depth reached by the spin-up */
+      for (y = 0; y < Map->NY; y++) {
+        for (x = 0; x < Map->NX; x++) {
+          SoilMap[y][x].SatFlow = 0.0;
+          if (INBASIN(TopoMap[y][x].Mask)) {
+            SoilMap[y][x].WaterLevel = TopoMap[y][x].Dem - SoilMap[y][x].TableDepth;
+            SoilMap[y][x].WaterLevelLast = SoilMap[y][x].WaterLevel;
             channel_grid_init_table(ChannelData->stream_map, x, y, SoilMap[y][x].TableDepth);
+          }
         }
       }
     }
   }
-  
-  /* Initialize the flood detention storage in each pixel for impervious fraction > 0 situation */
+
+  /* Flood detention storage of impervious cells: empty at a cold start */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
-      SoilMap[y][x].DetentionStorage = 0.0;
+      if (Options->ColdStart)
+        SoilMap[y][x].DetentionStorage = 0.0;
       SoilMap[y][x].DetentionIn = 0.0;
       SoilMap[y][x].DetentionOut = 0.0;
     }
   }
-  
-  /* Initialize gap/opening snowpack states if gap is present */
-  TotNumGap = 0.;
-  if (Options->CanopyGapping) {
-	CountGap = 0;
-	Count = 0;
-	for (y = 0; y < Map->NY; y++) {
-	  for (x = 0; x < Map->NX; x++) {
-		if (INBASIN(TopoMap[y][x].Mask)) {
-		  Count += 1;
-		  if (VegMap[y][x].Gapping > 0.0) {
-			CountGap += 1;
-			for (i = 0; i < CELL_PARTITION; i++) {
-			  VegMap[y][x].Type[i].TPack = SnowMap[y][x].TPack;
-			  VegMap[y][x].Type[i].SurfWater = SnowMap[y][x].SurfWater;
-			  VegMap[y][x].Type[i].LastSnow = SnowMap[y][x].LastSnow;
-			  VegMap[y][x].Type[i].HasSnow = SnowMap[y][x].HasSnow;
-			  for (j = 0; j < Soil.MaxLayers + 1; j++) {
-				if (j < NSoil)
-				  VegMap[y][x].Type[i].Moist[j] = SoilMap[y][x].Moist[j];
-			  }
-			}
-			VegMap[y][x].Type[Opening].Swq = SnowMap[y][x].Swq;
-			VegMap[y][x].Type[Forest].Swq = SnowMap[y][x].Swq;
-
-			VegMap[y][x].Type[Opening].GapView =
-			  CalcGapView(0.5 * VegMap[y][x].Gapping,
-				VType[VegMap[y][x].Veg - 1].Height[0],
-				VegMap[y][x].Vf);
-		  }
-		}
-	  }
-	}
-	/* total number of grid cells with a gap structure */
-    TotNumGap = CountGap;
-    printf("\n****Canopy Gap****\n%d out of %d cells have a gap structure\n\n", TotNumGap, Count);
-  }
-
-  /* Restore the soil and channel cell restart memory, overriding the
-     defaults set above */
-  if (Memory) {
-    NSet = 2 * Soil.MaxLayers + 4;
-    if (!(Array = (float *)calloc(Map->NY * Map->NX, sizeof(float))))
-      ReportError((char *)Routine, 1);
-    for (i = 0; i < Soil.MaxLayers; i++) {
-      Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask) && i < Soil.NLayers[SoilMap[y][x].Soil - 1])
-            SoilMap[y][x].Perc[i] = ((float *)Array)[y * Map->NX + x];
-        }
-      }
-    }
-    for (j = 0; j < 10; j++) {
-      Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            Value = ((float *)Array)[y * Map->NX + x];
-            switch (j) {
-            case 0: SoilMap[y][x].SatFlow = Value; break;
-            case 1: SoilMap[y][x].TableDepth = Value; break;
-            case 2: SoilMap[y][x].WaterLevel = Value;
-                    SoilMap[y][x].WaterLevelLast = Value; break;
-            case 3: SoilMap[y][x].InfiltAcc = Value; break;
-            case 4: SoilMap[y][x].MoistInit = Value; break;
-            case 5: PrecipMap[y][x].PrecipStart = (int)Value; break;
-            case 6: SoilMap[y][x].Runoff = Value; break;
-            case 7: SoilMap[y][x].startRunoff = Value; break;
-            case 8: SoilMap[y][x].DetentionStorage = Value; break;
-            case 9:
-              if (TopoMap[y][x].LakeID > 0 && LType != NULL)
-                LType[TopoMap[y][x].LakeID - 1].Outflow = Value;
-              break;
-            }
-          }
-        }
-      }
-    }
-    for (j = 0; j < 2 * NRecords; j++) {
-      Read2DMatrix(FileName, Array, NC_FLOAT, Map, NSet++, MemName, 0);
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          Cell = channel_grid_record(ChannelData->stream_map, x, y, j % NRecords);
-          if (Cell != NULL) {
-            if (j < NRecords)
-              Cell->table_depth = ((float *)Array)[y * Map->NX + x];
-            else
-              Cell->avail_water = ((float *)Array)[y * Map->NX + x];
-          }
-        }
-      }
-    }
-    free(Array);
-  }
 }
 
 /*****************************************************************************
-  CountStateMaps()
+  ColdStartCells()
 
-  Returns TRUE if the state file holds NBase + NMemory maps (restart memory
-  included), FALSE if it holds NBase maps, and stops otherwise
+  Cold start of every mask cell (the soil at its porosity in every layer,
+  snow from the optional initial snow water equivalent map, the liquid water
+  of both snow layers at capacity)
 *****************************************************************************/
-static int CountStateMaps(char *FileName, MAPSIZE *Map, int NBase, int NMemory)
+static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
+                           PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
+                           SOILPIX **SoilMap, VEGPIX **VegMap, LAYER Veg,
+                           TOPOPIX **TopoMap)
 {
-  FILE *InFile;
-  long NBytes;
-  long MapBytes = (long) Map->NX * Map->NY * sizeof(float);
+  MAPFILE File;
+  float *SWE = NULL;
+  int NVeg;
+  int i, x, y;
+  double Ice;                  /* Ice of the initial snow (m) */
+  double SurfaceIce;           /* Ice of its surface layer (m) */
 
-  OpenFile(&InFile, FileName, "rb", FALSE);
-  if (fseek(InFile, 0L, SEEK_END))
-    ReportError(FileName, 39);
-  NBytes = ftell(InFile);
-  fclose(InFile);
+  if (!IsEmptyStr(Options->InitialSWEPath)) {
+    if (!(SWE = (float *) calloc(Map->NY * Map->NX, sizeof(float))))
+      ReportError("ColdStartCells", 1);
+    OpenInputMap(&File, Options->InitialSWEPath, "Snow.InitialSWE", NC_FLOAT, "m",
+                 MAP_ONE, Map);
+    ReadMapLayer(&File, 0, SWE, Map);
+    CloseMap(&File);
+  }
 
-  if (NBytes == NBase * MapBytes)
-    return FALSE;
-  if (NBytes == (NBase + NMemory) * MapBytes)
-    return TRUE;
-  fprintf(stderr, "\n%s holds %.2f maps; expected %d, or %d with restart memory\n",
-          FileName, (double) NBytes / MapBytes, NBase, NBase + NMemory);
-  exit(EXIT_FAILURE);
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN(TopoMap[y][x].Mask)) {
+        /* Interception */
+        NVeg = Veg.NLayers[VegMap[y][x].Veg - 1];
+        for (i = 0; i < NVeg; i++) {
+          PrecipMap[y][x].IntRain[i] = 0.0;
+          PrecipMap[y][x].IntSnow[i] = 0.0;
+        }
+        PrecipMap[y][x].TempIntStorage = 0.0;
+        VegMap[y][x].Tcanopy = 0.0;
+
+        /* Snow */
+        SnowMap[y][x].Swq = (SWE != NULL) ? SWE[y * Map->NX + x] : 0.0;
+        SnowMap[y][x].HasSnow = (SnowMap[y][x].Swq > 0.0) ? TRUE : FALSE;
+        SnowMap[y][x].LastSnow = Options->InitDaysSinceSnowfall;
+        /* Each layer holds the capacity times its ice, so the ice is
+           Swq / (1 + capacity), the surface layer up to its maximum */
+        Ice = SnowMap[y][x].Swq / (1.0 + LIQUID_WATER_CAPACITY);
+        SurfaceIce = (Ice > MAX_SURFACE_SWE) ? MAX_SURFACE_SWE : Ice;
+        SnowMap[y][x].PackWater = LIQUID_WATER_CAPACITY * (Ice - SurfaceIce);
+        SnowMap[y][x].TPack = 0.0;
+        SnowMap[y][x].SurfWater = LIQUID_WATER_CAPACITY * SurfaceIce;
+        SnowMap[y][x].TSurf = 0.0;
+        SnowMap[y][x].AccumSeason = FALSE;
+
+        /* Soil: every layer, the deep one included, at its porosity */
+        for (i = 0; i <= Map->SoilLayers; i++) {
+          SoilMap[y][x].Moist[i] = SoilMap[y][x].Porosity[i];
+          SoilMap[y][x].InterFlow[i] = 0.0;
+        }
+        SoilMap[y][x].IExcess = 0.0;
+      }
+    }
+  }
+
+  if (SWE != NULL)
+    free(SWE);
+}
+
+/*****************************************************************************
+  RecomputeDerivedState()
+
+  After a snapshot is read, the states that are functions of other states
+  are rebuilt from them, for every mask cell in row-major order:
+  - snow cover where the snow water equivalent is > 0; where it is not,
+    the pack and surface liquid water and temperatures are 0
+    (as SnowMelt() leaves them after melt-out);
+  - the water table depth from the soil moisture as UnsaturatedFlow() ends
+    a time step (moisture above the porosity moves up; ponding goes to the
+    surface water and the table depth to 0);
+  - the water level (elevation minus table depth), its averaging memory
+    (the water level) and the table depth of the cell's channel records.
+  Then the top and bottom water depths of every channel segment from its
+  storage, as the cold start computes them.
+*****************************************************************************/
+static void RecomputeDerivedState(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **SnowMap,
+                                  SOILPIX **SoilMap, SOILTABLE *SType, VEGPIX **VegMap,
+                                  VEGTABLE *VType, NETSTRUCT **Network,
+                                  CHANNEL *ChannelData)
+{
+  SNOWPIX *Snow;
+  SOILPIX *Soil;
+  int x, y;
+#ifndef SNOW_ONLY
+  Channel *Segment;
+#endif
+
+  Message("Rebuilding the derived state from the snapshot\n");
+
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (!INBASIN(TopoMap[y][x].Mask))
+        continue;
+
+      Snow = &(SnowMap[y][x]);
+      if (Snow->Swq > 0.0)
+        Snow->HasSnow = TRUE;
+      else {
+        Snow->HasSnow = FALSE;
+        Snow->PackWater = 0.0;
+        Snow->SurfWater = 0.0;
+        Snow->TPack = 0.0;
+        Snow->TSurf = 0.0;
+      }
+
+      Soil = &(SoilMap[y][x]);
+      Soil->TableDepth = WaterTableDepth(SType[Soil->Soil - 1].NLayers, Soil->Depth,
+                                         VType[VegMap[y][x].Veg - 1].RootDepth, Soil->Porosity,
+                                         Soil->FCap, Network[y][x].Adjust, Soil->Moist);
+      if (Soil->TableDepth < 0.0) {
+        Soil->IExcess += -(Soil->TableDepth);
+        Soil->TableDepth = 0.0;
+      }
+      Soil->WaterLevel = TopoMap[y][x].Dem - Soil->TableDepth;
+      Soil->WaterLevelLast = Soil->WaterLevel;
+      channel_grid_init_table(ChannelData->stream_map, x, y, Soil->TableDepth);
+    }
+  }
+
+#ifndef SNOW_ONLY
+  for (Segment = ChannelData->streams; Segment != NULL; Segment = Segment->next) {
+    Segment->top_water_depth = Segment->storage / (Segment->class2->width * Segment->length);
+    Segment->bottom_water_depth = Segment->top_water_depth;
+  }
+#endif
 }

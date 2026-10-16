@@ -37,7 +37,6 @@ struct _channel_rec_ {
   float top_water_depth;    /* Depth of water storage (m) at top of channel segment */
   float bottom_water_depth; /* Depth of water storage (m) at bottom of channel segment */
   float K;              /* Travel time constant, a function of slope */
-  float X;              /* Weighting factor (0~1), exponential function of K */
   ChannelClass *class2;	/* ChannelClass identifier */
   uchar IntersectsLake; /* Logical flag for whether the channel enters a lake */
   LAKETABLE *lake;        /* Pointer to lake that is intersected by this channel */
@@ -68,11 +67,14 @@ typedef struct _channel_rec_ Channel, *ChannelPtr;
    ------------------------------------------------------------- */
 
 /* ChannelClass */
-ChannelClass *channel_read_classes(const char *file, int ChanType);
+ChannelClass *channel_create_classes(int N, int *ID, float *Width, float *BankHeight,
+                                     float *Friction);
 void channel_free_classes(ChannelClass *head);
 
 /* Channel */
-Channel *channel_read_network(const char *file, ChannelClass * class_list, int *MaxID);
+Channel *channel_create_network(int N, int *ID, int *Order, float *Slope, float *Length,
+                                int *Class, int *Outlet, char **SaveName,
+                                ChannelClass *class_list, int *MaxID);
 void channel_routing_parameters(Channel *net, int deltat);
 void channel_update_routing_parameters(Channel *network, int deltat, int max_order);
 Channel *channel_find_segment(Channel *net, SegmentID id);
@@ -80,9 +82,6 @@ int channel_step_initialize_network(Channel *net);
 int channel_incr_lat_inflow(Channel *segment, float linflow);
 void channel_segment_infil_evap(Channel * segment);
 int channel_route_network(Channel *net, int deltat);
-int channel_save_outflow(double time, Channel * net, FILE *file, FILE *file2);
-int channel_save_outflow_text(char *tstring, Channel *net, FILE *out,
-			      FILE *out2, int flag, int SaveExtraStreamData);
 void channel_free_network(Channel *net);
 
 #endif

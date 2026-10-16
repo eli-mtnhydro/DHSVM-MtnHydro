@@ -1,0 +1,98 @@
+#ifndef OUTPUT_H
+#define OUTPUT_H
+
+#include <stdio.h>
+#include "data.h"
+#include "getinit.h"
+
+/* What an output value is: one code per output variable of the registry
+   (OutputValues.c names them) */
+enum VALUECODE {
+  /* cell variables */
+  V_MET_PRECIPITATION, V_MET_SNOWFALL, V_MET_RAINFALL, V_MET_AIRTEMPERATURE,
+  V_MET_PRECIPITATIONWATERYEAR,
+  V_RAD_SHORTWAVEINOBSERVED, V_RAD_SHORTWAVEIN, V_RAD_NETSHORTWAVE,
+  V_RAD_CANOPYNETSHORTWAVE, V_RAD_CANOPYLONGWAVEIN, V_RAD_NETRADIATION,
+  V_SNOW_COVERED, V_SNOW_DAYSSINCESNOWFALL, V_SNOW_SWE, V_SNOW_OUTFLOW,
+  V_SNOW_PACKLIQUID, V_SNOW_PACKTEMPERATURE, V_SNOW_SURFACELIQUID,
+  V_SNOW_SURFACETEMPERATURE, V_SNOW_COLDCONTENT, V_SNOW_ALBEDO, V_SNOW_VAPOR,
+  V_SNOW_NETSHORTWAVE, V_SNOW_NETLONGWAVE, V_SNOW_SENSIBLEHEAT, V_SNOW_LATENTHEAT,
+  V_SNOW_RAINHEAT, V_SNOW_MELTENERGY, V_SNOW_PEAKSWE, V_SNOW_PEAKSWEDAY,
+  V_SNOW_MELTOUTDAY, V_SNOW_ACCUMULATIONWATERYEAR, V_SNOW_OUTFLOWWATERYEAR,
+  V_CANOPY_INTERCEPTEDRAIN, V_CANOPY_INTERCEPTEDSNOW, V_CANOPY_TEMPORARYSTORAGE,
+  V_CANOPY_TEMPERATURE, V_CANOPY_STORAGE, V_CANOPY_SNOWVAPOR,
+  V_EVAP_TOTAL, V_EVAP_POTENTIAL, V_EVAP_ACTUAL, V_EVAP_INTERCEPTION,
+  V_EVAP_TRANSPIRATION, V_EVAP_SOIL, V_EVAP_CHANNEL,
+  V_SOIL_MOISTURE, V_SOIL_PERCOLATION, V_SOIL_INTERFLOW, V_SOIL_TABLEDEPTH,
+  V_SOIL_SATFLOW, V_SOIL_WATERLEVEL, V_SOIL_SURFACEWATER,
+  V_SOIL_INFILTRATIONACCUMULATED, V_SOIL_WATER, V_SOIL_DEEPFLUX, V_SOIL_LATENTHEAT,
+  V_SURFACE_DETENTION, V_SURFACE_RUNOFF, V_STREAM_INTERCEPTION,
+  V_STREAM_INFILTRATION, V_LAKE_STORAGE, V_LAKE_LEVEL, V_BALANCE_WATERINPUT,
+  /* basin variables */
+  V_BALANCE_STORAGE, V_BALANCE_ERROR, V_BALANCE_CUMULATIVEERROR,
+  V_BALANCE_RAINORMELT, V_SOIL_SATURATEDFRACTION,
+  V_CHANNEL_NETWORKLATERALINFLOW, V_CHANNEL_NETWORKOUTFLOW,
+  V_CHANNEL_NETWORKSTORAGECHANGE, V_CHANNEL_NETWORKINFILTRATION,
+  V_CHANNEL_NETWORKEVAPORATION, V_CHANNEL_NETWORKERROR, V_CHANNEL_NETWORKSTORAGE,
+  /* segment variables */
+  V_CHANNEL_INFLOW, V_CHANNEL_LATERALINFLOW, V_CHANNEL_OUTFLOW, V_CHANNEL_STORAGE,
+  V_CHANNEL_STORAGECHANGE, V_CHANNEL_INFILTRATION, V_CHANNEL_EVAPORATION,
+  NVALUECODES
+};
+
+/* TOTALS.Network: sums over the segments, divided by the basin area */
+enum NETWORKSUMS {
+  NET_LATERALINFLOW, NET_OUTFLOW, NET_STORAGECHANGE, NET_INFILTRATION,
+  NET_EVAPORATION, NET_ERROR, NET_STORAGE
+};
+
+/* OutputValues.c */
+void InitValueCodes(void);
+int ValueCode(int Var);
+int CodeVar(int Code);
+float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has);
+float SnowColdContent(SNOWPIX *Snow);
+double SegmentValue(int Code, Channel *Segment, int Dt);
+
+/* Aggregate.c */
+void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg,
+                DUMPSTRUCT *Dump, TOTALS *Totals);
+void Aggregate(MODELVIEW *Model, TOTALS *Totals);
+float AggregateValue(AGGREGATE *Aggregate, int Code, int Layer);
+void SetAggregateValue(AGGREGATE *Aggregate, int Code, int Layer, float Value);
+
+/* MassBalance.c */
+void StartBalance(TOTALS *Totals);
+void MassBalance(TOTALS *Totals);
+void StartNetworkStorage(MODELVIEW *Model, int NMask, TOTALS *Totals);
+void NetworkSums(MODELVIEW *Model, int NMask, TOTALS *Totals);
+void FinalMassBalance(TOTALS *Totals);
+double BasinValue(TOTALS *Totals, int Code, int Layer);
+
+/* InitDump.c */
+void InitOutputKeys(LISTPTR Input, DUMPSTRUCT *Dump);
+void CheckOutputTimes(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time,
+                      DUMPSTRUCT *Dump);
+void ReadPointTable(LISTPTR Input, DUMPSTRUCT *Dump);
+int OutputListNamesAny(OUTLIST *List);
+
+/* OutputRequests.c */
+int ExpandList(OUTLIST *List, int Kind, const char *KindName, OPTIONSTRUCT *Options,
+               int SoilLayers, int Strict);
+void ValidateRequests(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
+                      TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg, Channel *Streams,
+                      DUMPSTRUCT *Dump);
+
+/* ExecDump.c and OutputMaps.c */
+void CreateOutputs(MAPSIZE *Map, TIMESTRUCT *Time, Channel *Streams, DUMPSTRUCT *Dump);
+void WriteNumber(FILE *File, double Value);
+void WriteSeriesRows(DATE *Current, MODELVIEW *Model, TOTALS *Totals, DUMPSTRUCT *Dump,
+                     int Write);
+void WriteChannelRows(DATE *Current, int Step, MODELVIEW *Model, DUMPSTRUCT *Dump,
+                      int Write);
+void HoldStartValues(MODELVIEW *Model, TOTALS *Totals, DUMPSTRUCT *Dump);
+void CreateMapStacks(MAPSIZE *Map, TIMESTRUCT *Time, DUMPSTRUCT *Dump);
+void WriteMapLayers(int StepsDone, MODELVIEW *Model, DUMPSTRUCT *Dump);
+void CloseOutputs(DUMPSTRUCT *Dump);
+
+#endif

@@ -37,7 +37,8 @@ int valid_cell(MAPSIZE *Map, int x, int y)
    slope_aspect
    Calculation of slope and aspect given elevations of cell and neighbors
    ------------------------------------------------------------- */
-/* This is only used with the MFD-4 and D8 routing, not MFD-8 (recommended) */
+/* The slope is used by the D8 routing gradient, the kinematic overland
+   routing and the shading, the aspect by the shading */
 static void slope_aspect(float dx, float dy, float celev, float
 			 nelev[NNEIGHBORS], float *slope, float *aspect)
 {
@@ -105,70 +106,11 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
   float total_width, effective_width;
   int n;
   float drop[NDIRS];
-  
- switch (NDIRS) {
- case 4:
-   ;
-   float cosine = cos(aspect);
-   float sine = sin(aspect);
-   float *cos, *sin;
-   
-   /* allocate memory */
-   if (!(cos = (float*) calloc(NDIRS/2, sizeof(float))))
-     ReportError("slope_aspect( )", 1);
-   if (!(sin = (float*) calloc(NDIRS/2, sizeof(float))))
-     ReportError("slope_aspect( )", 1);
-   
-   /* fudge any cells which flow outside the basin by just pointing the
-    aspect in the opposite direction */
-   if (cosine > 0 && nelev[5] == (float) OUTSIDEBASIN)
-     cos[1] = -cosine;
-   else cos[1] = cosine;
-   if (cosine < 0 && nelev[1] == (float) OUTSIDEBASIN)
-     cos[0] = -cosine;
-   else cos[0] = cosine;
-   if (sine > 0 && nelev[3] == (float) OUTSIDEBASIN) 
-     sin[0] = -sine;
-   else sin[0] = sine;
-   if (sine < 0 && nelev[7] == (float) OUTSIDEBASIN)
-     sin[1] = -sine;
-   else sin[1] = sine;
-   
-   /* compute flow widths */
-   total_width = fabs(sine) * dx + fabs(cosine) * dy;
-   *grad = slope * total_width;
-   *total_dir = 0;
-   for (n = 0; n < NDIRS; n++) 
-   {
-     switch (n) {
-     case 0:
-       effective_width = (cos[1] > 0 ? cos[1] * dx : 0.0);
-       break;
-     case 2:
-       effective_width = (cos[0] < 0 ? -cos[0] * dx : 0.0);
-       break;
-     case 1:
-       effective_width = (sin[0] > 0 ? sin[0] * dy : 0.0);
-       break;
-     case 3:
-       effective_width = (sin[1] < 0 ? -sin[1] * dy : 0.0);
-       break;
-     default:
-       effective_width = 0.0;
-       ReportError("flow_fractions",65);
-     }
-     dir[n] = (int) ((effective_width / total_width) * 255.0 + 0.5);
-     *total_dir += dir[n];
-   }
-   free(sin);
-   free(cos);
-   break;
- case 8:
-    /* For the 8-neighbor case, there is a new option to route flow to 
-       all downhill pixels based on slope, or just the single steepest */
-    ;
+
+    /* Flow goes to all downhill neighbors in proportion to the slope, or
+       just to the single steepest */
     float total_drop;
-  
+
     if (MultiFlowDir) {
       /* For MFD8 flow directions, water discharges to ALL of its downhill neighbors: 
          As with D8, this requires the DEM to be pre-filled for D8 routing scheme
@@ -218,6 +160,7 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
       
       /*Determine flow direction based on deepest drop */
       for (n = 0; n < NDIRS; n++) {
+        dir[n] = 0; /* only the steepest direction is set below */
         /*Make sure flow is inside boundary*/
         if (nelev[n] == (float) OUTSIDEBASIN){
           dir[n] = 0;
@@ -258,10 +201,6 @@ static void flow_fractions(float dx, float dy, float slope, float aspect,
       }
       *grad = slope * total_width;
     }
-    break;
-    default:
-    ReportError("flow_fractions",65);
-  }
   return;
 }
 /* -------------------------------------------------------------
@@ -328,11 +267,12 @@ void ElevationSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, int MultiFlowDir)
 	  else {
 	    /*  Last resort: set the Dir of the cell to the cell that is
 		closest in elevation. This should only happen for the 
-		basin outlet, unless the Dem wasn't filled. */	  
-	    TopoMap[y][x].Dir[steepestdirection] = (int)(255.0 + 0.5);
-	    TopoMap[y][x].TotalDir = (int)(255.0 + 0.5);	    
-	    xn = x + xdirection[steepestdirection];
-	    yn = y + ydirection[steepestdirection];
+		basin outlet, unless the Dem wasn't filled. With no mask cell
+		among the directions, every Dir stays 0 (TotalDir stays
+		nonzero, so the routing fractions are 0). */
+	    if (steepestdirection >= 0)
+	      TopoMap[y][x].Dir[steepestdirection] = (int)(255.0 + 0.5);
+	    TopoMap[y][x].TotalDir = (int)(255.0 + 0.5);
 	  }
 	  }
   }
@@ -461,52 +401,9 @@ void HeadSlopeAspect(MAPSIZE * Map, TOPOPIX ** TopoMap, SOILPIX ** SoilMap,
     else
       neighbor_elev[n] = (float) OUTSIDEBASIN;
   }
-  if (NDIRS==4)
-    slope_aspect(Map->DX, Map->DY, SoilMap[y][x].WaterLevel, neighbor_elev, &slope, &aspect);
+  slope_aspect(Map->DX, Map->DY, SoilMap[y][x].WaterLevel, neighbor_elev, &slope, &aspect);
   
   flow_fractions(Map->DX, Map->DY, slope, aspect, SoilMap[y][x].WaterLevel, neighbor_elev,
                  &(FlowGrad[y][x]), Dir[y][x], &(TotalDir[y][x]), MultiFlowDir);
-  return;
-}
-
-/* -------------------------------------------------------------
-SnowSlopeAspect
-This computes slope and aspect using the SnowSurface Elevation.
-------------------------------------------------------------- */
-void SnowSlopeAspect(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **Snow,
-  float **SubSnowGrad, unsigned char ***Dir, unsigned int **TotalDir, int MultiFlowDir)
-{
-  int x;
-  int y;
-  int n;
-  float neighbor_elev[NNEIGHBORS];
-
-  for (x = 0; x < Map->NX; x++) {
-    for (y = 0; y < Map->NY; y++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        float slope, aspect;
-        for (n = 0; n < NNEIGHBORS; n++) {
-          int xn = x + xneighbor[n];
-          int yn = y + yneighbor[n];
-          if (valid_cell(Map, xn, yn)) {
-            /* snow elevation (swq+dem) of neighboring cells */
-            neighbor_elev[n] =
-              ((TopoMap[yn][xn].Mask) ? (TopoMap[yn][xn].Dem + Snow[yn][xn].Swq) : (float)OUTSIDEBASIN);
-          }
-          else {
-            neighbor_elev[n] = (float)OUTSIDEBASIN;
-          }
-        }
-
-        slope_aspect(Map->DX, Map->DY, (TopoMap[y][x].Dem + Snow[y][x].Swq), neighbor_elev,
-          &slope, &aspect);
-        flow_fractions(Map->DX, Map->DY, slope, aspect, (TopoMap[y][x].Dem + Snow[y][x].Swq), neighbor_elev,
-          &(SubSnowGrad[y][x]), Dir[y][x], &(TotalDir[y][x]), MultiFlowDir);
-
-        /* Reset SubSnowGrad to slope, don't want width in computation */
-        SubSnowGrad[y][x] = slope;
-      }
-    }
-  }
   return;
 }

@@ -7,15 +7,6 @@
 void SeparateRadiation(float TotalSolar, float ClearIndex,
 		       float *Beam, float *Diffuse);
 
-void SolarAngle(float Latitude, float Albedo, float Declination,
-		float CellAspect, float CellSlope, float SunMax,
-		float SineSolarAltitude, float SolarTimeStep, int DayLight,
-		float SolarAzimuth, float Dt, float *Direct, float *Diffuse);
-
-void SolarConst(float lat_deg, float lat_min, float lng_deg,
-		float lng_min, float *StandardMeridian, float *Latitude,
-		float *Longitude);
-
 void SolarDay(int DayOfYear, float Longitude, float Latitude,
 	      float StandardMeridian, float *NoonHour, float *Declination,
 	      float *HalfDayLength, float *Sunrise, float *Sunset,

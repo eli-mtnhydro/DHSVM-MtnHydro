@@ -20,6 +20,7 @@
                   here calculated aerodynamic resistances by Uref
 
    Required     :
+     int y, x       - Row and column of the cell (0-based), for the message
      int NVegLayers - Number of vegetation layers
      char OverStory - flag for presence of overstory.  Only used if NVegLayers
                       is equal to 1
@@ -50,10 +51,11 @@
      float *RaSnow
 
  *****************************************************************************/
-void CalcAerodynamic(int NVegLayers, unsigned char OverStory,
+void CalcAerodynamic(int y, int x, int NVegLayers, unsigned char OverStory,
   float n, float *Height, float Trunk, float *U,
   float *U2mSnow, float *Ra, float *RaSnow)
 {
+  char Text[BUFSIZE + 1];
   float d_Lower;     /* displacement height (m) */
   float d_Upper;
   float K2;
@@ -106,8 +108,12 @@ void CalcAerodynamic(int NVegLayers, unsigned char OverStory,
     Zw = 1.5 * Height[0] - 0.5 * d_Upper;
     Zt = Trunk * Height[0];
     
-    if (Zt < (Z0_Lower + d_Lower))
-      ReportError("Trunk space height below \"center\" of lower boundary", 48);
+    if (Zt < (Z0_Lower + d_Lower)) {
+      snprintf(Text, sizeof(Text), "Trunk space height below \"center\" of lower boundary "
+               "at row %d, column %d (trunk height %g m, roughness + displacement of the "
+               "lower boundary %g m)", y + 1, x + 1, Zt, Z0_Lower + d_Lower);
+      ReportError(Text, 48);
+    }
 
     /* Resistance for overstory */
     Ra[0] = log((Zref - d_Upper) / Z0_Upper) / K2 * (Height[0] / (n * (Zw - d_Upper)) *
@@ -148,8 +154,6 @@ void CalcAerodynamic(int NVegLayers, unsigned char OverStory,
       Ra[1] = log((Zt - d_Lower) / Z0_Lower) * log((Zt - d_Lower) / Z0_Lower) / (K2 * Ut) +
         Height[0] * log((Zref - d_Upper) / Z0_Upper) / (n * K2 * (Zw - d_Upper)) * 
         (exp(n * (1 - Zt / Height[0]))- 1);
-      fprintf(stderr,
-        "WARNING:  Top of overstory is less than 2 meters above the lower boundary\n");
     }
 
     /* Snow */
@@ -179,8 +183,6 @@ void CalcAerodynamic(int NVegLayers, unsigned char OverStory,
       *RaSnow = log(Zt / Z0_SNOW) * log(Zt / Z0_SNOW) / (K2 * Ut) +
         Height[0] * log((Zref - d_Upper) / Z0_Upper) / (n * K2 *
         (Zw - d_Upper)) * (exp(n * (1 - Zt / Height[0])) - 1);
-      fprintf(stderr,
-        "WARNING:  Top of overstory is less than 2 meters above the lower boundary\n");
     }
   }
 }

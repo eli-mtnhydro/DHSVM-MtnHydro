@@ -12,16 +12,16 @@
  /*****************************************************************************
    GetMetData()
  *****************************************************************************/
-void GetMetData(OPTIONSTRUCT *Options, TIMESTRUCT *Time, int NSoilLayers,
+void GetMetData(OPTIONSTRUCT *Options, TIMESTRUCT *Time,
   int NStats, float SunMax, METLOCATION *Stat)
 {
   int i;			/* counter */
 
   if (DEBUG)
-    printf("Reading all met data for current timestep\n");
+    Message("Reading all met data for current timestep\n");
 
   for (i = 0; i < NStats; i++)
-    ReadMetRecord(Options, &(Time->Current), NSoilLayers, &(Stat[i].MetFile), &(Stat[i].Data));
+    ReadMetRecord(&(Time->Current), &(Stat[i]));
 
   for (i = 0; i < NStats; i++) {
     if (SunMax > 0.0) {

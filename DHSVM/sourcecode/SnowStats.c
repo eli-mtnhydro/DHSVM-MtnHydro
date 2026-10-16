@@ -16,7 +16,7 @@
   The intial values are set to zero in the function InitNewYear on very first 
   timestep of a new water year.
 
-  Dates were converted to unsigned int in format of YYYYMMDD.
+  Dates are days of the water year (October 1 = 1; 0 = none yet).
 *****************************************************************************/
 void SnowStats(DATE *Now, MAPSIZE *Map, OPTIONSTRUCT *Options, 
         TOPOPIX **TopoMap, SNOWPIX **Snow, int Dt)
@@ -25,7 +25,7 @@ void SnowStats(DATE *Now, MAPSIZE *Map, OPTIONSTRUCT *Options,
   int y;
   int DNum; 
   
-  DNum = Now->Year * 10000 + Now->Month * 100 + Now->Day;
+  DNum = DayOfWaterYear(Now);
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
@@ -46,7 +46,7 @@ void SnowStats(DATE *Now, MAPSIZE *Map, OPTIONSTRUCT *Options,
           */
          if ((Snow[y][x].Swq < MIN_SWE) && (DNum > (int) Snow[y][x].MaxSweDate) && (Snow[y][x].MeltOutDate == 0)){
             Snow[y][x].MeltOutDate = DNum;    
-            if (DEBUG) printf("SWE Melt out date is %d \n", Snow[y][x].MeltOutDate);
+            if (DEBUG) Message("SWE Melt out date is %d \n", Snow[y][x].MeltOutDate);
             }
       }
     }

@@ -42,8 +42,8 @@ float CalcAvailableWater(int NRootLayers, float TotalDepth, float *RootDepth,
   float Depth;			    /* depth below the ground surface (m) */
   int i;			        /* counter */
  
-  DeepPorosity = Porosity[NRootLayers - 1];
-  DeepFCap = FCap[NRootLayers - 1];
+  DeepPorosity = Porosity[NRootLayers];
+  DeepFCap = FCap[NRootLayers];
   
   DeepLayerDepth = TotalDepth;
   for (i = 0; i < NRootLayers; i++)

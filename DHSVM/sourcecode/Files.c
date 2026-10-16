@@ -1,4 +1,6 @@
 
+#include <ctype.h>
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,85 +34,140 @@ void OpenFile(FILE **FilePtr, char *FileName, char *Mode, uchar OverWrite)
 }
 
 /*****************************************************************************
-  ScanUChars()
-*****************************************************************************/
-uchar ScanUChars(FILE * FilePtr, uchar * X, int N)
-{
-  int Ctr;
-  char Str[2];
+  MakePath()
 
-  for (Ctr = 0; Ctr < N; Ctr++) {
-    if (fscanf(FilePtr, "%1s", Str) != 1)
+  Composes a path into Buffer (Size >= 2 * BUFSIZE + 1); a path that does
+  not fit is an error, never cut short
+*****************************************************************************/
+void MakePath(char *Buffer, size_t Size, const char *Format, ...)
+{
+  va_list Args;
+  int n;
+
+  va_start(Args, Format);
+  n = vsnprintf(Buffer, Size, Format, Args);
+  va_end(Args);
+  if (n < 0 || (size_t) n >= Size) {
+    if (Size > 41)
+      Buffer[40] = '\0';
+    ReportErrorCode(104, "%s...: path longer than %d characters", Buffer, (int) Size - 1);
+  }
+}
+
+/*****************************************************************************
+  IsDirectory()
+
+  TRUE if Path names an existing directory (trailing separators allowed)
+*****************************************************************************/
+int IsDirectory(const char *Path)
+{
+  char Dir[2 * BUFSIZE + 1];
+  struct stat Info;
+  size_t n;
+
+  if (strlen(Path) >= sizeof(Dir))
+    return FALSE;
+  strcpy(Dir, Path);
+  n = strlen(Dir);
+  while (n > 1 && (Dir[n - 1] == '/' || Dir[n - 1] == '\\') &&
+         !(n == 3 && Dir[1] == ':'))
+    Dir[--n] = '\0';
+  if (stat(Dir, &Info) != 0)
+    return FALSE;
+  return S_ISDIR(Info.st_mode) ? TRUE : FALSE;
+}
+
+/*****************************************************************************
+  ReadTextLine()
+
+  Reads the next line of a text file into Buffer, without its line end (LF
+  or CR LF; the last line may lack it) and, on line 1, without a UTF-8 byte
+  order mark. Returns FALSE at the end of the file. A line that does not fit
+  into Buffer stops the run with exit code Code.
+*****************************************************************************/
+int ReadTextLine(FILE *File, char *Buffer, int Size, const char *Path, int LineNo,
+                 int Code)
+{
+  int c;
+  int n = 0;
+
+  c = fgetc(File);
+  if (c == EOF)
+    return FALSE;
+  while (c != EOF && c != '\n') {
+    if (n >= Size - 1)
+      ReportErrorCode(Code, "%s: line %d is longer than %d characters", Path, LineNo,
+                      Size - 1);
+    Buffer[n++] = (char) c;
+    c = fgetc(File);
+  }
+  if (n > 0 && Buffer[n - 1] == '\r')
+    n--;
+  Buffer[n] = '\0';
+  if (LineNo == 1 && n >= 3 && (unsigned char) Buffer[0] == 0xEF &&
+      (unsigned char) Buffer[1] == 0xBB && (unsigned char) Buffer[2] == 0xBF)
+    memmove(Buffer, Buffer + 3, (size_t) n - 2);
+  return TRUE;
+}
+
+/*****************************************************************************
+  IsBlankLine()
+*****************************************************************************/
+int IsBlankLine(const char *Line)
+{
+  for (; *Line != '\0'; Line++) {
+    if (!isspace((unsigned char) *Line))
+      return FALSE;
+  }
+  return TRUE;
+}
+
+/*****************************************************************************
+  SplitFields()
+
+  Splits a comma-separated line in place; returns the number of fields
+  (Fields holds the first MaxFields)
+*****************************************************************************/
+int SplitFields(char *Line, char **Fields, int MaxFields)
+{
+  int n = 0;
+  char *p = Line;
+
+  for (;;) {
+    if (n < MaxFields)
+      Fields[n] = p;
+    n++;
+    p = strchr(p, ',');
+    if (p == NULL)
       break;
-    X[Ctr] = Str[0];
+    *p++ = '\0';
   }
-
-  return Ctr;
+  return n;
 }
 
 /*****************************************************************************
-  ScanInts()
+  TextToFloat(), TextToInteger()
+
+  Convert a whole field ((float) strtod; base-10 strtol); FALSE if the field
+  is empty or holds anything else, or the integer is out of range
 *****************************************************************************/
-int ScanInts(FILE * FilePtr, int *X, int N)
+int TextToFloat(const char *Text, float *Value)
 {
-  int Ctr;
+  char *End;
+  double x;
 
-  for (Ctr = 0; Ctr < N; Ctr++) {
-    if (fscanf(FilePtr, "%d", &X[Ctr]) != 1)
-      break;
-  }
-
-  return Ctr;
+  x = strtod(Text, &End);
+  if (End == Text || *End != '\0')
+    return FALSE;
+  *Value = (float) x;
+  return TRUE;
 }
 
-/*****************************************************************************
-  ScanFloats()
-*****************************************************************************/
-int ScanFloats(FILE * FilePtr, float *X, int N)
+int TextToInteger(const char *Text, long *Value)
 {
-  int Ctr;
+  char *End;
 
-  for (Ctr = 0; Ctr < N; Ctr++) {
-    if (fscanf(FilePtr, "%f", &X[Ctr]) != 1)
-      break;
-  }
-
-  return Ctr;
-}
-
-/*****************************************************************************
-  ScanDoubles()
-*****************************************************************************/
-int ScanDoubles(FILE * FilePtr, double *X, int N)
-{
-  int Ctr;
-
-  for (Ctr = 0; Ctr < N; Ctr++) {
-    if (fscanf(FilePtr, "%lf", &X[Ctr]) != 1)
-      break;
-  }
-
-  return Ctr;
-}
-
-/*****************************************************************************
-  SkipLines()
-*****************************************************************************/
-void SkipLines(FILES * InFile, int NLines)
-{
-  int Ctr;
-  char str[BUFSIZE + 1];
-
-  for (Ctr = 0; Ctr < NLines; Ctr++) {
-    if (!fgets(str, BUFSIZE, InFile->FilePtr))
-      ReportError(InFile->FileName, 5);
-  }
-}
-
-/*****************************************************************************
-  SkipHeader()
-*****************************************************************************/
-void SkipHeader(FILES * InFile, int NLines)
-{
-  SkipLines(InFile, NLines);
+  errno = 0;
+  *Value = strtol(Text, &End, 10);
+  return (End != Text && *End == '\0' && errno != ERANGE);
 }

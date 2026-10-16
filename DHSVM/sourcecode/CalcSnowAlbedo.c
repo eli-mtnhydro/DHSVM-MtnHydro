@@ -24,10 +24,10 @@
   Updated based on Storck (2000)
   Updated by Eli Boardman 2024 to fix issues and introduce reset threshold
 *****************************************************************************/
-float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay)
+float CalcSnowAlbedo(SNOWPIX *LocalSnow, float NewSnow)
 {
   
-  float Last, Albedo, GroundFrac;
+  float Last, Albedo, GroundFrac, Depth;
   
   Last = LocalSnow->LastSnow;
   
@@ -42,9 +42,12 @@ float CalcSnowAlbedo(SNOWPIX *LocalSnow, int StepsPerDay)
     Albedo = LocalSnow->amax * pow(LocalSnow->LamdaMelt, pow(Last, 0.46));
   }
   
-  /* Average snow albedo with ground albedo for shallow snowpack */
-  if (LocalSnow->Swq < MIN_SNOW_RESET_ALBEDO) {
-    GroundFrac = 1.0 - LocalSnow->Swq / MIN_SNOW_RESET_ALBEDO;
+  /* Snow (the step's snowfall NewSnow included) shallower than the reset rate
+     over one day, in m of SWE, blends in the ground albedo by depth, as the
+     step's snowfall blends into an older pack's days since snowfall */
+  Depth = LocalSnow->Swq + NewSnow;
+  if (Depth < MIN_SNOW_RESET_ALBEDO) {
+    GroundFrac = 1.0 - Depth / MIN_SNOW_RESET_ALBEDO;
     Albedo = (GroundFrac * LocalSnow->AlbedoGround) + ((1.0 - GroundFrac) * Albedo);
   }
   

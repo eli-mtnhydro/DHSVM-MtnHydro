@@ -14,8 +14,8 @@ int Round(double x)
   int RoundX;
 
   if (x < INT_MIN || x > INT_MAX) {
-    printf("%f\n", x);
-    ReportError("Round()", 16);
+    snprintf(errorstr, BUFSIZ, "Round(): %f", x);
+    ReportError(errorstr, 16);
   }
   if ((fabs(x) - floor(fabs(x))) < 0.5)
     RoundX = (int) ((x < 0) ? ceil(x) : floor(x));

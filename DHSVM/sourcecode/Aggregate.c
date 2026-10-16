@@ -1,273 +1,328 @@
-
+/*
+ * DESCRIPTION:  Basin and class means. One pass over the mask cells (north
+ *               to south, west to east) adds each cell's values to running
+ *               totals in float: the basin's and, if requested, the cell's
+ *               vegetation class's. Most variables add one value per cell;
+ *               canopy storage, soil water and incoming shortwave are formed
+ *               term by term. Means are the totals divided by the number of
+ *               cells (cells with snow for the snow pack variables). The pass
+ *               also sets the root zone moisture <= 0 to 0 before it is added
+ *               to the moisture and soil water totals, and forms the level of
+ *               each lake (the mean surface water of its cells).
+ */
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
+#include <string.h>
 #include "settings.h"
 #include "data.h"
 #include "DHSVMerror.h"
 #include "functions.h"
 #include "constants.h"
+#include "output.h"
+#include "registry.h"
+
+static int Base[NVALUECODES];	/* First slot of a value code with means, -1 if none */
+static int IsSnowMean[NVALUECODES];	/* TRUE: mean over the cells with snow */
+static int NLayers[NVALUECODES];	/* Slots of a value code */
+static int SlotDiffuse;		/* Diffuse shortwave (incoming shortwave is beam + diffuse) */
+static int NSlots;
+
+static void InitAggregate(AGGREGATE *Aggregate);
+static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, int x);
+static void FinishAggregate(AGGREGATE *Aggregate, int Dt);
+
+/*****************************************************************************
+  InitTotals()
+
+  Slots of the variables with basin and class means, the basin aggregate and
+  one aggregate per class of [OUTPUT] Classes
+*****************************************************************************/
+void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg,
+                DUMPSTRUCT *Dump, TOTALS *Totals)
+{
+  const char *Aggregation;
+  int Code, Var, i;
+
+  NSlots = 0;
+  for (Code = 0; Code < NVALUECODES; Code++) {
+    Var = CodeVar(Code);
+    Aggregation = RegistryRow(Var)->Aggregation;
+    Base[Code] = -1;
+    NLayers[Code] = 0;
+    IsSnowMean[Code] = (strcmp(Aggregation, "SnowMean") == 0);
+    if (strcmp(Aggregation, "Mean") == 0 || IsSnowMean[Code]) {
+      Base[Code] = NSlots;
+      NLayers[Code] = RegistryLayerCount(Var, Map->SoilLayers);
+      NSlots += NLayers[Code];
+    }
+  }
+  SlotDiffuse = NSlots++;
+
+  memset(Totals, 0, sizeof(TOTALS));
+  InitAggregate(&(Totals->Basin));
+  Totals->NClasses = Dump->NClasses;
+  if (!(Totals->ClassIndex = (int *) malloc(Veg->NTypes * sizeof(int))))
+    ReportError("InitTotals", 1);
+  for (i = 0; i < Veg->NTypes; i++)
+    Totals->ClassIndex[i] = -1;
+  if (Totals->NClasses > 0) {
+    if (!(Totals->Class = (AGGREGATE *) calloc(Totals->NClasses, sizeof(AGGREGATE))))
+      ReportError("InitTotals", 1);
+    for (i = 0; i < Totals->NClasses; i++) {
+      InitAggregate(&(Totals->Class[i]));
+      Totals->ClassIndex[Dump->Classes[i].Class - 1] = i;
+    }
+  }
+}
+
+static void InitAggregate(AGGREGATE *Aggregate)
+{
+  if (!(Aggregate->Sum = (float *) calloc(NSlots, sizeof(float))) ||
+      !(Aggregate->Mean = (float *) calloc(NSlots, sizeof(float))))
+    ReportError("InitAggregate", 1);
+  Aggregate->NCells = 0;
+  Aggregate->NSnow = 0;
+  Aggregate->OldSwq = 0.0;
+}
 
 /*****************************************************************************
   Aggregate()
-  
-  Calculate the average values for the different fluxes and state variables
-  over the basin.  
-  In the current implementation the local radiation
-  elements are not stored for the entire area.  Therefore these components
-  are aggregated in AggregateRadiation() inside MassEnergyBalance().
-  
-  The aggregated values are set to zero in the function RestAggregate,
-  which is executed at the beginning of each time step.
-*****************************************************************************/
-void Aggregate(MAPSIZE *Map, OPTIONSTRUCT *Options, TOPOPIX **TopoMap,
-	       LAYER *Soil, LAYER *Veg, VEGPIX **VegMap, EVAPPIX **Evap,
-	       PRECIPPIX **Precip, PIXRAD **RadMap, SNOWPIX **Snow,
-	       SOILPIX **SoilMap, AGGREGATED *Total, VEGTABLE *VType,
-	       NETSTRUCT **Network, CHANNEL *ChannelData, 
-         int Dt, int NDaySteps)
-{
-  int NPixels;		/* Number of pixels in the basin */
-  int NSoilL;			/* Number of soil layers for current pixel */
-  int NVegL;			/* Number of vegetation layers for current pixel */
-  int NSnow;      /* Number of pixels with snow cover currently */
-  int i;				/* counter */
-  int j;				/* counter */
-  int x;
-  int y;
-  float DeepDepth;		/* depth to bottom of lowest rooting zone */
 
-  NPixels = 0;
-  NSnow = 0;
-  
+  Basin and class means of the current state and of the time step's fluxes,
+  the fraction of mask cells whose water table is above 90% of the soil
+  depth, and the lake levels
+*****************************************************************************/
+void Aggregate(MODELVIEW *Model, TOTALS *Totals)
+{
+  MAPSIZE *Map = Model->Map;
+  AGGREGATE *Target[2];
+  SOILPIX *Soil;
+  float mgrid;
+  int NTarget;
+  int Class;
+  int Lake;
+  int x, y, i;
+
+  for (i = -1; i < Totals->NClasses; i++) {
+    AGGREGATE *A = (i < 0) ? &(Totals->Basin) : &(Totals->Class[i]);
+    memset(A->Sum, 0, NSlots * sizeof(float));
+    A->NCells = 0;
+    A->NSnow = 0;
+  }
+  Totals->NSaturated = 0;
+  for (i = 0; i < Model->NumLakes; i++) {
+    Model->LakeLevel[i] = 0.0;
+    Model->LakeCells[i] = 0;
+  }
+
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-  NPixels++;
-  NSoilL = Soil->NLayers[SoilMap[y][x].Soil - 1];
-  NVegL = Veg->NLayers[VegMap[y][x].Veg - 1];
-  
-  /* aggregate the evaporation data */
-  Total->Evap.ETot += Evap[y][x].ETot;
-  for (i = 0; i < NVegL; i++) {
-	  Total->Evap.EPot[i] += Evap[y][x].EPot[i];
-	  Total->Evap.EAct[i] += Evap[y][x].EAct[i];
-	  Total->Evap.EInt[i] += Evap[y][x].EInt[i];
-  }
-  Total->Evap.EPot[Veg->MaxLayers] += Evap[y][x].EPot[NVegL];
-  Total->Evap.EAct[Veg->MaxLayers] += Evap[y][x].EAct[NVegL];
-  
-  for (i = 0; i < NVegL; i++) {
-	  for (j = 0; j < NSoilL; j++) {
-		  Total->Evap.ESoil[i][j] += Evap[y][x].ESoil[i][j];
-	  }
-  }
-  Total->Evap.EvapSoil += Evap[y][x].EvapSoil;
-  Total->Evap.EvapChannel += Evap[y][x].EvapChannel;
-  
-  /* aggregate precipitation data */
-  Total->Precip.Precip += Precip[y][x].Precip;
-      Total->Precip.SnowFall += Precip[y][x].SnowFall;
-  for (i = 0; i < NVegL; i++) {
-	  Total->Precip.IntRain[i] += Precip[y][x].IntRain[i];
-	  Total->Precip.IntSnow[i] += Precip[y][x].IntSnow[i];
-	  Total->CanopyWater += Precip[y][x].IntRain[i] +
-	  Precip[y][x].IntSnow[i];
-  }
+      if (INBASIN(Model->Topo[y][x].Mask)) {
+        NTarget = 0;
+        Target[NTarget++] = &(Totals->Basin);
+        Class = Totals->ClassIndex[Model->Veg[y][x].Veg - 1];
+        if (Class >= 0)
+          Target[NTarget++] = &(Totals->Class[Class]);
+        AddCell(Target, NTarget, Model, y, x);
 
-	/* aggregate radiation data */
-	Total->Rad.Tair += RadMap[y][x].Tair;
-  Total->Rad.ObsShortIn += RadMap[y][x].ObsShortIn;
-  Total->Rad.BeamIn += RadMap[y][x].BeamIn;
-  Total->Rad.DiffuseIn += RadMap[y][x].DiffuseIn;
-  Total->Rad.PixelNetShort += RadMap[y][x].PixelNetShort;
-  Total->NetRad += RadMap[y][x].NetRadiation[0] + RadMap[y][x].NetRadiation[1];
+        /* Water table above MTHRESH of the soil depth */
+        Soil = &(Model->Soil[y][x]);
+        mgrid = (Soil->Depth - Soil->TableDepth) / Soil->Depth;
+        if (mgrid > MTHRESH)
+          Totals->NSaturated++;
 
-	/* aggregate snow data */
-	if (Snow[y][x].HasSnow) {
-	  NSnow++;
-	  Total->Snow.Albedo += Snow[y][x].Albedo;
-	  Total->Snow.LastSnow += Snow[y][x].LastSnow;
-	  Total->Snow.PackWater += Snow[y][x].PackWater;
-	  Total->Snow.TPack += Snow[y][x].TPack;
-	  Total->Snow.SurfWater += Snow[y][x].SurfWater;
-	  Total->Snow.TSurf += Snow[y][x].TSurf;
-	  Total->Snow.ColdContent += Snow[y][x].ColdContent;
-	  Total->Snow.Depth += Snow[y][x].Depth;
-	  Total->Snow.Qe += Snow[y][x].Qe;
-	  Total->Snow.Qs += Snow[y][x].Qs;
-	  Total->Snow.Qsw += Snow[y][x].Qsw;
-	  Total->Snow.Qlw += Snow[y][x].Qlw;
-	  Total->Snow.Qp += Snow[y][x].Qp;
-	  Total->Snow.MeltEnergy += Snow[y][x].MeltEnergy;
-	}
-  Total->Snow.Swq += Snow[y][x].Swq;
-  Total->Snow.Melt += Snow[y][x].Outflow;
-  Total->Snow.VaporMassFlux += Snow[y][x].VaporMassFlux;
-  Total->Snow.CanopyVaporMassFlux += Snow[y][x].CanopyVaporMassFlux;
-
-	if (VegMap[y][x].Gapping > 0.0) {
-	  Total->Veg.Type[Opening].Qsw += VegMap[y][x].Type[Opening].Qsw;
-	  Total->Veg.Type[Opening].Qlin += VegMap[y][x].Type[Opening].Qlin;
-	  Total->Veg.Type[Opening].Qlw += VegMap[y][x].Type[Opening].Qlw;
-	  Total->Veg.Type[Opening].Qe += VegMap[y][x].Type[Opening].Qe;
-	  Total->Veg.Type[Opening].Qs += VegMap[y][x].Type[Opening].Qs;
-	  Total->Veg.Type[Opening].Qp += VegMap[y][x].Type[Opening].Qp;
-	  Total->Veg.Type[Opening].Swq += VegMap[y][x].Type[Opening].Swq;
-	  Total->Veg.Type[Opening].MeltEnergy += VegMap[y][x].Type[Opening].MeltEnergy;
-	}
-	/* aggregate soil moisture data */
-	Total->Soil.Depth += SoilMap[y][x].Depth;
-	DeepDepth = 0.0;
-
-	for (i = 0; i < NSoilL; i++) {
-		Total->Soil.Moist[i] += SoilMap[y][x].Moist[i];
-		if (SoilMap[y][x].Moist[i] <= 0.0)
-		  SoilMap[y][x].Moist[i] = 0.0;
-		Total->Soil.InterFlow[i] += SoilMap[y][x].InterFlow[i];
-		
-		Total->Soil.Perc[i] += SoilMap[y][x].Perc[i];
-		Total->Soil.Temp[i] += SoilMap[y][x].Temp[i];
-		Total->SoilWater += SoilMap[y][x].Moist[i] * VType[VegMap[y][x].Veg - 1].RootDepth[i] * Network[y][x].Adjust[i]; 
-		DeepDepth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
-	}
-
-	Total->Soil.Moist[Soil->MaxLayers] += SoilMap[y][x].Moist[NSoilL];
-	Total->SoilWater += SoilMap[y][x].Moist[NSoilL] * (SoilMap[y][x].Depth - DeepDepth) * Network[y][x].Adjust[NSoilL];
-	Total->Soil.TableDepth += SoilMap[y][x].TableDepth;
-
-	if (SoilMap[y][x].TableDepth <= 0)
-		(Total->Saturated)++;
-	
-	Total->Soil.WaterLevel += SoilMap[y][x].WaterLevel;
-	Total->Soil.SatFlow += SoilMap[y][x].SatFlow;
-	Total->Soil.DeepFlux += SoilMap[y][x].DeepFlux;
-	Total->Soil.TSurf += SoilMap[y][x].TSurf;
-	Total->Soil.Qnet += SoilMap[y][x].Qnet;
-	Total->Soil.Qs += SoilMap[y][x].Qs;
-	Total->Soil.Qe += SoilMap[y][x].Qe;
-	Total->Soil.Qg += SoilMap[y][x].Qg;
-	Total->Soil.Qst += SoilMap[y][x].Qst;
-	Total->Soil.IExcess += SoilMap[y][x].IExcess;
-	Total->Soil.DetentionStorage += SoilMap[y][x].DetentionStorage;
-	
-	if (Options->Infiltration == DYNAMIC)
-		Total->Soil.InfiltAcc += SoilMap[y][x].InfiltAcc;
-	
-	Total->Soil.Runoff += SoilMap[y][x].Runoff;
-	Total->ChannelInt += SoilMap[y][x].ChannelInt;
-	Total->ChannelInfiltration += SoilMap[y][x].ChannelInfiltration;
-	SoilMap[y][x].ChannelInt = 0.0;
-	SoilMap[y][x].ChannelInfiltration = 0.0;
-  }
-  }
-  }
-  
-  /* calculate average values for all quantities except the surface flow */
-  
-  /* Snow variables calculated for snow area only, except for mass variables */
-  if (NSnow < 1)
-    NSnow = 1;
-  Total->Snow.HasSnow = (uchar) (((float) NSnow / (float) NPixels) * 255.0);
-  
-  /* average evaporation data */
-  Total->Evap.ETot /= NPixels;
-  for (i = 0; i < Veg->MaxLayers + 1; i++) {
-    /* convert EPot from m/s to m */
-    Total->Evap.EPot[i] /= NPixels;
-    Total->Evap.EPot[i] *= Dt;
-    Total->Evap.EAct[i] /= NPixels;
-  }
-  for (i = 0; i < Veg->MaxLayers; i++)
-    Total->Evap.EInt[i] /= NPixels;
-  for (i = 0; i < Veg->MaxLayers; i++) {
-    for (j = 0; j < Soil->MaxLayers; j++) {
-      Total->Evap.ESoil[i][j] /= NPixels;
+        Lake = Model->Topo[y][x].LakeID;
+        if (Lake > 0) {
+          Model->LakeLevel[Lake - 1] += Soil->IExcess;
+          Model->LakeCells[Lake - 1]++;
+        }
+      }
     }
   }
-  Total->Evap.EvapSoil /= NPixels;
-  Total->Evap.EvapChannel /= NPixels;
-
-  /* average precipitation data */
-  Total->Precip.Precip /= NPixels;
-  Total->Precip.SnowFall /= NPixels;
-  for (i = 0; i < Veg->MaxLayers; i++) {
-    Total->Precip.IntRain[i] /= NPixels;
-    Total->Precip.IntSnow[i] /= NPixels;
-  }
-  Total->CanopyWater /= NPixels;
-
-  /* average radiation data */
-  Total->Rad.Tair /= NPixels;
-  Total->Rad.ObsShortIn /= NPixels;
-  Total->Rad.PixelNetShort /= NPixels;
-  Total->NetRad /= NPixels;
-  Total->Rad.BeamIn /= NPixels;
-  Total->Rad.DiffuseIn /= NPixels;
-  for (i = 0; i < 2; i++) {
-    Total->Rad.NetShort[i] /= NPixels;
-	  Total->Rad.LongIn[i] /= NPixels;
-	  Total->Rad.LongOut[i] /= NPixels;
+  for (i = 0; i < Model->NumLakes; i++) {
+    if (Model->LakeCells[i] > 0)
+      Model->LakeLevel[i] /= Model->LakeCells[i];
   }
 
-  /* average snow data */
-  Total->Snow.Swq /= NPixels;
-  Total->Snow.Melt /= NPixels;
-  Total->Snow.PackWater /= NSnow;
-  Total->Snow.TPack /= NSnow;
-  Total->Snow.SurfWater /= NSnow;
-  Total->Snow.TSurf /= NSnow;
-  Total->Snow.ColdContent /= NSnow;
-  Total->Snow.Albedo /= NSnow;
-  Total->Snow.LastSnow /= NSnow;
-  Total->Snow.Depth /= NSnow;
-  Total->Snow.Qe /= NSnow;
-  Total->Snow.Qs /= NSnow;
-  Total->Snow.Qsw /= NSnow;
-  Total->Snow.Qlw /= NSnow;
-  Total->Snow.Qp /= NSnow;
-  Total->Snow.MeltEnergy /= NSnow;
-  Total->Snow.VaporMassFlux /= NPixels;
-  Total->Snow.CanopyVaporMassFlux /= NPixels;
+  FinishAggregate(&(Totals->Basin), Model->Dt);
+  for (i = 0; i < Totals->NClasses; i++)
+    FinishAggregate(&(Totals->Class[i]), Model->Dt);
+  Totals->SaturatedFraction = (float) Totals->NSaturated / (float) Totals->Basin.NCells;
+}
 
-  if (TotNumGap > 0) {
-	Total->Veg.Type[Opening].Qsw /= TotNumGap;
-	Total->Veg.Type[Opening].Qlin /= TotNumGap;
-	Total->Veg.Type[Opening].Qlw /= TotNumGap;
-	Total->Veg.Type[Opening].Qe /= TotNumGap;
-	Total->Veg.Type[Opening].Qs /= TotNumGap;
-	Total->Veg.Type[Opening].Qp /= TotNumGap;
-	Total->Veg.Type[Opening].Swq /= TotNumGap;
-	Total->Veg.Type[Opening].MeltEnergy /= TotNumGap;
-  }
-  /* average soil moisture data */
-  Total->Soil.Depth /= NPixels;
-  for (i = 0; i < Soil->MaxLayers; i++) {
-    Total->Soil.Moist[i] /= NPixels;
-    Total->Soil.InterFlow[i] /= NPixels;
-    Total->Soil.Perc[i] /= NPixels;
-    Total->Soil.Temp[i] /= NPixels;
-  }
-  Total->Soil.Moist[Soil->MaxLayers] /= NPixels;
-  Total->Soil.InterFlow[Soil->MaxLayers] /= NPixels;
-  Total->Soil.TableDepth /= NPixels;
-  Total->Soil.WaterLevel /= NPixels;
-  Total->Soil.SatFlow /= NPixels;
-  Total->Soil.DeepFlux /= NPixels;
-  Total->Soil.TSurf /= NPixels;
-  Total->Soil.Qnet /= NPixels;
-  Total->Soil.Qs /= NPixels;
-  Total->Soil.Qe /= NPixels;
-  Total->Soil.Qg /= NPixels;
-  Total->Soil.Qst /= NPixels;
-  Total->Soil.IExcess /= NPixels;
-  Total->Soil.DetentionStorage /= NPixels;
-  
-  if (Options->Infiltration == DYNAMIC)
-    Total->Soil.InfiltAcc /= NPixels;
+/* Adds Value to slot Layer of value code Code of every target */
+#define ADD(Code, Layer, Value) \
+  for (t = 0; t < NTarget; t++) Target[t]->Sum[Base[Code] + (Layer)] += (Value)
 
-  Total->SoilWater /= NPixels;
-  Total->Soil.Runoff /= NPixels;
-  Total->ChannelInt /= NPixels;
-  Total->ChannelInfiltration /= NPixels;
+/*****************************************************************************
+  AddCell()
+
+  Adds the values of mask cell (y, x) to the totals of the targets; the root
+  zone moisture is set to 0 where it is <= 0 before it is added
+*****************************************************************************/
+static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, int x)
+{
+  EVAPPIX *Evap = &(Model->Evap[y][x]);
+  PRECIPPIX *Precip = &(Model->Precip[y][x]);
+  PIXRAD *Rad = &(Model->Rad[y][x]);
+  SNOWPIX *Snow = &(Model->Snow[y][x]);
+  SOILPIX *Soil = &(Model->Soil[y][x]);
+  VEGTABLE *VType = &(Model->VType[Model->Veg[y][x].Veg - 1]);
+  NETSTRUCT *Network = &(Model->Network[y][x]);
+  int L = Model->Map->SoilLayers;
+  int NVeg = VType->NVegLayers;
+  int Index[2];
+  int c, i, t;
+  float Term;
+  float DeepDepth;
+
+  for (t = 0; t < NTarget; t++)
+    Target[t]->NCells++;
+
+  Index[0] = CanopyIndex(VType, 0);
+  Index[1] = CanopyIndex(VType, 1);
+
+  /* Meteorology and radiation */
+  ADD(V_MET_PRECIPITATION, 0, Precip->Precip);
+  ADD(V_MET_SNOWFALL, 0, Precip->SnowFall);
+  ADD(V_MET_RAINFALL, 0, Precip->RainFall);
+  ADD(V_MET_AIRTEMPERATURE, 0, Rad->Tair);
+  ADD(V_MET_PRECIPITATIONWATERYEAR, 0, Precip->SumPrecip);
+  ADD(V_RAD_SHORTWAVEINOBSERVED, 0, Rad->ObsShortIn);
+  ADD(V_RAD_SHORTWAVEIN, 0, Rad->BeamIn);
+  for (t = 0; t < NTarget; t++)
+    Target[t]->Sum[SlotDiffuse] += Rad->DiffuseIn;
+  ADD(V_RAD_NETSHORTWAVE, 0, Rad->PixelNetShort);
+  Term = Rad->NetRadiation[0] + Rad->NetRadiation[1];
+  ADD(V_RAD_NETRADIATION, 0, Term);
+
+  /* Vegetation layers, by canopy */
+  for (c = 0; c < 2; c++) {
+    if (Index[c] < 0)
+      continue;
+    ADD(V_RAD_CANOPYNETSHORTWAVE, c, Rad->NetShort[Index[c]]);
+    ADD(V_RAD_CANOPYLONGWAVEIN, c, Rad->LongIn[Index[c]]);
+    ADD(V_CANOPY_INTERCEPTEDRAIN, c, Precip->IntRain[Index[c]]);
+    ADD(V_CANOPY_INTERCEPTEDSNOW, c, Precip->IntSnow[Index[c]]);
+    ADD(V_EVAP_POTENTIAL, c, Evap->EPot[Index[c]]);
+    ADD(V_EVAP_ACTUAL, c, Evap->EAct[Index[c]]);
+    ADD(V_EVAP_INTERCEPTION, c, Evap->EInt[Index[c]]);
+    for (i = 0; i < L; i++)
+      ADD(V_EVAP_TRANSPIRATION, c * L + i, Evap->ESoil[Index[c]][i]);
+  }
+  ADD(V_EVAP_POTENTIAL, 2, Evap->EPot[NVeg]);
+  ADD(V_EVAP_ACTUAL, 2, Evap->EAct[NVeg]);
+
+  /* Canopy storage, layer by layer in position order */
+  for (i = 0; i < NVeg; i++) {
+    Term = Precip->IntRain[i] + Precip->IntSnow[i];
+    ADD(V_CANOPY_STORAGE, 0, Term);
+  }
+  ADD(V_CANOPY_TEMPORARYSTORAGE, 0, Precip->TempIntStorage);
+  ADD(V_CANOPY_SNOWVAPOR, 0, Snow->CanopyVaporMassFlux);
+
+  /* Evapotranspiration */
+  ADD(V_EVAP_TOTAL, 0, Evap->ETot);
+  ADD(V_EVAP_SOIL, 0, Evap->EvapSoil);
+  ADD(V_EVAP_CHANNEL, 0, Evap->EvapChannel);
+
+  /* Snow: the pack variables over the cells with snow */
+  if (Snow->HasSnow) {
+    for (t = 0; t < NTarget; t++)
+      Target[t]->NSnow++;
+    ADD(V_SNOW_ALBEDO, 0, Snow->Albedo);
+    ADD(V_SNOW_DAYSSINCESNOWFALL, 0, Snow->LastSnow);
+    ADD(V_SNOW_PACKLIQUID, 0, Snow->PackWater);
+    ADD(V_SNOW_PACKTEMPERATURE, 0, Snow->TPack);
+    ADD(V_SNOW_SURFACELIQUID, 0, Snow->SurfWater);
+    ADD(V_SNOW_SURFACETEMPERATURE, 0, Snow->TSurf);
+    Term = SnowColdContent(Snow);
+    ADD(V_SNOW_COLDCONTENT, 0, Term);
+    ADD(V_SNOW_LATENTHEAT, 0, Snow->Qe);
+    ADD(V_SNOW_SENSIBLEHEAT, 0, Snow->Qs);
+    ADD(V_SNOW_NETSHORTWAVE, 0, Snow->Qsw);
+    ADD(V_SNOW_NETLONGWAVE, 0, Snow->Qlw);
+    ADD(V_SNOW_RAINHEAT, 0, Snow->Qp);
+    ADD(V_SNOW_MELTENERGY, 0, Snow->MeltEnergy);
+  }
+  Term = (float) Snow->HasSnow;
+  ADD(V_SNOW_COVERED, 0, Term);
+  ADD(V_SNOW_SWE, 0, Snow->Swq);
+  ADD(V_SNOW_OUTFLOW, 0, Snow->Outflow);
+  ADD(V_SNOW_VAPOR, 0, Snow->VaporMassFlux);
+  ADD(V_SNOW_ACCUMULATIONWATERYEAR, 0, Precip->SnowAccum);
+  ADD(V_SNOW_OUTFLOWWATERYEAR, 0, Precip->SnowMelt);
+
+  /* Soil: root zone layers (moisture set >= 0, then added), then the deep
+     layer below the root zone */
+  DeepDepth = 0.0;
+  for (i = 0; i < L; i++) {
+    if (Soil->Moist[i] <= 0.0)
+      Soil->Moist[i] = 0.0;
+    ADD(V_SOIL_MOISTURE, i, Soil->Moist[i]);
+    ADD(V_SOIL_INTERFLOW, i, Soil->InterFlow[i]);
+    ADD(V_SOIL_PERCOLATION, i, Soil->Perc[i]);
+    Term = Soil->Moist[i] * VType->RootDepth[i] * Network->Adjust[i];
+    ADD(V_SOIL_WATER, 0, Term);
+    DeepDepth += VType->RootDepth[i];
+  }
+  ADD(V_SOIL_MOISTURE, L, Soil->Moist[L]);
+  Term = Soil->Moist[L] * (Soil->Depth - DeepDepth) * Network->Adjust[L];
+  ADD(V_SOIL_WATER, 0, Term);
+  ADD(V_SOIL_TABLEDEPTH, 0, Soil->TableDepth);
+  ADD(V_SOIL_SATFLOW, 0, Soil->SatFlow);
+  ADD(V_SOIL_DEEPFLUX, 0, Soil->DeepFlux);
+  ADD(V_SOIL_LATENTHEAT, 0, Soil->Qe);
+  ADD(V_SOIL_SURFACEWATER, 0, Soil->IExcess);
+  Term = (Model->Topo[y][x].LakeID > 0) ? Soil->IExcess : 0.0;
+  ADD(V_LAKE_STORAGE, 0, Term);
+  ADD(V_SURFACE_DETENTION, 0, Soil->DetentionStorage);
+  ADD(V_SOIL_INFILTRATIONACCUMULATED, 0, Soil->InfiltAcc);
+  ADD(V_STREAM_INTERCEPTION, 0, Soil->ChannelInt);
+  ADD(V_STREAM_INFILTRATION, 0, Soil->ChannelInfiltration);
+}
+
+/*****************************************************************************
+  FinishAggregate()
+
+  Means from the totals: divided by the number of cells, or by the number of
+  cells with snow (at least 1) for the snow pack variables; potential
+  evapotranspiration from m/s to m per step after the division; incoming
+  shortwave as the mean beam plus the mean diffuse
+*****************************************************************************/
+static void FinishAggregate(AGGREGATE *Aggregate, int Dt)
+{
+  float Beam, Diffuse;
+  int NSnow = (Aggregate->NSnow < 1) ? 1 : Aggregate->NSnow;
+  int Code, k, s;
+
+  for (Code = 0; Code < NVALUECODES; Code++) {
+    for (k = 0; k < NLayers[Code]; k++) {
+      s = Base[Code] + k;
+      if (IsSnowMean[Code])
+        Aggregate->Mean[s] = Aggregate->Sum[s] / NSnow;
+      else
+        Aggregate->Mean[s] = Aggregate->Sum[s] / Aggregate->NCells;
+    }
+  }
+  for (k = 0; k < NLayers[V_EVAP_POTENTIAL]; k++)
+    Aggregate->Mean[Base[V_EVAP_POTENTIAL] + k] *= Dt;
+  Beam = Aggregate->Sum[Base[V_RAD_SHORTWAVEIN]] / Aggregate->NCells;
+  Diffuse = Aggregate->Sum[SlotDiffuse] / Aggregate->NCells;
+  Aggregate->Mean[Base[V_RAD_SHORTWAVEIN]] = Beam + Diffuse;
+}
+
+/*****************************************************************************
+  AggregateValue(), SetAggregateValue()
+
+  Mean of layer Layer of a value code with means
+*****************************************************************************/
+float AggregateValue(AGGREGATE *Aggregate, int Code, int Layer)
+{
+  return Aggregate->Mean[Base[Code] + Layer];
+}
+
+void SetAggregateValue(AGGREGATE *Aggregate, int Code, int Layer, float Value)
+{
+  Aggregate->Mean[Base[Code] + Layer] = Value;
 }

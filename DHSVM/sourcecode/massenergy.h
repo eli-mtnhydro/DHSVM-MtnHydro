@@ -6,9 +6,6 @@
 #include <stdarg.h>
 #include "DHSVMChannel.h"
 
-void AggregateRadiation(int MaxVegLayers, int NVegL, PIXRAD * Rad,
-			PIXRAD * TotalRad);
-
 float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 		       float VpdThres, float MoistThres, float WP,
 		       float TSoil, float SoilMoisture, float Vpd, float Rp);
@@ -22,10 +19,6 @@ void EvapoTranspiration(int Layer, int impvRad, int Dt, PIXMET *Met,
               float *EPot, float *EInt, float **ESoil, float *EAct,
               float *ETot, float *Adjust, float Ra, VEGPIX *LocalVeg);
 
-void InitLocalRad(int HeatFluxOption, float Rs, float Ld, float Tair, 
-               float Tcanopy, float Tsoil, VEGTABLE *VType, 
-               SNOWPIX *LocalSnow, PIXRAD *LocalRad);
-
 void InterceptionStorage(int NAct, float *MaxInt, float *Fract, float *Int,
                float *Precip);
 
@@ -35,18 +28,12 @@ void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
 
 void NoSensibleHeatFlux(int Dt, PIXMET *LocalMet, float ETot, SOILPIX *LocalSoil);
 
-void RadiationBalance(OPTIONSTRUCT *Options, int HeatFluxOption,
+void RadiationBalance(OPTIONSTRUCT *Options,
               int CanopyRadAttOption, int Overstory, int Understory,
               float SineSolarAltitude, float VICRs,
               float Rs, float Rsd, float Rsb, float Ld, float Tair, float Tcanopy,
-              float Tsoil, float SoilAlbedo, VEGTABLE *VType, SNOWPIX *LocalSnow,
+              float SoilAlbedo, VEGTABLE *VType, SNOWPIX *LocalSnow,
               PIXRAD *LocalRad, VEGPIX *LocalVeg);
-
-void SensibleHeatFlux(int y, int x, int Dt, float Ra, float ZRef,
-		      float Displacement, float Z0, PIXMET *LocalMet,
-		      float NetShort, float LongIn, float ETot, int NSoilLayers, 
-		      float *SoilDepth, SOILTABLE *SoilType, float MeltEnergy, 
-              SOILPIX *LocalSoil);
 
 void ShortwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
               float F, float Rs, float Rsb, float Rsd, float Tau,
@@ -79,7 +66,5 @@ float SoilEvaporation(int Dt,
 
 float StabilityCorrection(float Z, float d, float Tsurf, float Tair,
 			  float Wind, float Z0);
-
-float SurfaceEnergyBalance(float TSurf, va_list ap);
 
 #endif

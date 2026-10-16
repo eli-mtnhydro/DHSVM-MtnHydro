@@ -11,49 +11,103 @@
 #include "getinit.h"
 #include "sizeofnt.h"
 #include "slopeaspect.h"
-#include "varid.h"
+#include "mapio.h"
 
- /*****************************************************************************
-   InitTerrainMaps()
- *****************************************************************************/
-void InitTerrainMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-  LAYER *Soil, LAYER *Veg, TOPOPIX ***TopoMap, SOILTABLE *SType, SOILPIX ***SoilMap, 
-  VEGTABLE *VType, VEGPIX ***VegMap, DYNAVEG *DVeg, LAKETABLE *LType)
+static void *ReadMap(LISTPTR Input, const char *Name, int NumberType, const char *Units,
+                     int LayerSet, MAPSIZE *Map);
 
+/*****************************************************************************
+  ReadMap()
+
+  Allocates and reads every layer of the input map Name ([INPUTS] key);
+  the header is checked first
+*****************************************************************************/
+static void *ReadMap(LISTPTR Input, const char *Name, int NumberType, const char *Units,
+                     int LayerSet, MAPSIZE *Map)
 {
-  printf("\nInitializing terrain maps\n");
+  void *Values;
+  size_t NValues = (size_t) Map->NY * Map->NX * MapLayerCount(LayerSet, Map->SoilLayers);
 
-  InitTopoMap(Input, Options, Map, TopoMap, LType);
-  InitVegMap(Options, Input, Map, VegMap, VType, DVeg);
-  InitSoilMap(Input, Options, Map, Soil, *TopoMap, SoilMap, SType, VegMap, VType);
-  if (Options->CanopyGapping)
-    InitCanopyGapMap(Options, Input, Map, Soil, Veg, VType, VegMap, SType, SoilMap);
+  if (!(Values = calloc(NValues, SizeOfNumberType(NumberType))))
+    ReportError("ReadMap", 1);
+  ReadInputMap(Input, Name, NumberType, Units, LayerSet, Map, Values);
+  return Values;
+}
+
+/*****************************************************************************
+  ReadInputMaps()
+
+  Reads every input map the run uses, as given (the values are checked by
+  ValidateInputs(), then ApplyParameters() applies the parameters). The
+  monthly precipitation pattern stays open: its layers are read by
+  ValidateInputs() and, a month at a time, by InitNewMonth().
+*****************************************************************************/
+void ReadInputMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw)
+{
+  char Path[BUFSIZE + 1];
+
+  Message("\nReading input maps\n");
+
+  memset(Raw, 0, sizeof(INPUTMAPS));
+  Raw->Elevation = ReadMap(Input, "Terrain.Elevation", NC_FLOAT, "m", MAP_ONE, Map);
+  Raw->Mask = ReadMap(Input, "Terrain.Mask", NC_BYTE, "-", MAP_ONE, Map);
+
+  /* Horizon angles: the map is open until InitShading() has read it */
+  Options->HorizonAngle.Ptr = NULL;
+  if (Options->Shading) {
+    RequireConfigValue(Input, "INPUTS", "Terrain.HorizonAngle", Path);
+    OpenInputMap(&(Options->HorizonAngle), Path, "Terrain.HorizonAngle", NC_FLOAT,
+                 "degrees", MAP_AZIMUTH, Map);
+    Raw->SkyView = ReadMap(Input, "Terrain.SkyView", NC_FLOAT, "fraction", MAP_ONE, Map);
+  }
+
+  Raw->SoilClass = ReadMap(Input, "Soil.Class", NC_BYTE, "-", MAP_ONE, Map);
+  Raw->Depth = ReadMap(Input, "Soil.Depth", NC_FLOAT, "m", MAP_ONE, Map);
+  Raw->LateralConductivity =
+    ReadMap(Input, "Soil.LateralConductivity", NC_FLOAT, "m/s", MAP_ONE, Map);
+  Raw->ExponentialDecrease =
+    ReadMap(Input, "Soil.ExponentialDecrease", NC_FLOAT, "1/m", MAP_ONE, Map);
+  Raw->Porosity = ReadMap(Input, "Soil.Porosity", NC_FLOAT, "m3/m3", MAP_SOIL, Map);
+  Raw->FieldCapacity = ReadMap(Input, "Soil.FieldCapacity", NC_FLOAT, "m3/m3", MAP_SOIL, Map);
+  Raw->VegClass = ReadMap(Input, "Veg.Class", NC_BYTE, "-", MAP_ONE, Map);
+  Raw->OverstoryCover = ReadMap(Input, "Veg.OverstoryCover", NC_FLOAT, "fraction", MAP_ONE, Map);
+  Raw->OverstoryLAI = ReadMap(Input, "Veg.OverstoryLAI", NC_FLOAT, "m2/m2", MAP_ONE, Map);
+  Raw->OverstoryHeight = ReadMap(Input, "Veg.OverstoryHeight", NC_FLOAT, "m", MAP_ONE, Map);
+  Raw->UnderstoryHeight = ReadMap(Input, "Veg.UnderstoryHeight", NC_FLOAT, "m", MAP_ONE, Map);
+
+  Options->PrecipPattern.Ptr = NULL;
+  if (Options->Prism) {
+    RequireConfigValue(Input, "INPUTS", "Met.PrecipPattern", Path);
+    OpenInputMap(&(Options->PrecipPattern), Path, "Met.PrecipPattern", NC_FLOAT,
+                 "-", MAP_MONTH, Map);
+  }
+  if (Options->SnowPattern)
+    Raw->SnowPattern = ReadMap(Input, "Met.SnowPattern", NC_FLOAT, "-", MAP_ONE, Map);
+  if (Options->MeltScale)
+    Raw->MeltScale = ReadMap(Input, "Snow.MeltScale", NC_FLOAT, "-", MAP_ONE, Map);
+  if (Options->LakeDynamics)
+    Raw->LakeID = ReadMap(Input, "Lake.ID", NC_BYTE, "-", MAP_ONE, Map);
+  if (!IsEmptyStr(Options->InitialSWEPath))
+    Raw->InitialSWE = ReadMap(Input, "Snow.InitialSWE", NC_FLOAT, "m", MAP_ONE, Map);
 }
 
 /*****************************************************************************
   InitTopoMap()
+
+  Elevation and basin mask of every cell, lake ID of the cells inside the
+  mask; lake areas; slope, aspect and flow directions
 *****************************************************************************/
-void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
-  TOPOPIX *** TopoMap, LAKETABLE *LType)
+void InitTopoMap(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
+  TOPOPIX ***TopoMap, LAKETABLE *LType)
 {
   const char *Routine = "InitTopoMap";
-  char VarName[BUFSIZE + 1];	/* Variable name */
   int i;			/* Counter */
   int x;			/* Counter */
   int y;			/* Counter */
-  int NumberType;		/* Number type of data set */
-  unsigned char *Mask = NULL;	/* Basin mask */
-  unsigned char *Lakes;		/* Lake IDs */
-  float *Elev;			/* Surface elevation */
   float Area; /* Area of a lake */
-  STRINIENTRY StrEnv[] = {
-    {"TERRAIN", "DEM FILE", "", ""},
-    {"TERRAIN", "BASIN MASK FILE", "", ""},
-    {"TERRAIN", "LAKE MAP FILE", "", "none"},
-    {NULL, NULL, "", NULL}
-  };
 
-  /* Process the [TERRAIN] section in the input file */
+  Message("\nInitializing terrain maps\n");
+
   if (!(*TopoMap = (TOPOPIX **)calloc(Map->NY, sizeof(TOPOPIX *))))
     ReportError((char *)Routine, 1);
   for (y = 0; y < Map->NY; y++) {
@@ -61,1016 +115,51 @@ void InitTopoMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
       ReportError((char *)Routine, 1);
   }
 
-  /* Read the key-entry pairs from the input file */
-  for (i = 0; StrEnv[i].SectionName; i++) {
-    GetInitString(StrEnv[i].SectionName, StrEnv[i].KeyName, StrEnv[i].Default,
-      StrEnv[i].VarStr, (unsigned long)BUFSIZE, Input);
-    if (IsEmptyStr(StrEnv[i].VarStr))
-      ReportError(StrEnv[i].KeyName, 51);
-  }
-
-  /* Read the elevation data from the DEM dataset */
-  GetVarName(001, 0, VarName);
-  GetVarNumberType(001, &NumberType);
-  if (!(Elev = (float *)calloc(Map->NX * Map->NY,
-    SizeOfNumberType(NumberType))))
-    ReportError((char *)Routine, 1);
-
-  Read2DMatrix(StrEnv[demfile].VarStr, Elev, NumberType, Map, 0,
-    VarName, 0);
-
   for (y = 0, i = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++, i++) {
-      (*TopoMap)[y][x].Dem = Elev[i];
+      (*TopoMap)[y][x].Dem = Raw->Elevation[i];
+      (*TopoMap)[y][x].Mask = Raw->Mask[i];
+      (*TopoMap)[y][x].LakeID = 0;
+      if (Options->LakeDynamics && INBASIN((*TopoMap)[y][x].Mask))
+        (*TopoMap)[y][x].LakeID = Raw->LakeID[i];
     }
   }
-  free(Elev);
-
-  /* Read the mask */
-  GetVarName(002, 0, VarName);
-  GetVarNumberType(002, &NumberType);
-  if (!(Mask = (unsigned char *)calloc(Map->NX * Map->NY,
-    SizeOfNumberType(NumberType))))
-    ReportError((char *)Routine, 1);
-  Read2DMatrix(StrEnv[maskfile].VarStr, Mask, NumberType, Map, 0,
-    VarName, 0);
-
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      (*TopoMap)[y][x].Mask = Mask[i];
-    }
+  free(Raw->Elevation);
+  free(Raw->Mask);
+  Raw->Elevation = NULL;
+  Raw->Mask = NULL;
+  if (Raw->LakeID != NULL) {
+    free(Raw->LakeID);
+    Raw->LakeID = NULL;
   }
-  free(Mask);
 
-  /* Read the lake map */
+  /* Calculate the area of each lake */
   if (Options->LakeDynamics) {
-    printf("\nSetting up lakes\n");
-    GetVarName(017, 0, VarName);
-    GetVarNumberType(017, &NumberType);
-    if (!(Lakes = (unsigned char *)calloc(Map->NX * Map->NY,
-      SizeOfNumberType(NumberType))))
-      ReportError((char *)Routine, 1);
-    Read2DMatrix(StrEnv[lakefile].VarStr, Lakes, NumberType, 
-  	Map, 0, VarName, 0);
-  
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        if (((int)Lakes[i]) > Map->NumLakes)
-          ReportError(StrEnv[lakefile].VarStr, 32);
-        (*TopoMap)[y][x].LakeID = Lakes[i];
-      }
-    }
-    
-    /* Calculate the area of each lake */
+    Message("\nSetting up lakes\n");
     for (i = 0; i < Map->NumLakes; i++) {
       Area = 0.0;
-      
+
       for (y = 0; y < Map->NY; y++) {
         for (x = 0; x < Map->NX; x++) {
           if (INBASIN((*TopoMap)[y][x].Mask) && (*TopoMap)[y][x].LakeID == i+1)
             Area += 1.0;
         }
       }
-      
+
       LType[i].Area = Area * (Map->DX * Map->DY);
       LType[i].Storage = 0.0;
       LType[i].Inflow = 0.0;
       LType[i].Outflow = 0.0;
-      
-      printf("%20s: %4.2f km^2\t\tQ ~ %3.2f*L^%3.2f\n", 
-             LType[i].Name, LType[i].Area/(1000*1000), 
+
+      Message("%20s: %4.2f km^2\t\tQ ~ %3.2f*L^%3.2f\n",
+             LType[i].Name, LType[i].Area/(1000*1000),
              LType[i].PowLawScale, LType[i].PowLawExponent);
     }
-    printf("Total: %d lakes\n\n",Map->NumLakes);
-  } else {
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        (*TopoMap)[y][x].LakeID = 0;
-      }
-    }
+    Message("Total: %d lakes\n\n",Map->NumLakes);
   }
 
   /* Calculate slope, aspect, magnitude of subsurface flow gradient, and
      fraction of flow flowing in each direction based on the land surface
      slope. */
   ElevationSlopeAspect(Map, *TopoMap, Options->MultiFlowDir);
-
-  /* After calculating the slopes and aspects for all the points, reset the
-     mask if the model is to be run in point mode */
-  if (Options->Extent == POINT) {
-    for (y = 0; y < Map->NY; y++)
-      for (x = 0; x < Map->NX; x++)
-        (*TopoMap)[y][x].Mask = OUTSIDEBASIN;
-    (*TopoMap)[Options->PointY][Options->PointX].Mask = (1 != OUTSIDEBASIN);
-  }
-  /* find out the minimum grid elevation of the basin */
-  MINELEV = 9999;
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      if (INBASIN((*TopoMap)[y][x].Mask)) {
-      if ((*TopoMap)[y][x].Dem < MINELEV) {
-        MINELEV = (*TopoMap)[y][x].Dem;
-      }
-      }
-    }
-  }
 }
-
-/*****************************************************************************
-  InitSoilMap()
-*****************************************************************************/
-void InitSoilMap(LISTPTR Input, OPTIONSTRUCT * Options, MAPSIZE * Map,
-  LAYER * Soil, TOPOPIX ** TopoMap, SOILPIX *** SoilMap, SOILTABLE * SType,
-  VEGPIX *** VegMap, VEGTABLE * VType)
-{
-  const char *Routine = "InitSoilMap";
-  char VarName[BUFSIZE + 1];	/* Variable name */
-  int i;			/* counter */
-  int x;			/* counter */
-  int y;			/* counter */
-  int NumberType;		/* number type */
-  unsigned char *Type;		/* Soil Type */
-  float *Depth;			/* Soil Depth */
-  float *KsLat = NULL;		/* Soil Lateral Conductivity */
-  float *KsLatExp = NULL;		/* Soil Exponential Decrease */
-  float *Porosity = NULL;	/* Soil Porosity */
-  float *FC = NULL;		/* Soil Field Capacity */
-  int NSet, VSet;
-  int sidx;
-  float TotalRootDepth, LayerDepth, Transmissivity, KsVertCalc;
-  
-  STRINIENTRY StrEnv[] = {
-    {"SOILS", "SOIL MAP FILE", "", ""},
-    {"SOILS", "SOIL DEPTH FILE", "", ""},
-    {"SOILS", "SOIL CONDUCTIVITY MAP FILE", "", "none"},
-    {"SOILS", "SOIL EXPONENTIAL DECREASE MAP FILE", "", "none"},
-    {"SOILS", "SOIL POROSITY MAP FILE", "", "none"},
-    {"SOILS", "SOIL FIELD CAPACITY FILE", "", "none"},
-    {NULL, NULL, "", NULL}
-  };
-
-  /* Process the filenames in the [SOILS] section in the input file */
-  /* Assign the attributes to the correct map pixel */
-  if (!(*SoilMap = (SOILPIX **)calloc(Map->NY, sizeof(SOILPIX *))))
-    ReportError((char *)Routine, 1);
-  for (y = 0; y < Map->NY; y++) {
-    if (!((*SoilMap)[y] = (SOILPIX *)calloc(Map->NX, sizeof(SOILPIX))))
-      ReportError((char *)Routine, 1);
-  }
-
-  /* Read the key-entry pairs from the input file */
-  for (i = 0; StrEnv[i].SectionName; i++) {
-    GetInitString(StrEnv[i].SectionName, StrEnv[i].KeyName, StrEnv[i].Default,
-      StrEnv[i].VarStr, (unsigned long)BUFSIZE, Input);
-    if (IsEmptyStr(StrEnv[i].VarStr))
-      ReportError(StrEnv[i].KeyName, 51);
-  }
-
-  /* Read the soil type */
-  GetVarName(003, 0, VarName);
-  GetVarNumberType(003, &NumberType);
-  if (!(Type = (unsigned char *)calloc(Map->NX * Map->NY,
-    SizeOfNumberType(NumberType))))
-    ReportError((char *)Routine, 1);
-  Read2DMatrix(StrEnv[soiltype_file].VarStr, Type, NumberType, 
-	Map, 0, VarName, 0);
-
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      if (((int)Type[i]) > Soil->NTypes)
-        ReportError(StrEnv[soiltype_file].VarStr, 32);
-      (*SoilMap)[y][x].Soil = Type[i];
-    }
-  }
-  
-  /******************************************************************/
-  
-  /* Read the total soil depth  */
-  GetVarName(004, 0, VarName);
-  GetVarNumberType(004, &NumberType);
-  if (!(Depth = (float *)calloc(Map->NX * Map->NY,
-    SizeOfNumberType(NumberType))))
-    ReportError((char *)Routine, 1);
-  Read2DMatrix(StrEnv[soildepth_file].VarStr, Depth, NumberType, 
-	Map, 0, VarName, 0);
-
-  /* Assign the attributes to the correct map pixel */
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      (*SoilMap)[y][x].Depth = Depth[i];
-    }
-  }
-  
-  /* Apply calibration parameter adjustment */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      (*SoilMap)[y][x].Depth += SOIL_DEPTH_ADJ;
-    }
-  }
-  
-  /* Ensure soil is at least 1 cm deeper than rooting depth */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN((TopoMap)[y][x].Mask)) {
-        TotalRootDepth = 0.0;
-        sidx = (*SoilMap)[y][x].Soil - 1;
-        for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
-          TotalRootDepth += VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet];
-        }
-        if ((*SoilMap)[y][x].Depth < (TotalRootDepth + 0.1))
-          (*SoilMap)[y][x].Depth = (TotalRootDepth + 0.1);
-      }
-    }
-  }
-  
-  /******************************************************************/
-
-  /* Read the spatial Lateral Conductivity map */
-  GetVarName(012, 0, VarName);
-  GetVarNumberType(012, &NumberType);
-
-  if (strncmp(StrEnv[kslat_file].VarStr, "none", 4)) {
-      printf("Spatial lateral conductivity map provided, reading map\n");
-      if (!(KsLat = (float *)calloc(Map->NX * Map->NY,
-        SizeOfNumberType(NumberType))))
-        ReportError((char *)Routine, 1);
-      Read2DMatrix(StrEnv[kslat_file].VarStr, KsLat, NumberType, 
-      Map, 0, VarName, 0);
-
-      for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          if (KsLat[i] > 0.0)
-            (*SoilMap)[y][x].KsLat = KsLat[i]/1000.0;
-          else
-            (*SoilMap)[y][x].KsLat = SType[(*SoilMap)[y][x].Soil - 1].KsLat;
-        }
-      }
-      
-      free(KsLat);
-      KsLat = NULL;
-  }
-  else{
-    printf("Spatial lateral conductivity map not provided, generating map\n");
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-          (*SoilMap)[y][x].KsLat = SType[(*SoilMap)[y][x].Soil - 1].KsLat;
-      }
-    }
-  }
-  
-  /* Apply calibration parameter adjustment */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      (*SoilMap)[y][x].KsLat *= SOIL_KSAT_ADJ;
-    }
-  }
-  
-  /******************************************************************/
-  
-  /* Read the spatial exponential decrease map */
-  GetVarName(016, 0, VarName);
-  GetVarNumberType(016, &NumberType);
-  
-  if (strncmp(StrEnv[expdec_file].VarStr, "none", 4)) {
-    printf("Spatial exponential decrease map provided, reading map\n");
-    if (!(KsLatExp = (float *)calloc(Map->NX * Map->NY,
-                      SizeOfNumberType(NumberType))))
-      ReportError((char *)Routine, 1);
-    Read2DMatrix(StrEnv[expdec_file].VarStr, KsLatExp, NumberType, 
-                        Map, 0, VarName, 0);
-    
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        (*SoilMap)[y][x].KsLatExp = KsLatExp[i];
-      }
-    }
-    
-    free(KsLatExp);
-    KsLatExp = NULL;
-  }
-  else{
-    printf("Spatial exponential decrease map not provided, generating map\n");
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        (*SoilMap)[y][x].KsLatExp = SType[(*SoilMap)[y][x].Soil - 1].KsLatExp;
-      }
-    }
-  }
-  
-  /* Apply calibration parameter adjustment */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if ((*SoilMap)[y][x].KsLatExp < 0.001 &&
-          SOIL_EXPDEC_ADJ != 1.0) {
-        (*SoilMap)[y][x].KsLatExp = 0.001;
-      }
-      (*SoilMap)[y][x].KsLatExp *= SOIL_EXPDEC_ADJ;
-    }
-  }
-  
-  /******************************************************************/
-  
-  /* Allocate memory for vertical conductivity */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (!((*SoilMap)[y][x].KsVert =
-          (float *)calloc(Soil->MaxLayers + 1, sizeof(float *))))
-        ReportError((char *)Routine, 1);
-    }
-  }
-  
-  /* Creating spatial layered vertical conductivity */
-  for (NSet = 0; NSet < Soil->MaxLayers; NSet++) {
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN((TopoMap)[y][x].Mask)) {
-          sidx = (*SoilMap)[y][x].Soil - 1;
-          if (NSet < Soil->NLayers[sidx]) {
-            if (Options->UseKsatAnisotropy &&
-                VType[(*VegMap)[y][x].Veg - 1].NSoilLayers > NSet &&
-                VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet] > 0.001) {
-              
-              /* Get total depth of current soil layer bottom */
-              LayerDepth = 0.0;
-              for (VSet = 0; VSet <= NSet; VSet++)
-                LayerDepth += VType[(*VegMap)[y][x].Veg - 1].RootDepth[VSet];
-              
-              /* Calculate effective lateral conductivity of current soil layer */
-              Transmissivity =
-                CalcTransmissivity(LayerDepth,
-                                   LayerDepth - VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet],
-                                   (*SoilMap)[y][x].KsLat,
-                                   (*SoilMap)[y][x].KsLatExp,
-                                   SType[(*SoilMap)[y][x].Soil - 1].DepthThresh);
-              KsVertCalc = Transmissivity / VType[(*VegMap)[y][x].Veg - 1].RootDepth[NSet];
-              
-              /* Account for user-supplied vertical anisotropy */
-              KsVertCalc /= SType[(*SoilMap)[y][x].Soil - 1].KsAnisotropy;
-              
-              (*SoilMap)[y][x].KsVert[NSet] = KsVertCalc;
-            }
-            else
-              (*SoilMap)[y][x].KsVert[NSet] = SType[sidx].Ks[NSet];
-          }
-        }            
-      }
-    }
-  }
-  
-  /* Calculate deep layer vertical conductivity */
-  NSet = Soil->MaxLayers;
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN((TopoMap)[y][x].Mask)) {
-        sidx = (*SoilMap)[y][x].Soil - 1;
-        if (NSet == Soil->NLayers[sidx]) {
-          if (Options->UseKsatAnisotropy &&
-              VType[(*VegMap)[y][x].Veg - 1].NSoilLayers == NSet &&
-              ((*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth) > 0.001) {
-            
-            /* Calculate effective lateral conductivity of current soil layer */
-            Transmissivity =
-              CalcTransmissivity((*SoilMap)[y][x].Depth,
-                                 (*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth,
-                                 (*SoilMap)[y][x].KsLat,
-                                 (*SoilMap)[y][x].KsLatExp,
-                                 SType[(*SoilMap)[y][x].Soil - 1].DepthThresh);
-            KsVertCalc = Transmissivity / ((*SoilMap)[y][x].Depth - VType[(*VegMap)[y][x].Veg - 1].TotalDepth);
-            
-            /* Account for user-supplied vertical anisotropy */
-            KsVertCalc /= SType[(*SoilMap)[y][x].Soil - 1].KsAnisotropy;
-            
-            (*SoilMap)[y][x].KsVert[NSet] = KsVertCalc;
-          }
-          else
-            (*SoilMap)[y][x].KsVert[NSet] = SType[sidx].Ks[NSet - 1];
-        }
-      }
-    }
-  }
-  
-  /* Copy surface layer KsLat to MaxInfiltrationRate map */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN((TopoMap)[y][x].Mask)) {
-        sidx = (*SoilMap)[y][x].Soil - 1;
-        if (Options->UseKsatAnisotropy) {
-          (*SoilMap)[y][x].MaxInfiltrationRate = (*SoilMap)[y][x].KsLat;
-          (*SoilMap)[y][x].MaxInfiltrationRate /= SType[(*SoilMap)[y][x].Soil - 1].KsAnisotropy;
-        }
-        else
-          (*SoilMap)[y][x].MaxInfiltrationRate = SType[sidx].MaxInfiltrationRate;
-      }
-    }
-  }
-  
-  /* Also create spatial seepage flux from table */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN((TopoMap)[y][x].Mask)) {
-        (*SoilMap)[y][x].MaxDeepFlux = SType[(*SoilMap)[y][x].Soil - 1].DeepFlux;
-        
-        /* Constrain seepage loss (if deep flux is negative) to max rate of soil Ks */
-        if ((*SoilMap)[y][x].MaxDeepFlux < 0.0) {
-          NSet = Soil->NLayers[(*SoilMap)[y][x].Soil - 1];
-          if ((*SoilMap)[y][x].MaxDeepFlux < ((*SoilMap)[y][x].KsVert[NSet] * -1.0))
-            (*SoilMap)[y][x].MaxDeepFlux = (*SoilMap)[y][x].KsVert[NSet] * -1.0;
-        }
-      }
-    }
-  }
-  
-  /******************************************************************/
-  
-  /* Read the spatial field capacity map */
-  GetVarNumberType(015, &NumberType);
-
-  /*Allocate memory*/  
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (!((*SoilMap)[y][x].FCap =
-            (float *)calloc(Soil->MaxLayers + 1, sizeof(float *))))
-        ReportError((char *)Routine, 1);
-    }
-  }
-
-  /*Creating spatial layered field capacity*/
-  if (strncmp(StrEnv[fc_file].VarStr, "none", 4)) {
-    printf("Spatial soil field capacity provided, reading map\n"); 
-    /*Read data layer by layer*/
-    for (NSet = 0; NSet < Soil->MaxLayers; NSet++) {
-      GetVarName(015, NSet, VarName);
-      if (!(FC = (float *)calloc(Map->NX * Map->NY,
-        SizeOfNumberType(NumberType))))
-        ReportError((char *)Routine, 1);
-      Read2DMatrix(StrEnv[fc_file].VarStr, FC, NumberType, Map, NSet, VarName, 0);
-      
-      for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          if (INBASIN((TopoMap)[y][x].Mask)) {
-            sidx = (*SoilMap)[y][x].Soil - 1;
-            if (NSet < Soil->NLayers[sidx]) {
-              if (FC[i] > 0.0)
-                (*SoilMap)[y][x].FCap[NSet] = FC[i] * SOIL_FIELDCAP_ADJ;
-              else
-                (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet] * SOIL_FIELDCAP_ADJ;
-              /* Make sure FCap is larger than WP */
-              if ((*SoilMap)[y][x].FCap[NSet] < (SType[sidx].WP[NSet] + 0.01))
-                (*SoilMap)[y][x].FCap[NSet] = SType[sidx].WP[NSet] + 0.01;
-            }
-          }            
-        }
-      }
-    }
-    free(FC);
-    FC = NULL;
-  }
-  else{
-    printf("Spatial soil field capacity map not provided, generating map\n"); 
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        if (INBASIN((TopoMap)[y][x].Mask)) {
-          /* FIXME: this assumes a valid soil type index */
-          sidx = (*SoilMap)[y][x].Soil - 1;
-          for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
-            (*SoilMap)[y][x].FCap[NSet] = SType[sidx].FCap[NSet] * SOIL_FIELDCAP_ADJ;
-            /* Make sure FCap is larger than WP */
-            if ((*SoilMap)[y][x].FCap[NSet] < (SType[sidx].WP[NSet] + 0.01))
-              (*SoilMap)[y][x].FCap[NSet] = SType[sidx].WP[NSet] + 0.01;
-          }
-        }
-      }
-    }
-  }
-  
-  /* Copy deep layer field capacity from deepest root layer */
-  NSet = Soil->MaxLayers;
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN((TopoMap)[y][x].Mask)) {
-        sidx = (*SoilMap)[y][x].Soil - 1;
-        if (NSet == Soil->NLayers[sidx])
-          (*SoilMap)[y][x].FCap[NSet] = (*SoilMap)[y][x].FCap[NSet - 1];
-      }
-    }
-  }
-  
-  /******************************************************************/
-  
-  /* Read the spatial porosity map */
-  GetVarNumberType(013, &NumberType);
-
-  /*Allocate memory for porosity*/
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (!((*SoilMap)[y][x].Porosity =
-            (float *)calloc(Soil->MaxLayers + 1, sizeof(float *))))
-        ReportError((char *)Routine, 1);
-    }
-  }
-
-  /*Creating spatial layered porosity*/
-  if (strncmp(StrEnv[porosity_file].VarStr, "none", 4)) {
-    printf("Spatial soil porosity map provided, reading map\n");   
-    /*Read data layer by layer*/
-    for (NSet = 0; NSet < Soil->MaxLayers; NSet++) {
-      GetVarName(013, NSet, VarName);
-      if (!(Porosity = (float *)calloc(Map->NX * Map->NY,
-        SizeOfNumberType(NumberType))))
-        ReportError((char *)Routine, 1);
-      Read2DMatrix(StrEnv[porosity_file].VarStr, Porosity, NumberType, Map, NSet, VarName, 0);
-
-      for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          if (INBASIN((TopoMap)[y][x].Mask)) {
-            sidx = (*SoilMap)[y][x].Soil - 1;
-            if (NSet < Soil->NLayers[sidx]) {
-              if (Porosity[i] > 0.0)
-                (*SoilMap)[y][x].Porosity[NSet] = Porosity[i] * SOIL_POROSITY_ADJ;
-              else
-                (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet] * SOIL_POROSITY_ADJ;
-              /* Make sure porosity is larger than FCap, which is already larger than WP */
-              if ((*SoilMap)[y][x].Porosity[NSet] < ((*SoilMap)[y][x].FCap[NSet] + 0.01))
-                (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].FCap[NSet] + 0.01;
-            }
-          }            
-        }
-      }
-    }
-    free(Porosity);
-    Porosity = NULL;
-  }
-  else{
-    printf("Spatial soil porosity map not provided, generating map\n"); 
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        if (INBASIN((TopoMap)[y][x].Mask)) {
-          /* FIXME: this assumes a valid soil type index */
-          sidx = (*SoilMap)[y][x].Soil - 1;
-          for (NSet = 0; NSet < Soil->NLayers[sidx]; NSet++) {
-            (*SoilMap)[y][x].Porosity[NSet] = SType[sidx].Porosity[NSet] * SOIL_POROSITY_ADJ;
-            /* Make sure porosity is larger than FCap, which is already larger than WP */
-            if ((*SoilMap)[y][x].Porosity[NSet] < ((*SoilMap)[y][x].FCap[NSet] + 0.01))
-              (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].FCap[NSet] + 0.01;
-          }
-        }
-      }
-    }
-  }
-  
-  /* Copy deep layer porosity from deepest root layer */
-  NSet = Soil->MaxLayers;
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN((TopoMap)[y][x].Mask)) {
-        sidx = (*SoilMap)[y][x].Soil - 1;
-        if (NSet == Soil->NLayers[sidx])
-          (*SoilMap)[y][x].Porosity[NSet] = (*SoilMap)[y][x].Porosity[NSet - 1];
-      }
-    }
-  }
-
-   /******************************************************************/
-   /******************************************************************/
-
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      if (Options->Infiltration == DYNAMIC)
-        (*SoilMap)[y][x].InfiltAcc = 0.;
-      (*SoilMap)[y][x].MoistInit = 0.;
-
-      /* allocate memory for the number of root layers, plus an additional
-       layer below the deepest root layer */
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        if (!((*SoilMap)[y][x].Moist =
-          (float *)calloc((Soil->NLayers[Type[i] - 1] + 1), sizeof(float))))
-          ReportError((char *)Routine, 1);
-        if (!((*SoilMap)[y][x].Perc =
-          (float *)calloc(Soil->NLayers[Type[i] - 1], sizeof(float))))
-          ReportError((char *)Routine, 1);
-        if (!((*SoilMap)[y][x].InterFlow =
-            (float *)calloc((Soil->NLayers[Type[i] - 1] + 1), sizeof(float))))
-          ReportError((char *)Routine, 1);
-        if (!((*SoilMap)[y][x].Temp =
-          (float *)calloc(Soil->NLayers[Type[i] - 1], sizeof(float))))
-          ReportError((char *)Routine, 1);
-      }
-      else {
-        (*SoilMap)[y][x].Moist = NULL;
-        (*SoilMap)[y][x].Perc = NULL;
-        (*SoilMap)[y][x].InterFlow = NULL;
-        (*SoilMap)[y][x].Temp = NULL;
-      }
-    }
-  }
-  free(Type);
-  free(Depth);
-}
-
-/*****************************************************************************
-  InitVegMap()
-*****************************************************************************/
-void InitVegMap(OPTIONSTRUCT * Options, LISTPTR Input, MAPSIZE * Map, VEGPIX *** VegMap,
-                VEGTABLE *VType, DYNAVEG *DVeg)
-{
-  const char *Routine = "InitVegMap";
-  char VarName[BUFSIZE + 1];
-  //char VegMapFileName[BUFSIZE + 1];
-  int i;			/* counter */
-  int x;			/* counter */
-  int y;			/* counter */
-  int j;			/* counter */
-  int NumberType;		/* number type */
-  unsigned char *Type;		/* Vegetation type */
-  float *FC = NULL;		/* Vegetation Fractional Coverage */
-  float *LAIMonthly= NULL; /* Vegetation Leaf Area Index, monthly */
-  float *Height = NULL; /*Vegetaion Height*/
-  int NSet; /*Counter for LAI map month*/
-
-  /* Get the map filename from the [VEGETATION] section */
-  STRINIENTRY StrEnv[] = {
-    {"VEGETATION", "VEGETATION MAP FILE", "", ""},
-    {"VEGETATION", "VEGETATION FC MAP FILE", "", "none"},
-    {"VEGETATION", "VEGETATION LAI MAP FILE", "", "none"},
-    {"VEGETATION", "VEGETATION HEIGHT MAP FILE", "", "none"},
-    {"VEGETATION", "DYNAMIC VEGETATION MAP PATH", "", "none"},
-    {"VEGETATION", "NUMBER OF DYNAMIC VEGETATION MAPS", "","none"},
-    {NULL, NULL, "", NULL}
-  };
-
-  /* Assign the attributes to the correct map pixel */
-  if (!(*VegMap = (VEGPIX **)calloc(Map->NY, sizeof(VEGPIX *))))
-    ReportError((char *)Routine, 1);
-  for (y = 0; y < Map->NY; y++) {
-    if (!((*VegMap)[y] = (VEGPIX *)calloc(Map->NX, sizeof(VEGPIX))))
-      ReportError((char *)Routine, 1);
-  }
-
-  /* Read the key-entry pairs from the input file */
-  for (i = 0; StrEnv[i].SectionName; i++) {
-    GetInitString(StrEnv[i].SectionName, StrEnv[i].KeyName, StrEnv[i].Default,
-      StrEnv[i].VarStr, (unsigned long)BUFSIZE, Input);
-    if (IsEmptyStr(StrEnv[i].VarStr))
-      ReportError(StrEnv[i].KeyName, 51);
-  }
-
-/**********************************/
-  if (Options->DynamicVeg){
-    
-    /*Read from Config of dynamic veg path and dates*/
-    if (IsEmptyStr(StrEnv[dynaveg_num].VarStr))  
-      ReportError(StrEnv[dynaveg_num].KeyName, 51);
-    else if (!CopyInt(&(DVeg->NUpdate), StrEnv[dynaveg_num].VarStr, 1))
-      ReportError(StrEnv[dynaveg_num].KeyName, 51);
-
-    //printf("number of dyna vegs %d",&(DVeg->NUpdate));
-
-    if (IsEmptyStr(StrEnv[dynaveg_path].VarStr)) 
-      ReportError(StrEnv[dynaveg_path].KeyName, 51);
-    strcpy(DVeg->DynaVegPath, StrEnv[dynaveg_path].VarStr);
-
-    /*Initiate the information*/
-    InitVegUpdate(Input, DVeg->NUpdate, &(DVeg->DUpdate));
-  }
-
-    /******************************/
-  
-  /* Read the vegetation type */
-  GetVarName(005, 0, VarName);
-  GetVarNumberType(005, &NumberType);
-  if (!(Type = (unsigned char *)calloc(Map->NX * Map->NY,
-    SizeOfNumberType(NumberType))))
-    ReportError((char *)Routine, 1);
-  Read2DMatrix(StrEnv[vegtype_file].VarStr, Type, NumberType, Map, 0, VarName, 0);
-  
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      (*VegMap)[y][x].Veg = Type[i];
-      (*VegMap)[y][x].Tcanopy = 0.0;
-    }
-  }
-
-  free(Type);
-
-  /* Read the vegetation fractional coverage map */
-  GetVarName(010, 0, VarName);
-  GetVarNumberType(010, &NumberType);
-
-  if (strncmp(StrEnv[vegfc_file].VarStr, "none", 4)) {
-    printf("Spatial fractional cover map provided, reading FC from map\n");
-    if (!(FC = (float *)calloc(Map->NX * Map->NY,
-      SizeOfNumberType(NumberType))))
-      ReportError((char *)Routine, 1);
-    Read2DMatrix(StrEnv[vegfc_file].VarStr, FC, NumberType, Map, 0, VarName, 0);
-
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        /*Allocate Memory*/
-        if (!((*VegMap)[y][x].Fract = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
-          ReportError((char *)Routine, 1);
-        if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-          if (FC[i] > 0.0)
-            (*VegMap)[y][x].Fract[0] = FC[i];
-          else
-            (*VegMap)[y][x].Fract[0] = VType[(*VegMap)[y][x].Veg - 1].Fract[0];
-          /*If understory exists, set default understory FC=1.0*/
-          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-            (*VegMap)[y][x].Fract[1] = 1.0;
-        }
-        else{
-          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-            (*VegMap)[y][x].Fract[0] = 1.0;
-        }
-        
-      }
-    }
-    free(FC);
-  }
-  else{
-    printf("Vegetation fractional coverage created from vegetation table\n");
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-          /*Allocate Memory*/
-          if (!((*VegMap)[y][x].Fract = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
-            ReportError((char *)Routine, 1);
-
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-              (*VegMap)[y][x].Fract[0] = VType[(*VegMap)[y][x].Veg - 1].Fract[0];
-            /*If understory exists, set default understory FC=1.0*/
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Fract[1] = 1.0;
-          }
-          else{
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Fract[0] = 1.0;
-          }
-        }
-      }
-  }
-  
-  /* Apply calibration parameter adjustment - overstory only */
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-        (*VegMap)[y][x].Fract[0] *= VEG_FC_ADJ;
-        /* Limit to maximum of 100% cover */
-        if ((*VegMap)[y][x].Fract[0] > 1.0)
-          (*VegMap)[y][x].Fract[0] = 1.0;
-      }
-    }
-  }
-  
-  /* Calculate Vf */
-  if (Options->ImprovRadiation == TRUE) {
-    for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if ( VType[(*VegMap)[y][x].Veg - 1].NVegLayers >0) 
-            (*VegMap)[y][x].Vf = (*VegMap)[y][x].Fract[0] * VType[(*VegMap)[y][x].Veg - 1].VfAdjust;
-        }
-    }
-  }
-
-  /* Read the vegetation LAI map */
-  /*Instead of reading LAI data by month, read data all together as Bill suggested*/
-    
-  GetVarName(011, 0, VarName);
-  GetVarNumberType(011, &NumberType);
- 
-  if (strncmp(StrEnv[veglai_file].VarStr, "none", 4)) {
-    printf("Spatial LAI provided, reading LAI from map\n");
-    /*Allocate Memory: if FC file avaiable, assume max 2 layers of vegtation*/  
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-
-          if (!((*VegMap)[y][x].LAIMonthly = (float **)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers , sizeof(float *))))
-            ReportError((char *)Routine, 1);
-          for (j = 0; j < VType[(*VegMap)[y][x].Veg - 1].NVegLayers; j++) {
-              if (!((*VegMap)[y][x].LAIMonthly[j] = (float *)calloc(12, sizeof(float))))
-              ReportError((char *)Routine, 1);
-              }
-        }
-      }
-   
-  /*Read data monthy by month*/
-  for (NSet = 0; NSet < 12; NSet++) {   
-    if (!(LAIMonthly = (float *)calloc(Map->NX * Map->NY,
-      SizeOfNumberType(NumberType))))
-      ReportError((char *)Routine, 1);
-    Read2DMatrix(StrEnv[veglai_file].VarStr, LAIMonthly, NumberType, Map, NSet, VarName, 0);
-    
-    printf("begining month %d\n",NSet);
-    
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-        if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-          if (LAIMonthly[i] > 0.0)
-            (*VegMap)[y][x].LAIMonthly[0][NSet] = LAIMonthly[i];
-          else
-            (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-          
-          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory  == TRUE )
-            (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet];
-        }
-        else{
-          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-            (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-        }
-      }
-    }
-    free(LAIMonthly);     
-  }   
-  }
-  else{
-    printf("No spatial LAI provided, generating from vegetation table\n");
-
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-
-          if (!((*VegMap)[y][x].LAIMonthly = (float **)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers , sizeof(float *))))
-            ReportError((char *)Routine, 1);
-          for (j = 0; j < VType[(*VegMap)[y][x].Veg - 1].NVegLayers; j++) {
-              if (!((*VegMap)[y][x].LAIMonthly[j] = (float *)calloc(12, sizeof(float))))
-              ReportError((char *)Routine, 1);
-              }
-        }
-      }
-
-    for (NSet = 0; NSet < 12; NSet++) {
-      for (y = 0, i = 0; y < Map->NY; y++) {
-          for (x = 0; x < Map->NX; x++, i++) {
-
-            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {        
-              (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-              if ( VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE ){
-                (*VegMap)[y][x].LAIMonthly[1][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[1][NSet]; 
-              }
-            }
-            else{
-              if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE){
-                (*VegMap)[y][x].LAIMonthly[0][NSet] = VType[(*VegMap)[y][x].Veg - 1].LAIMonthly[0][NSet];
-              }
-            }
-          }
-        }
-    }
-  }
-  
-  /* Apply calibration parameter adjustment - overstory only */
-  for (NSet = 0; NSet < 12; NSet++) {
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-          (*VegMap)[y][x].LAIMonthly[0][NSet] *= VEG_LAI_ADJ;
-        }
-      }
-    }
-  }
-  
-  /*Need to be careful here about the MaxInt*/
-  for (y = 0; y < Map->NY; y++) {
-		for (x = 0; x < Map->NX; x++) {
-      /*Allocate memory to LAI values*/
-      if (!((*VegMap)[y][x].LAI = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
-        ReportError((char *)Routine, 1);
-      if (!((*VegMap)[y][x].MaxInt = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
-        ReportError((char *)Routine, 1);
-    }
-  }
-
-  /*Read Tree Height Map*/
-   /* Read the vegetation fractional coverage map */
-  GetVarName(014, 0, VarName);
-  GetVarNumberType(014, &NumberType);
-
-  /*Allcate Memory*/
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      if (!((*VegMap)[y][x].Height = (float *)calloc(VType[(*VegMap)[y][x].Veg - 1].NVegLayers, sizeof(float))))
-      ReportError((char *)Routine, 1);
-    }
-  }
-
-  if (strncmp(StrEnv[vegheight_file].VarStr, "none", 4)) {
-    printf("Spatial tree height map provided, reading height from map\n");
-    
-    for (NSet = 0; NSet < 2; NSet++) {
-      if (!(Height = (float *)calloc(Map->NX * Map->NY, SizeOfNumberType(NumberType))))
-        ReportError((char *)Routine, 1);
-      Read2DMatrix(StrEnv[vegheight_file].VarStr, Height, NumberType, Map, NSet, VarName, 0);
-
-      for (y = 0, i = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++, i++) {
-          if (NSet <= VType[(*VegMap)[y][x].Veg - 1].NVegLayers -1 ){
-            if (Height[i] > 0.0)
-              (*VegMap)[y][x].Height[NSet] = Height[i];
-            else
-              (*VegMap)[y][x].Height[NSet] = VType[(*VegMap)[y][x].Veg - 1].Height[NSet];
-          }
-        }
-      }
-
-      free(Height);
-    }
-    
-  }
-  else{
-    printf("Vegetation tree height created from vegetation table\n");
-    for (y = 0, i = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++, i++) {
-          if ( VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-            (*VegMap)[y][x].Height[0] = VType[(*VegMap)[y][x].Veg - 1].Height[0];
-            /*If understory exists, set default understory FC=1.0*/
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Height[1] = VType[(*VegMap)[y][x].Veg - 1].Height[1];
-          }
-          else{
-            if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE)
-              (*VegMap)[y][x].Height[0] = VType[(*VegMap)[y][x].Veg - 1].Height[0];
-          }
-        }
-      }
-  }
-}
-
-
-/*****************************************************************************
-InitCanopyGapMap()
-*****************************************************************************/
-void InitCanopyGapMap(OPTIONSTRUCT *Options, LISTPTR Input, MAPSIZE *Map,
-  LAYER *Soil, LAYER *Veg, VEGTABLE *VType, VEGPIX ***VegMap, 
-  SOILTABLE *SType, SOILPIX ***SoilMap)
-{
-  const char *Routine = "InitCanopyGapMap";
-  char VarName[BUFSIZE + 1];
-  char CanopyMapFileName[BUFSIZE + 1];
-  int i, j;			/* counter */
-  int x;			/* counter */
-  int y;			/* counter */
-  int NVeg;
-  int NSoil;
-  int NumberType;		/* number type */
-  float *Gap;		/* gap diameter */
-
-  /* Get the canopy gap map filename from the [VEGETATION] section */
-  GetInitString("VEGETATION", "CANOPY GAP MAP FILE", "", CanopyMapFileName,
-    (unsigned long)BUFSIZE, Input);
-  if (IsEmptyStr(CanopyMapFileName))
-    ReportError("CANOPY GAP MAP FILE", 51);
-
-  /* Read the vegetation type */
-  GetVarName(007, 0, VarName);
-  GetVarNumberType(007, &NumberType);
-  if (!(Gap = (float *)calloc(Map->NX * Map->NY,
-    SizeOfNumberType(NumberType))))
-    ReportError((char *)Routine, 1);
-  Read2DMatrix(CanopyMapFileName, Gap, NumberType, Map, 0, VarName, 0);
-
-  for (y = 0, i = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++, i++) {
-      (*VegMap)[y][x].Gapping = Gap[i];
-      /* set gapping to false for cells with no overstory */
-      if (VType[(*VegMap)[y][x].Veg - 1].OverStory == FALSE)
-        (*VegMap)[y][x].Gapping = 0.0;
-    }
-  }
-
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      NVeg = Veg->MaxLayers;
-      NSoil = Soil->MaxLayers;
-      if (Options->CanopyGapping) {
-        if (!((*VegMap)[y][x].Type = (CanopyGapStruct *)calloc(2, sizeof(CanopyGapStruct))))
-          ReportError((char *)Routine, 1);
-        for (i = 0; i < CELL_PARTITION; i++) {
-          if (!((*VegMap)[y][x].Type[i].IntRain = (float *)calloc(NVeg, sizeof(float))))
-            ReportError((char *)Routine, 1);
-          if (!((*VegMap)[y][x].Type[i].IntSnow = (float *)calloc(NVeg, sizeof(float))))
-            ReportError((char *)Routine, 1);
-          if (!((*VegMap)[y][x].Type[i].Moist = (float *)calloc(NSoil+1, sizeof(float))))
-            ReportError((char *)Routine, 1);
-          if (!((*VegMap)[y][x].Type[i].EPot = (float *)calloc(NVeg+1, sizeof(float))))
-            ReportError((char *)Routine, 1);
-          if (!((*VegMap)[y][x].Type[i].EAct = (float *)calloc(NVeg+1, sizeof(float))))
-            ReportError((char *)Routine, 1);
-          if (!((*VegMap)[y][x].Type[i].EInt = (float *)calloc(NVeg, sizeof(float))))
-            ReportError((char *)Routine, 1);
-          if (!((*VegMap)[y][x].Type[i].ESoil = (float **)calloc(NVeg, sizeof(float *))))
-            ReportError((char *)Routine, 1);
-
-          for (j = 0; j < NVeg; j++) {
-            if (!((*VegMap)[y][x].Type[i].ESoil[j] = (float *)calloc(NSoil, sizeof(float))))
-              ReportError((char *)Routine, 1);
-          }
-        }
-      }
-    }
-  }
-  free(Gap);
-}
-
-
-
-
-
-
-

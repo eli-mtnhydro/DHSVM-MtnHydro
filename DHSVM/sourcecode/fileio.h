@@ -4,24 +4,23 @@
 
 #include "data.h"
 
-void InitFileIO(void);
-
-/* global file extension string */
-extern char fileext[];
-
-/* function pointers for 2D file IO */
-
-void CreateMapFile(char *FileName, char *FileLabel, MAPSIZE *Map);
-
-int Read2DMatrix(char *FileName, void *Matrix, int NumberType, 
-                 MAPSIZE *Map, int NDataSet, char *VarName, int index);
-
-int Write2DMatrix(char *FileName, void *Matrix, int NumberType, 
-                  MAPSIZE *Map, MAPDUMP *DMap, int index);
-
-
 /* generic file functions */
 void OpenFile(FILE **FilePtr, char *FileName, char *Mode,
 	      unsigned char OverWrite);
+
+int IsBlankLine(const char *Line);
+
+int IsDirectory(const char *Path);
+
+void MakePath(char *Buffer, size_t Size, const char *Format, ...);
+
+int ReadTextLine(FILE *File, char *Buffer, int Size, const char *Path, int LineNo,
+                 int Code);
+
+int SplitFields(char *Line, char **Fields, int MaxFields);
+
+int TextToFloat(const char *Text, float *Value);
+
+int TextToInteger(const char *Text, long *Value);
 
 #endif

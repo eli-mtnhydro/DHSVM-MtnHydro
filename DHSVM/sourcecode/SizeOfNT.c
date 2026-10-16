@@ -11,8 +11,7 @@
                  descriptors are "borrowed" from NetCDF.
 
   Required     :
-    NumberType - descriptor of number type (for more info see comments in 
-                 InitFileIO.c)
+    NumberType - descriptor of number type (see sizeofnt.h)
 
   Comments     :
    Information about the number type has to be passed to the functions that

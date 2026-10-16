@@ -16,6 +16,8 @@
  */
 #define _CRT_SECURE_NO_DEPRECATE
 #include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,72 +25,6 @@
 #include "fileio.h"
 #include "getinit.h"
 
-unsigned long GetInitString(const char *Section, const char *Key,
-			    const char *Default, char *ReturnBuffer,
-			    unsigned long BufferSize, LISTPTR Input)
-{
-  LISTPTR SectionHead = NULL;
-
-  if ((SectionHead = LocateSection(Section, Input)) == NULL) {
-    strncpy(ReturnBuffer, Default, BufferSize + 1);
-    return (unsigned long) strlen(ReturnBuffer);
-  }
-
-  if (!LocateKey(Key, ReturnBuffer, SectionHead)) {
-    strncpy(ReturnBuffer, Default, BufferSize + 1);
-    return (unsigned long) strlen(ReturnBuffer);
-  }
-
-  return (unsigned long) strlen(ReturnBuffer);
-}
-/*#####################################################################################*/
-long GetInitLong(const char *Section, const char *Key, long Default,
-		 LISTPTR Input)
-{
-  LISTPTR SectionHead = NULL;
-  char Buffer[BUFSIZE + 1];
-  char *EndPtr = NULL;
-  long Entry;
-
-  if ((SectionHead = LocateSection(Section, Input)) == NULL) {
-    return Default;
-  }
-
-  if (!LocateKey(Key, Buffer, SectionHead)) {
-    return Default;
-  }
-
-  Entry = strtol(Buffer, &EndPtr, 0);
-  if (EndPtr == Buffer) {
-    return Default;
-  }
-
-  return Entry;
-}
-/*#####################################################################################*/
-double GetInitDouble(const char *Section, const char *Key, double Default,
-		     LISTPTR Input)
-{
-  LISTPTR SectionHead = NULL;
-  char Buffer[BUFSIZE + 1];
-  char *EndPtr = NULL;
-  double Entry;
-
-  if ((SectionHead = LocateSection(Section, Input)) == NULL) {
-    return Default;
-  }
-
-  if (!LocateKey(Key, Buffer, SectionHead)) {
-    return Default;
-  }
-
-  Entry = strtod(Buffer, &EndPtr);
-  if (EndPtr == Buffer) {
-    return Default;
-  }
-
-  return (Entry);
-}
 /*#####################################################################################
  This function is used to find the matching key word in the input file for the "key" 
  specified in the fucntion: InitVegTable( )
@@ -206,10 +142,10 @@ void Strip(char *Buffer)
   char *StrStart = Buffer;
 
   /* remove leading whitespace */
-  while (*StrStart != '\0' && isspace((int) *StrStart)) 
+  while (*StrStart != '\0' && isspace((int) *StrStart))
     ++StrStart;
 
-  
+
   /* remove comment */
   StrEnd = strchr(Buffer, OPENCOMMENT);
   if (StrEnd != NULL)
@@ -227,36 +163,28 @@ void Strip(char *Buffer)
   /* commented out by Ning b/c source and destination overlap */
   memmove(Buffer, StrStart, strlen(StrStart)+1);
 }
-/*#####################################################################################*/
+/*#####################################################################################
+ Uppercases a key or section name and turns every run of white space (spaces
+ and tabs) into one space
+ #####################################################################################*/
 void MakeKeyString(char *Buffer)
 {
   char Str[BUFSIZE + 1];
   char *PtrStr = Str;
   char *PtrBuffer = Buffer;
 
-  /* toupper( ) converts the Buffer to uppercase and strip multiple spaces */
-
   while (*PtrBuffer != '\0') {
-	    
-	    if (*PtrBuffer == '\t') { //ignore the tab space 
-			PtrBuffer++;
-		}
-		else {
-			*PtrStr = (char) toupper(*PtrBuffer); 
-			if (isspace((int) *PtrBuffer)) {
-				while (isspace((int) *PtrBuffer))
-					PtrBuffer++;
-			}
-			else {
-				*PtrStr = (char) toupper(*PtrBuffer); 
-				PtrBuffer++;}
-			PtrStr++;
-		}
-
-	}
-	*PtrStr = '\0';
-	strcpy(Buffer, Str);
+    if (isspace((int) *PtrBuffer)) {
+      *PtrStr++ = ' ';
+      while (isspace((int) *PtrBuffer))
+        PtrBuffer++;
+    }
+    else
+      *PtrStr++ = (char) toupper(*PtrBuffer++);
   }
+  *PtrStr = '\0';
+  strcpy(Buffer, Str);
+}
 /*#####################################################################################*/
 int CopyDouble(double *Value, char *Str, const int NValues)
 {
@@ -297,48 +225,15 @@ int CopyFloat(float *Value, char *Str, const int NValues)
 int CopyInt(int *Value, char *Str, const int NValues)
 {
   char *EndPtr = NULL;
+  long x;
   int i;
 
   for (i = 0; i < NValues; i++) {
-    Value[i] = (int) strtol(Str, &EndPtr, 0);
-    if (EndPtr == Str)
+    errno = 0;
+    x = strtol(Str, &EndPtr, 10);
+    if (EndPtr == Str || errno == ERANGE || x < INT_MIN || x > INT_MAX)
       return FALSE;
-    Str = EndPtr;
-  }
-
-  if (EndPtr && *EndPtr != '\0')
-    return FALSE;
-
-  return TRUE;
-}
-/*#####################################################################################*/
-int CopyLong(long *Value, char *Str, const int NValues)
-{
-  char *EndPtr = NULL;
-  int i;
-
-  for (i = 0; i < NValues; i++) {
-    Value[i] = strtol(Str, &EndPtr, 0);
-    if (EndPtr == Str)
-      return FALSE;
-    Str = EndPtr;
-  }
-
-  if (EndPtr && *EndPtr != '\0')
-    return FALSE;
-
-  return TRUE;
-}
-/*#####################################################################################*/
-int CopyShort(short *Value, char *Str, const int NValues)
-{
-  char *EndPtr = NULL;
-  int i;
-
-  for (i = 0; i < NValues; i++) {
-    Value[i] = (short) strtol(Str, &EndPtr, 0);
-    if (EndPtr == Str)
-      return FALSE;
+    Value[i] = (int) x;
     Str = EndPtr;
   }
 
@@ -351,12 +246,15 @@ int CopyShort(short *Value, char *Str, const int NValues)
 int CopyUChar(unsigned char *Value, char *Str, const int NValues)
 {
   char *EndPtr = NULL;
+  long x;
   int i;
 
   for (i = 0; i < NValues; i++) {
-    Value[i] = (unsigned char) strtol(Str, &EndPtr, 0);
-    if (EndPtr == Str)
+    errno = 0;
+    x = strtol(Str, &EndPtr, 10);
+    if (EndPtr == Str || errno == ERANGE || x < 0 || x > UCHAR_MAX)
       return FALSE;
+    Value[i] = (unsigned char) x;
     Str = EndPtr;
   }
 
@@ -366,19 +264,6 @@ int CopyUChar(unsigned char *Value, char *Str, const int NValues)
   return TRUE;
 }
 /*#####################################################################################*/
-int
-CopyLCase(char *Value, char *Str, const int maxlen)
-{
-  int i;
-  strncpy(Value, Str, maxlen + 1);
-  for (i = 0; i < (int) strlen(Value) && i < maxlen; ++i) {
-    Value[i] = tolower(Value[i]);
-  }
-  return TRUE;
-}
-
-
-/*#####################################################################################*/
 int IsEmptyStr(char *Str)
 {
   if (Str == NULL)
@@ -387,37 +272,88 @@ int IsEmptyStr(char *Str)
     return TRUE;
   return FALSE;
 }
-/*#####################################################################################*/
+/*#####################################################################################
+ Reads the config into a list of its section and key = value lines. Each
+ line is read whole (LF or CRLF; the last line also without a line end). A
+ line longer than BUFSIZE characters (comments included), or a line that is
+ not blank, a comment, a section or a key = value line, stops the run; so
+ does a section other than the six of a config, a repeated section, or a key
+ line before the first section.
+ #####################################################################################*/
 void ReadInitFile(char *TemplateFileName, LISTPTR * Input)
 {
+  const char *Sections[] = { "RUN", "GRID", "OPTIONS", "INPUTS", "PARAMETERS", "OUTPUT" };
+  int Seen[6] = { FALSE, FALSE, FALSE, FALSE, FALSE, FALSE };
+  int InSection = FALSE;		/* TRUE after the first section line */
   FILE *InFile = NULL;			/* File with input information */
-  char Buffer[BUFSIZE + 1];		/* Tempora */
-  int i;						/* counter */
-  int NLines;					/* Number of lines in the input file */
+  char Line[BUFSIZE + 3];		/* Line as read */
+  char Buffer[BUFSIZE + 1];		/* Line without comment and outer blanks */
+  char Name[BUFSIZE + 1];		/* Section name */
+  int c;						/* Character read */
+  int Last;						/* Last character of the line */
+  int Length;					/* Length of the line */
+  int LineNo = 0;				/* Line number */
+  int i;
   LISTPTR Current = NULL;		/* pointer to current node in list */
   LISTPTR Head = NULL;			/* pointer to the start of the list */
 
-  OpenFile(&InFile, (char *) TemplateFileName, "r", FALSE);
+  if (!(InFile = fopen(TemplateFileName, "rb")))
+    ReportErrorCode(101, "%s: cannot open", TemplateFileName);
 
-  NLines = CountLines(InFile);
-  rewind(InFile);
+  c = fgetc(InFile);
+  while (c != EOF) {
+    LineNo++;
+    Length = 0;
+    Last = 0;
+    while (c != EOF && c != '\n') {
+      if (Length < BUFSIZE + 2)
+        Line[Length] = (char) c;
+      Length++;
+      Last = c;
+      c = fgetc(InFile);
+    }
+    if (c == '\n')
+      c = fgetc(InFile);
+    if (Last == '\r')
+      Length--;
+    if (Length > BUFSIZE)
+      ReportErrorCode(102, "%s: line %d is longer than %d characters",
+                      TemplateFileName, LineNo, BUFSIZE);
+    Line[Length] = '\0';
 
-  for (i = 0; i < NLines; i++) {
-    if (fgets(Buffer, BUFSIZE, InFile) == NULL)
-      ReportError(TemplateFileName, 2);
+    strcpy(Buffer, Line);
     Strip(Buffer);
-    if (IsSection(Buffer) || IsKeyEntryPair(Buffer)) {
-      if (Head == NULL) {
-		  Head = CreateNode();
-		  Current = Head;
-		  *Input = Head;
-	  }
-	  else {
-		  Current->Next = CreateNode();
-		  Current = Current->Next;
-	  }
-	  strncpy(Current->Str, Buffer, BUFSIZE + 1);
-	}
+    if (Buffer[0] == '\0')
+      continue;
+    if (!IsSection(Buffer) && !IsKeyEntryPair(Buffer))
+      ReportErrorCode(102, "%s: line %d is not a section, a key = value line or a comment",
+                      TemplateFileName, LineNo);
+    if (IsSection(Buffer)) {
+      strcpy(Name, Buffer + 1);
+      *strchr(Name, CLOSESECTION) = '\0';
+      Strip(Name);
+      MakeKeyString(Name);
+      for (i = 0; i < 6 && strcmp(Name, Sections[i]) != 0; i++)
+        ;
+      if (i == 6)
+        ReportErrorCode(102, "%s: line %d: unknown section [%s]", TemplateFileName, LineNo, Name);
+      if (Seen[i])
+        ReportErrorCode(102, "%s: line %d: section [%s] repeated", TemplateFileName, LineNo, Name);
+      Seen[i] = TRUE;
+      InSection = TRUE;
+    }
+    else if (!InSection)
+      ReportErrorCode(102, "%s: line %d: key before the first section", TemplateFileName, LineNo);
+    if (Head == NULL) {
+      Head = CreateNode();
+      Current = Head;
+      *Input = Head;
+    }
+    else {
+      Current->Next = CreateNode();
+      Current = Current->Next;
+    }
+    strncpy(Current->Str, Buffer, BUFSIZE + 1);
   }
 
   fclose(InFile);
@@ -471,24 +407,105 @@ void WarnUnreadKeys(LISTPTR Input)
       StrPtr = strchr(Key, SEPARATOR);
       *StrPtr = '\0';
       Strip(Key);
-      printf("WARNING: config key not used: %s %s\n", Section, Key);
+      Warning("config key not used: %s %s", Section, Key);
       NUnread++;
     }
   }
   if (NUnread > 0)
-    printf("WARNING: %d config keys not used (misspelled, duplicated, in the wrong section, or for an option that is off)\n\n", NUnread);
+    Warning("%d config keys not used (misspelled, duplicated, in the wrong section, or for an "
+            "option that is off)", NUnread);
 }
 /*#####################################################################################*/
-int CountLines(FILE * InFile)
+/*#####################################################################################
+ GetConfigValue()
+ Looks up a key in a section, both named as written (e.g. "RUN", "Time Step");
+ returns TRUE and the value if the key is present (its first occurrence)
+ #####################################################################################*/
+int GetConfigValue(LISTPTR Input, const char *Section, const char *Key, char *Value)
 {
-  int NLines = 0;
-  char Buffer;
+  char SectionKey[BUFSIZE + 1];
+  char KeyKey[BUFSIZE + 1];
+  LISTPTR SectionHead = NULL;
 
-  while ((Buffer = fgetc(InFile)) != EOF) {
-    if (Buffer == '\n')
-      NLines++;
-  }
+  strncpy(SectionKey, Section, BUFSIZE);
+  SectionKey[BUFSIZE] = '\0';
+  MakeKeyString(SectionKey);
+  strncpy(KeyKey, Key, BUFSIZE);
+  KeyKey[BUFSIZE] = '\0';
+  MakeKeyString(KeyKey);
 
-  return NLines;
+  Value[0] = '\0';
+  if ((SectionHead = LocateSection(SectionKey, Input)) == NULL)
+    return FALSE;
+  return LocateKey(KeyKey, Value, SectionHead);
 }
-/*#####################################################################################*/
+/*#####################################################################################
+ RequireConfigValue()
+ As GetConfigValue(), for a key that must be present with a value
+ #####################################################################################*/
+void RequireConfigValue(LISTPTR Input, const char *Section, const char *Key, char *Value)
+{
+  if (!GetConfigValue(Input, Section, Key, Value))
+    ReportErrorCode(103, "[%s] %s is missing", Section, Key);
+  if (IsEmptyStr(Value))
+    ReportErrorCode(103, "[%s] %s is empty", Section, Key);
+}
+/*#####################################################################################
+ ConfigFloat(), ConfigDouble(), ConfigInt(), ConfigBool()
+ Convert a whole config value ((float) strtod or strtod to a number,
+ base-10 strtol in the int range, TRUE or FALSE in any case); anything else
+ stops the run naming the key
+ #####################################################################################*/
+float ConfigFloat(const char *Section, const char *Key, char *Value)
+{
+  float x;
+
+  if (!CopyFloat(&x, Value, 1))
+    ReportErrorCode(103, "[%s] %s = %s: expected a number", Section, Key, Value);
+  return x;
+}
+
+double ConfigDouble(const char *Section, const char *Key, char *Value)
+{
+  double x;
+
+  if (!CopyDouble(&x, Value, 1))
+    ReportErrorCode(103, "[%s] %s = %s: expected a number", Section, Key, Value);
+  return x;
+}
+
+int ConfigInt(const char *Section, const char *Key, char *Value)
+{
+  char *EndPtr = NULL;
+  long x;
+
+  errno = 0;
+  x = strtol(Value, &EndPtr, 10);
+  if (EndPtr == Value || *EndPtr != '\0' || errno == ERANGE || x < INT_MIN || x > INT_MAX)
+    ReportErrorCode(103, "[%s] %s = %s: expected an integer", Section, Key, Value);
+  return (int) x;
+}
+
+int ConfigBool(const char *Section, const char *Key, char *Value)
+{
+  if (IsChoice(Value, "TRUE"))
+    return TRUE;
+  if (IsChoice(Value, "FALSE"))
+    return FALSE;
+  ReportErrorCode(103, "[%s] %s = %s: expected TRUE or FALSE", Section, Key, Value);
+  return FALSE;
+}
+/*#####################################################################################
+ IsChoice()
+ TRUE if Value equals Choice ignoring case
+ #####################################################################################*/
+int IsChoice(const char *Value, const char *Choice)
+{
+  while (*Value != '\0' && *Choice != '\0') {
+    if (toupper((unsigned char) *Value) != toupper((unsigned char) *Choice))
+      return FALSE;
+    Value++;
+    Choice++;
+  }
+  return (*Value == '\0' && *Choice == '\0');
+}

@@ -69,15 +69,18 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
   float *VaporMassFlux, float *TPack, float *TSurf, float *MeltEnergy,
   float SnowMeltAdjustRatio)
 {
+  /* The pack is split from the float snow water equivalent and rebuilt into
+     it every step; the split, the ice and the layer amounts are double so
+     that a deep pack does not round at every operation */
   float DeltaPackCC;		/* Change in cold content of the pack */
-  float DeltaPackSwq;		/* Change in snow water equivalent of the pack (m) */
-  float Ice;			    /* Ice content of snow pack (m) */
+  double DeltaPackSwq;		/* Change in snow water equivalent of the pack (m) */
+  double Ice;			    /* Ice content of snow pack (m) */
   float MaxLiquidWater;		/* Maximum liquid water content of pack (m) */
   float OldTSurf;		    /* Old snow surface temperature (C) */
   float Outflow;		    /* Amount water flowing out of the snow pack
                                during the time interval (m) */
   float PackCC;			    /* Cold content of snow pack (J) */
-  float PackSwq;		    /* Snow pack snow water equivalent (m) */
+  double PackSwq;		    /* Snow pack snow water equivalent (m) */
   float Qnet;			    /* Net energy exchange at the surface (W/m2) */
   float RefreezeEnergy;		/* refreeze energy (W/m2) */
   float RefrozenWater;		/* Amount of refrozen water (m) */
@@ -85,12 +88,12 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
   float SnowMelt;		    /* Amount of snow melt during time interval
                               (m water equivalent) */
   float SurfaceCC;		    /* Cold content of snow pack (J) */
-  float SurfaceSwq;		    /* Surface layer snow water equivalent (m) */
+  double SurfaceSwq;		    /* Surface layer snow water equivalent (m) */
 
   OldTSurf = *TSurf;
 
   /* Initialize snowpack variables */
-  Ice = *Swq - *PackWater - *SurfWater;
+  Ice = (double) *Swq - *PackWater - *SurfWater;
 
   /* Reconstruct snow pack */
   if (Ice > MAX_SURFACE_SWE)
@@ -227,8 +230,8 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
        layer has been frozen */
     SurfaceSwq += *SurfWater;
     Ice += *SurfWater;
-    *SurfWater = 0.0;
     *MeltEnergy += (*SurfWater * LF * WATER_DENSITY) / Dt;
+    *SurfWater = 0.0;
 
     /* Convert mass flux to a depth per timestep and adjust SurfaceSwq */
     *VaporMassFlux *= Dt;
@@ -314,8 +317,9 @@ float SnowMelt(int y, int x, int Dt, float Z, float Displacement, float Z0,
       SurfaceSwq -= SurfaceSwq - MAX_SURFACE_SWE;
     }
     else if (SurfaceSwq < MAX_SURFACE_SWE) {
-      PackCC -= PackCC * (MAX_SURFACE_SWE - SurfaceSwq) / PackSwq;
-      SurfaceCC += PackCC * (MAX_SURFACE_SWE - SurfaceSwq) / PackSwq;
+      DeltaPackCC = PackCC * (MAX_SURFACE_SWE - SurfaceSwq) / PackSwq;
+      PackCC -= DeltaPackCC;
+      SurfaceCC += DeltaPackCC;
       PackSwq -= MAX_SURFACE_SWE - SurfaceSwq;
       SurfaceSwq += MAX_SURFACE_SWE - SurfaceSwq;
     }

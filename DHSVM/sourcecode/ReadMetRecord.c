@@ -5,111 +5,66 @@
 #include "settings.h"
 #include "data.h"
 #include "DHSVMerror.h"
+#include "fileio.h"
 #include "functions.h"
 #include "constants.h"
-
-#define MAXMETVARS    21	/* Maximum Number of meteorological variables 
- to read.  Hack to be replaced by something better */
+#include "tables.h"
 
 /*****************************************************************************
   ReadMetRecord()
+
+  Reads the record of the time step that starts at Current from a station
+  data file: its time must be the step start. The lapse rate is the
+  station's lapse rate of the month of the step.
 *****************************************************************************/
-void ReadMetRecord(OPTIONSTRUCT *Options, DATE *Current, int NSoilLayers,
-		   FILES *InFile, MET *MetRecord)
+void ReadMetRecord(DATE *Current, METLOCATION *Station)
 {
+  char *Path = Station->MetFile.FileName;
+  char Found[BUFSIZE + 1];
+  char Expected[BUFSIZE + 1];
+  float Array[NMETCOLUMNS];	/* Values of the record, in the order of the columns */
   DATE MetDate;			/* Date of meteorological record */
-  float Array[MAXMETVARS];	/* Temporary storage of met variables */
-  int i;
-  int NMetVars;			/* Number of meteorological variables to read */
-  NMetVars = 6;
-  /* these are - in order: 
-     air temp,
-     wind,
-     humidity
-     shortwave (total i.e. direct+diffuse)
-     longwave
-     precipitation */
+  MET *MetRecord = &(Station->Data);
+  int k;
 
-  if (Options->HeatFlux == TRUE)
-    NMetVars += NSoilLayers;
-  /* expect to see temperature for each soil layer */
-  /* separate input of rain and snow following precipitation */
-  if (Options->PrecipSepr)
-    NMetVars += 2;
-  if (Options->TempLapse == VARIABLE)
-    NMetVars++;
-
-  if (!ScanDate(InFile->FilePtr, &MetDate))
-    ReportError(InFile->FileName, 23);
-
-  while (!IsEqualTime(&MetDate, Current) && !feof(InFile->FilePtr)) {
-    if (ScanFloats(InFile->FilePtr, Array, NMetVars) != NMetVars)
-      ReportError(InFile->FileName, 5);
-    if (!ScanDate(InFile->FilePtr, &MetDate))
-      ReportError(InFile->FileName, 23);
+  SPrintIsoDate(Current, Expected);
+  if (Station->Pending)
+    Station->Pending = FALSE;
+  else {
+    if (!ReadTextLine(Station->MetFile.FilePtr, Station->Record, TABLE_LINESIZE, Path,
+                      ++(Station->LineNo), 107))
+      ReportErrorCode(107, "%s: line %d: no record, expected %s", Path, Station->LineNo,
+                      Expected);
+    if (IsBlankLine(Station->Record))
+      ReportErrorCode(107, "%s: line %d is blank, expected %s", Path, Station->LineNo,
+                      Expected);
+    if (SplitFields(Station->Record, Station->Fields, Station->NFields) != Station->NFields)
+      ReportErrorCode(107, "%s: line %d has a different number of fields than line 1", Path,
+                      Station->LineNo);
   }
 
-  if (!IsEqualTime(&MetDate, Current)) {
-    if (DEBUG) {
-      printf("Metfile: ");
-      PrintDate(&MetDate, stdout);
-      printf("Current: ");
-      PrintDate(Current, stdout);
-    }
-    ReportError(InFile->FileName, 28);
+  if (!SScanIsoDate(Station->Fields[Station->Column[0]], &MetDate))
+    ReportErrorCode(107, "%s: line %d: time \"%s\" is not YYYY-MM-DD HH:MM", Path,
+                    Station->LineNo, Station->Fields[Station->Column[0]]);
+  if (MinutesOf(&MetDate) != MinutesOf(Current)) {
+    SPrintIsoDate(&MetDate, Found);
+    ReportErrorCode(107, "%s: line %d has time %s, expected %s", Path, Station->LineNo,
+                    Found, Expected);
   }
 
-  if (ScanFloats(InFile->FilePtr, Array, NMetVars) != NMetVars)
-    ReportError(InFile->FileName, 5);
-
-  MetRecord->Tair = Array[0];
-  MetRecord->Wind = Array[1];
-  MetRecord->Rh = Array[2];
-  if (MetRecord->Rh < 0.0 || MetRecord->Rh > 100.0) {
-    printf("warning: RH out of bounds: %s\n", InFile->FileName);
-    if (MetRecord->Rh < 0.0)
-      MetRecord->Rh = 0.0;
-    if (MetRecord->Rh > 100.0)
-      MetRecord->Rh = 100.0;
-  }
-  MetRecord->Sin = Array[3];
-  if (MetRecord->Sin > 1380.0) {
-    printf("warning: Shortwave out of bounds: %s\n", InFile->FileName);
-    MetRecord->Sin = 1380.0;
-  }
-  if (MetRecord->Sin < 0.0) {
-    printf("Warning: Negative Shortwave, setting to zero: %s\n",
-	   InFile->FileName);
-    MetRecord->Sin = 0.0;
-  }
-  MetRecord->Lin = Array[4];
-  if (MetRecord->Lin < 0.0 || MetRecord->Lin > 1800.0) {
-    printf("warning: Longwave out of bounds: %s\n", InFile->FileName);
+  for (k = 1; k < NMETCOLUMNS; k++) {
+    if (!TextToFloat(Station->Fields[Station->Column[k]], &Array[k]))
+      ReportErrorCode(107, "%s: line %d: field %d: \"%s\" is not a number", Path,
+                      Station->LineNo, Station->Column[k] + 1,
+                      Station->Fields[Station->Column[k]]);
   }
 
-  i = 0;
-  if (Options->HeatFlux == TRUE)
-    for (i = 0; i < NSoilLayers; i++)
-      MetRecord->Tsoil[i] = Array[5 + i];
+  MetRecord->Tair = Array[1];
+  MetRecord->Wind = Array[2];
+  MetRecord->Rh = Array[3];
+  MetRecord->Sin = Array[4];
+  MetRecord->Lin = Array[5];
+  MetRecord->Precip = Array[6];
 
-  MetRecord->Precip = Array[5 + i];
-  if (MetRecord->Precip < 0) {
-    printf("Warning: negative precip %s \n", InFile->FileName);
-    MetRecord->Precip = 0.0;
-  }
-  i++;
-  if (Options->PrecipSepr) {
-    MetRecord->Rain = Array[5 + i];
-    i++;
-    MetRecord->Snow = Array[5 + i];
-    i++;
-  }
-  
-  if (Options->TempLapse == VARIABLE) {
-    MetRecord->TempLapse = Array[5 + i];
-    i++;
-  }
-  else
-    MetRecord->TempLapse = TEMPLAPSE;
-
+  MetRecord->TempLapse = Station->LapseRate[Current->Month - 1];
 }

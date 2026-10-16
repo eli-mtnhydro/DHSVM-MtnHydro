@@ -9,7 +9,6 @@
 #include "Calendar.h"
 #include "DHSVMerror.h"
 
-#define FAIL -1
 
 /*****************************************************************************
   DayOfYear()
@@ -52,80 +51,42 @@ uchar IsEqualTime(DATE * Day1, DATE * Day2)
 }
 
 /*****************************************************************************
-  ScanDate()
+  SScanIsoDate()
+
+  Reads an instant written YYYY-MM-DD HH:MM (exactly 16 characters, a real
+  calendar date and time of day). Returns FALSE for anything else.
 *****************************************************************************/
-int ScanDate(FILE * InFile, DATE * Day)
+int SScanIsoDate(const char *Str, DATE * Day)
 {
-  char Str[NAMESIZE + 1];
-
-  if (fscanf(InFile, "%s", Str) != 1)
-    return FALSE;
-
-  return SScanDate(Str, Day);
-}
-
-/*****************************************************************************
-  SScanDate()
-*****************************************************************************/
-int SScanDate(char *DateStr, DATE * Day)
-{
-  char Str[BUFSIZE + 1];
-  int i;
-  int j;
-  int Length;
-  int Number[6];
+  const char *Form = "dddd-dd-dd dd:dd";
   int DaysPerMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+  int i;
 
-  if (Str == NULL)
+  if (Str == NULL || strlen(Str) != 16)
     return FALSE;
-
-  strcpy(Str, DateStr);
-
-  Length = strlen(Str);
-
-  for (i = Length - 1, j = 0; i > 0; i--) {
-    if (!isdigit((int) Str[i])) {
-      Number[j] = atoi(&Str[i + 1]);
-      Str[i] = '\0';
-      j++;
+  for (i = 0; i < 16; i++) {
+    if (Form[i] == 'd') {
+      if (!isdigit((unsigned char) Str[i]))
+        return FALSE;
     }
+    else if (Str[i] != Form[i])
+      return FALSE;
   }
 
-  Number[j] = atoi(Str);
-
-  if (j < 2 || j > 5)
-    return FALSE;
-
-  Day->Month = Number[j--];
-  Day->Day = Number[j--];
-  Day->Year = Number[j--];
-  if (j >= 0)
-    Day->Hour = Number[j--];
-  else
-    Day->Hour = 0;
-  if (j >= 0)
-    Day->Min = Number[j--];
-  else
-    Day->Min = 0;
-  if (j >= 0)
-    Day->Sec = Number[j--];
-  else
-    Day->Sec = 0;
+  Day->Year = (Str[0] - '0') * 1000 + (Str[1] - '0') * 100 + (Str[2] - '0') * 10 + (Str[3] - '0');
+  Day->Month = (Str[5] - '0') * 10 + (Str[6] - '0');
+  Day->Day = (Str[8] - '0') * 10 + (Str[9] - '0');
+  Day->Hour = (Str[11] - '0') * 10 + (Str[12] - '0');
+  Day->Min = (Str[14] - '0') * 10 + (Str[15] - '0');
+  Day->Sec = 0;
 
   if (IsLeapYear(Day->Year))
     DaysPerMonth[1] = 29;
-  else
-    DaysPerMonth[1] = 28;
-
-  if (Day->Month < 1 || Day->Month > MONTHPYEAR)
+  if (Day->Year < 1 || Day->Month < 1 || Day->Month > MONTHPYEAR)
     return FALSE;
   if (Day->Day < 1 || Day->Day > DaysPerMonth[Day->Month - 1])
     return FALSE;
-  if (Day->Hour < 0 || Day->Hour > 23)
-    return FALSE;
-  if (Day->Min < 0 || Day->Min > 59)
-    return FALSE;
-  if (Day->Sec < 0 || Day->Sec > 59)
+  if (Day->Hour > 23 || Day->Min > 59)
     return FALSE;
 
   Day->JDay = DayOfYear(Day->Year, Day->Month, Day->Day);
@@ -137,36 +98,63 @@ int SScanDate(char *DateStr, DATE * Day)
 }
 
 /*****************************************************************************
-  NumberOfSteps()
+  SPrintIsoDate(), SPrintIsoStamp()
+
+  An instant as text (YYYY-MM-DD HH:MM) and in file names (YYYY-MM-DD_HHMM).
+  Buffer holds at least 17 characters.
 *****************************************************************************/
-int NumberOfSteps(DATE * Start, DATE * End, int Interval)
+void SPrintIsoDate(DATE * Day, char *Buffer)
 {
-  int NSteps = 0;		/* Number of steps */
+  sprintf(Buffer, "%04d-%02d-%02d %02d:%02d", Day->Year, Day->Month, Day->Day,
+          Day->Hour, Day->Min);
+}
 
-  NSteps = (End->Julian - Start->Julian) * (SECPDAY / Interval);
-  NSteps++;
-  if (NSteps <= 0)
-    return FAIL;
-
-  return NSteps;
+void SPrintIsoStamp(DATE * Day, char *Buffer)
+{
+  sprintf(Buffer, "%04d-%02d-%02d_%02d%02d", Day->Year, Day->Month, Day->Day,
+          Day->Hour, Day->Min);
 }
 
 /*****************************************************************************
-  NextDate()
+  DaysFromCivil()
+
+  Days from 1970-01-01 to a Gregorian date
 *****************************************************************************/
-DATE NextDate(DATE * Current, int Interval)
+static long long DaysFromCivil(int Year, int Month, int Day)
 {
-  DATE Next;			/* Next date */
-  double Sec;
+  long long y = Year - (Month <= 2);
+  long long Era = (y >= 0 ? y : y - 399) / 400;
+  long long YearOfEra = y - Era * 400;
+  long long DayOfYr = (153 * (Month + (Month > 2 ? -3 : 9)) + 2) / 5 + Day - 1;
+  long long DayOfEra = YearOfEra * 365 + YearOfEra / 4 - YearOfEra / 100 + DayOfYr;
 
-  Next.Julian = Current->Julian + ((double) Interval) / SECPDAY;
-  JulianDayToGregorian(Next.Julian, &(Next.Year), &(Next.Month), &(Next.Day),
-		       &(Next.Hour), &(Next.Min), &Sec);
-  Next.Sec = (int) Sec;
-  Next.JDay = DayOfYear(Next.Year, Next.Month, Next.Day);
-
-  return Next;
+  return Era * 146097 + DayOfEra - 719468;
 }
+
+/*****************************************************************************
+  MinutesOf()
+
+  Minutes from 1970-01-01 00:00 to an instant (instants are whole minutes)
+*****************************************************************************/
+long long MinutesOf(DATE * Day)
+{
+  return DaysFromCivil(Day->Year, Day->Month, Day->Day) * MINPDAY +
+    Day->Hour * MINPHOUR + Day->Min;
+}
+
+/*****************************************************************************
+  DayOfWaterYear()
+
+  Day of the water year of a date, October 1 = 1
+*****************************************************************************/
+int DayOfWaterYear(DATE * Day)
+{
+  int StartYear = (Day->Month >= 10) ? Day->Year : Day->Year - 1;
+
+  return (int) (DaysFromCivil(Day->Year, Day->Month, Day->Day) -
+                DaysFromCivil(StartYear, 10, 1)) + 1;
+}
+
 
 /*****************************************************************************
   CopyDate()
@@ -181,25 +169,6 @@ void CopyDate(DATE * Copy, DATE * Original)
   Copy->Sec = Original->Sec;
   Copy->JDay = Original->JDay;
   Copy->Julian = Original->Julian;
-}
-
-/*****************************************************************************
-  PrintDate()
-*****************************************************************************/
-void PrintDate(DATE * Day, FILE * OutFile)
-{
-  fprintf(OutFile, "%02d/%02d/%4d-%02d:%02d:%02d", Day->Month, Day->Day,
-	  Day->Year, Day->Hour, Day->Min, Day->Sec);
-}
-
-/* -------------------------------------------------------------
-   SPrintDate
-   Formats a DATE to a string
-   ------------------------------------------------------------- */
-void SPrintDate(DATE * Day, char *buffer)
-{
-  sprintf(buffer, "%02d.%02d.%4d-%02d:%02d:%02d", Day->Month, Day->Day,
-	  Day->Year, Day->Hour, Day->Min, Day->Sec);
 }
 
 /*****************************************************************************
@@ -325,56 +294,21 @@ void IncreaseVariableTime(TIMESTRUCT *Time, float VariableDT, TIMESTRUCT *NextTi
 /******************************************************************************/
 /*				   InitTime()                                 */
 /******************************************************************************/
-int InitTime(TIMESTRUCT * Time, DATE * Start, DATE * End, int Dt)
+/* Start and End are instants on the step grid with End after Start by a
+   whole number of steps (checked by the caller); Dt divides a day */
+void InitTime(TIMESTRUCT * Time, DATE * Start, DATE * End, int Dt)
 {
-  const char *Routine = "InitTime";
-  int tmpsecond;
-
   Time->Dt = Dt;		/* timestep in seconds */
 
-  /* Just to be sure, recalculate the Julian and JDay fields of all the dates */
-  if (Start != NULL) {
-    CopyDate(&(Time->Start), Start);
-    Time->Start.JDay = DayOfYear(Time->Start.Year, Time->Start.Month,
-				 Time->Start.Day);
-    Time->Start.Julian = GregorianToJulianDay(Time->Start.Year,
-					      Time->Start.Month,
-					      Time->Start.Day,
-					      Time->Start.Hour,
-					      Time->Start.Min, Time->Start.Sec);
-    CopyDate(&(Time->Current), &(Time->Start));
-  }
+  CopyDate(&(Time->Start), Start);
+  CopyDate(&(Time->End), End);
+  CopyDate(&(Time->Current), &(Time->Start));
 
-  if (End != NULL) {
-    CopyDate(&(Time->End), End);
-    Time->End.JDay = DayOfYear(Time->End.Year, Time->End.Month, Time->End.Day);
-    Time->End.Julian = GregorianToJulianDay(Time->End.Year, Time->End.Month,
-					    Time->End.Day, Time->End.Hour,
-					    Time->End.Min, Time->End.Sec);
-  }
-
-  if (Start != NULL && End != NULL) {
-    if (After(&(Time->Start), &(Time->End)))
-      return FALSE;
-    Time->Step = 0;
-    Time->NDaySteps = SECPDAY / Time->Dt;
-    if ((SECPDAY - Time->NDaySteps * Time->Dt) != 0)
-      ReportError((char *) Routine, 7);
-    /* the 0.5 in the next line is because Julian day is measured from midday,
-       and  we want since midnight */
-    tmpsecond = Round(((Time->Start.Julian - 0.5) -
-		       floor(Time->Start.Julian - 0.5)) * SECPDAY);
-    Time->DayStep = tmpsecond / Time->Dt;
-    /* The following line insures that the first timestep of the day would
-       coincide with midnight */
-    if (tmpsecond - Time->DayStep * Time->Dt != 0)
-      ReportError((char *) Routine, 9);
-    Time->NTotalSteps = NumberOfSteps(&(Time->Start), &(Time->End), Time->Dt);
-    if (Time->NTotalSteps == FAIL)
-      return FALSE;
-  }
-
-  return TRUE;
+  Time->Step = 0;
+  Time->NDaySteps = SECPDAY / Time->Dt;
+  Time->DayStep = ((Time->Start.Hour * MINPHOUR + Time->Start.Min) * SECPMIN) / Time->Dt;
+  Time->NSteps = (int) ((MinutesOf(&(Time->End)) - MinutesOf(&(Time->Start))) *
+                        SECPMIN / Time->Dt);
 }
 
 /******************************************************************************/
@@ -480,85 +414,4 @@ void JulianDayToGregorian(double jd, int *y, int *m, int *d, int *h, int *mi,
   tmp = tmp - *h * 3600.0;
   *mi = (int) (tmp / 60.0);
   *sec = tmp - *mi * 60.0;
-}
-
-/******************************************************************************/
-/*				  DayOfWeek()                                 */
-/******************************************************************************/
-int DayOfWeek(double j)
-{
-  j += 0.5;
-  return (int) (j + 1) % 7;
-}
-
-/*****************************************************************************
-  SScanMonthDay()
-*****************************************************************************/
-int SScanMonthDay(char *DateStr, DATE * Day)
-{
-  char Str[BUFSIZE + 1];
-  int i;
-  int j;
-  int Length;
-  int Number[6];
-  int DaysPerMonth[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
-  if (Str == NULL)
-    return FALSE;
-
-  strcpy(Str, DateStr);
-
-  Length = strlen(Str);
-
-  for (i = Length - 1, j = 0; i > 0; i--) {
-    if (!isdigit((int) Str[i])) {
-      Number[j] = atoi(&Str[i + 1]);
-      Str[i] = '\0';
-      j++;
-    }
-  }
-
-  Number[j] = atoi(Str);
-
-  if (j < 1 || j > 5)
-    return FALSE;
-
-  Day->Month = Number[j--];
-  Day->Day = Number[j--];
-  Day->Year = Number[j--];
-  if (j >= 0)
-    Day->Hour = Number[j--];
-  else
-    Day->Hour = 0;
-  if (j >= 0)
-    Day->Min = Number[j--];
-  else
-    Day->Min = 0;
-  if (j >= 0)
-    Day->Sec = Number[j--];
-  else
-    Day->Sec = 0;
-
-  if (IsLeapYear(Day->Year))
-    DaysPerMonth[1] = 29;
-  else
-    DaysPerMonth[1] = 28;
-
-  if (Day->Month < 1 || Day->Month > MONTHPYEAR)
-    return FALSE;
-  if (Day->Day < 1 || Day->Day > DaysPerMonth[Day->Month - 1])
-    return FALSE;
-  if (Day->Hour < 0 || Day->Hour > 23)
-    return FALSE;
-  if (Day->Min < 0 || Day->Min > 59)
-    return FALSE;
-  if (Day->Sec < 0 || Day->Sec > 59)
-    return FALSE;
-
-  Day->JDay = DayOfYear(Day->Year, Day->Month, Day->Day);
-  Day->Julian =
-    GregorianToJulianDay(Day->Year, Day->Month, Day->Day, Day->Hour, Day->Min,
-			 Day->Sec);
-
-  return TRUE;
 }

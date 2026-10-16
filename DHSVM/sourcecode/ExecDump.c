@@ -1,1055 +1,406 @@
-
-/* Write output files */
-
+/*
+ * DESCRIPTION:  The output files of a run in the output directory:
+ *               Basin.csv, Point_<Name>.csv, Class_<N>.csv, Streamflow.csv,
+ *               Channels.csv, NetworkDynamics.csv (comma-separated, a names
+ *               line, a units line, one row per time step labelled with the
+ *               step's start; numbers %.9g, NA where a cell lacks a
+ *               layer), the map stacks (OutputMaps.c) and the
+ *               snapshots (StoreModelState.c).
+ *
+ *               A row stamped T holds the value of an Interval variable over
+ *               the step [T, T + Dt] and the value of an Instant variable at
+ *               T: the row of a step is written when the step has ended, with
+ *               the Instant values held from the end of the step before (from
+ *               Start for the first row).
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "settings.h"
 #include "data.h"
 #include "fileio.h"
-#include "sizeofnt.h"
 #include "DHSVMerror.h"
 #include "functions.h"
 #include "constants.h"
+#include "output.h"
+#include "registry.h"
+
+#define NETWORK_COLUMNS "Time,Segment,Channel.Storage,Channel.Inflow,Channel.LateralInflow," \
+  "Channel.Outflow,Channel.Infiltration,Channel.Evaporation"
+#define NETWORK_UNITS "step start,-,m3,m3/s,m3/s,m3/s,m3/s,m3/s"
+#define NETWORK_NCOLUMNS 6
+
+static const int NetworkCodes[NETWORK_NCOLUMNS] = {
+  V_CHANNEL_STORAGE, V_CHANNEL_INFLOW, V_CHANNEL_LATERALINFLOW, V_CHANNEL_OUTFLOW,
+  V_CHANNEL_INFILTRATION, V_CHANNEL_EVAPORATION
+};
+
+static void CreateSeries(FILES *File, char *Path, const char *Name, const char *First,
+                         const char *FirstUnits, OUTLIST *List);
+static HELDVALUE *HeldValues(int N);
+static void WriteValue(FILE *File, double Value, int Has);
+static void SeriesColumn(FILE *File, int Write, int Instant, double Value, int Has,
+                         HELDVALUE *Held);
+static void CloseFile(FILES *File);
 
 /*****************************************************************************
-ExecDump()
+  CreateOutputs()
+
+  Creates (empties) every requested output file with its names and units
+  lines; a file that cannot be written is error 113. Sets up the held
+  Instant values of each series file.
 *****************************************************************************/
-void ExecDump(MAPSIZE *Map, DATE *Current, DATE *Start, OPTIONSTRUCT *Options,
-  DUMPSTRUCT *Dump, TOPOPIX **TopoMap, EVAPPIX **EvapMap,
-  PIXRAD **RadMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
-  VEGPIX **VegMap, LAYER *Veg, SOILPIX **SoilMap,
-  NETSTRUCT **Network, CHANNEL *ChannelData, LAYER *Soil,
-  AGGREGATED *Total, LAKETABLE *LType)
+void CreateOutputs(MAPSIZE *Map, TIMESTRUCT *Time, Channel *Streams, DUMPSTRUCT *Dump)
 {
-  int i;			/* counter */
-  int j;			/* counter */
-  int x;
-  int y;
-  int flag;
+  char Name[2 * BUFSIZE + 1];
+  Channel *Segment;
+  int NSegments = 0;
+  int i;
 
-  /* dump the aggregated basin values for this timestep */
+  Dump->BasinHeld = NULL;
+  Dump->ChannelsHeld = NULL;
+  Dump->NetworkHeld = NULL;
+  for (Segment = Streams; Segment != NULL; Segment = Segment->next)
+    NSegments++;
 
-  flag = 1;
-  DumpPix(Current, IsEqualTime(Current, Start), &(Dump->Aggregate),
-    &(Total->Evap), &(Total->Precip), &(Total->Rad), &(Total->Snow),
-    &(Total->Soil), &(Total->Veg), Soil->MaxLayers, Veg->MaxLayers,
-    Options, flag);
-
-  fprintf(Dump->Aggregate.FilePtr, "\n");
-
-  if (Options->Extent != POINT) {
-    /* check whether the model state needs to be dumped at this timestep, and
-    dump state if needed */
-    if (Dump->NStates < 0) {
-      StoreModelState(Dump->Path, Current, Map, Options, TopoMap, PrecipMap,
-        SnowMap, VegMap, Veg, SoilMap, Soil,
-        Network, ChannelData, LType);
-      if (Options->Extent != POINT)
-        StoreChannelState(Dump->Path, Current, ChannelData->streams);
-    }
-    else {
-      for (i = 0; i < Dump->NStates; i++) {
-        if (IsEqualTime(Current, &(Dump->DState[i]))) {
-          if (!(Options->DumpExtraStream))
-            StoreModelState(Dump->Path, Current, Map, Options, TopoMap,
-              PrecipMap, SnowMap, VegMap, Veg,
-              SoilMap, Soil, Network, ChannelData, LType);
-          if (Options->Extent != POINT) {
-            if (Options->DumpExtraStream)
-              StoreChannelStateExtra(Dump->Path, Current, ChannelData->streams);
-            else
-              StoreChannelState(Dump->Path, Current, ChannelData->streams);
-          }
-        }
-      }
-    }
-
-    /* check which pixels need to be dumped, and dump if needed */
-    for (i = 0; i < Dump->NPix; i++) {
-      y = Dump->Pix[i].Loc.N;
-      x = Dump->Pix[i].Loc.E;
-      
-      /* output variable at the pixel */
-      flag = 2;
-      DumpPix(Current, IsEqualTime(Current, Start), &(Dump->Pix[i].OutFile),
-        &(EvapMap[y][x]), &(PrecipMap[y][x]), &(RadMap[y][x]), &(SnowMap[y][x]),
-        &(SoilMap[y][x]), &(VegMap[y][x]), Soil->NLayers[(SoilMap[y][x].Soil - 1)],
-        Veg->NLayers[(VegMap[y][x].Veg - 1)], Options, flag);
-      fprintf(Dump->Pix[i].OutFile.FilePtr, "\n");
-    }
-
-    /* check which maps need to be dumped at this timestep, and dump maps if needed */
-    for (i = 0; i < Dump->NMaps; i++) {
-      for (j = 0; j < Dump->DMap[i].N; j++) {
-        if (IsEqualTime(Current, &(Dump->DMap[i].DumpDate[j]))) {
-          fprintf(stdout, "Dumping Maps at ");
-          PrintDate(Current, stdout);
-          fprintf(stdout, "\n");
-          DumpMap(Map, Current, &(Dump->DMap[i]), TopoMap, EvapMap,
-            PrecipMap, RadMap, SnowMap, SoilMap, Soil, VegMap,
-            Veg, Network, Options);
-        }
-      }
+  if (Dump->List[OUT_BASIN].N > 0) {
+    CreateSeries(&(Dump->Basin), Dump->Path, "Basin.csv", "Time", "step start",
+                 &(Dump->List[OUT_BASIN]));
+    Dump->BasinHeld = HeldValues(Dump->List[OUT_BASIN].N);
+  }
+  if (Dump->List[OUT_POINT].N > 0) {
+    for (i = 0; i < Dump->NPoints; i++) {
+      snprintf(Name, sizeof(Name), "Point_%s.csv", Dump->Points[i].Name);
+      CreateSeries(&(Dump->Points[i].File), Dump->Path, Name, "Time", "step start",
+                   &(Dump->List[OUT_POINT]));
+      Dump->Points[i].Held = HeldValues(Dump->List[OUT_POINT].N);
     }
   }
+  for (i = 0; i < Dump->NClasses; i++) {
+    snprintf(Name, sizeof(Name), "Class_%d.csv", Dump->Classes[i].Class);
+    CreateSeries(&(Dump->Classes[i].File), Dump->Path, Name, "Time", "step start",
+                 &(Dump->List[OUT_CLASS]));
+    Dump->Classes[i].Held = HeldValues(Dump->List[OUT_CLASS].N);
+  }
+  if (Dump->Streamflow) {
+    CreateSeries(&(Dump->StreamflowFile), Dump->Path, "Streamflow.csv", "Time", "step start",
+                 NULL);
+    for (Segment = Streams; Segment != NULL; Segment = Segment->next)
+      if (Segment->record)
+        fprintf(Dump->StreamflowFile.FilePtr, ",%s", Segment->record_name);
+    fprintf(Dump->StreamflowFile.FilePtr, "\nstep start");
+    for (Segment = Streams; Segment != NULL; Segment = Segment->next)
+      if (Segment->record)
+        fprintf(Dump->StreamflowFile.FilePtr, ",m3/s");
+    fprintf(Dump->StreamflowFile.FilePtr, "\n");
+  }
+  if (Dump->List[OUT_CHANNELS].N > 0) {
+    CreateSeries(&(Dump->Channels), Dump->Path, "Channels.csv", "Time,Segment",
+                 "step start,-", &(Dump->List[OUT_CHANNELS]));
+    Dump->ChannelsHeld = HeldValues(NSegments * Dump->List[OUT_CHANNELS].N);
+  }
+  if (Dump->NetworkSteps > 0) {
+    CreateSeries(&(Dump->Network), Dump->Path, "NetworkDynamics.csv", NULL, NULL, NULL);
+    fprintf(Dump->Network.FilePtr, "%s\n%s\n", NETWORK_COLUMNS, NETWORK_UNITS);
+    Dump->NetworkHeld = HeldValues(NSegments * NETWORK_NCOLUMNS);
+  }
+  CreateMapStacks(Map, Time, Dump);
+}
+
+/* Opens <Path><Name> for writing; with List, writes the names line (First,
+   then the columns) and the units line (FirstUnits, then the units) */
+static void CreateSeries(FILES *File, char *Path, const char *Name, const char *First,
+                         const char *FirstUnits, OUTLIST *List)
+{
+  int i;
+
+  MakePath(File->FileName, sizeof(File->FileName), "%s%s", Path, Name);
+  if (!(File->FilePtr = fopen(File->FileName, "wb")))
+    ReportErrorCode(113, "%s: cannot write", File->FileName);
+  if (First != NULL)
+    fprintf(File->FilePtr, "%s", First);
+  if (List == NULL)
+    return;
+  for (i = 0; i < List->N; i++)
+    fprintf(File->FilePtr, ",%s", List->Vars[i].Name);
+  fprintf(File->FilePtr, "\n%s", FirstUnits);
+  for (i = 0; i < List->N; i++)
+    fprintf(File->FilePtr, ",%s", RegistryRow(List->Vars[i].Var)->Units);
+  fprintf(File->FilePtr, "\n");
+}
+
+/* N held values (NULL for none) */
+static HELDVALUE *HeldValues(int N)
+{
+  HELDVALUE *Held = NULL;
+
+  if (N > 0 && !(Held = (HELDVALUE *) calloc(N, sizeof(HELDVALUE))))
+    ReportError("CreateOutputs", 1);
+  return Held;
 }
 
 /*****************************************************************************
-DumpMap()
+  WriteNumber()
+
+  A value as written in the text outputs: %.9g
 *****************************************************************************/
-void DumpMap(MAPSIZE *Map, DATE *Current, MAPDUMP *DMap, TOPOPIX **TopoMap,
-  EVAPPIX **EvapMap, PRECIPPIX **PrecipMap, PIXRAD **RadMap,
-  SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER *Soil,
-  VEGPIX **VegMap, LAYER *Veg, NETSTRUCT **Network,
-  OPTIONSTRUCT *Options)
+void WriteNumber(FILE *File, double Value)
 {
-  const char *Routine = "DumpMap";
-  char DataLabel[MAXSTRING + 1];
-  int Index;
-  int NSoil;			/* Number of soil layers for current pixel */
-  int NVeg;			/* Number of veg layers for current pixel */
-  int i;			/* counter */
-  int x;			/* counter */
-  int y;			/* counter */
-  void *Array;
-  int numPoints;
-  char VarIDStr[4];		/* stores VarID for sending to ReportError */
-
-  sprintf(DataLabel, "%02d.%02d.%04d.%02d.%02d.%02d", Current->Month,
-    Current->Day, Current->Year, Current->Hour, Current->Min,
-    Current->Sec);
-
-  /* find out what date we are dumping */
-  for (Index = 0; Index < DMap->N; Index++) {
-    if (IsEqualTime(Current, &(DMap->DumpDate[Index])))
-      break;
-  }
-
-  sprintf(VarIDStr, "%d", DMap->ID);
-
-  numPoints = Map->NX * Map->NY;
-
-  switch (DMap->NumberType) {
-  case NC_BYTE:
-    if (!(Array = calloc(numPoints, SizeOfNumberType(NC_BYTE))))
-      ReportError((char *)Routine, 1);
-    break;
-  case NC_CHAR:
-    if (!(Array = calloc(numPoints, SizeOfNumberType(NC_CHAR))))
-      ReportError((char *)Routine, 1);
-    break;
-  case NC_SHORT:
-    if (!(Array = calloc(numPoints, SizeOfNumberType(NC_SHORT))))
-      ReportError((char *)Routine, 1);
-    break;
-  case NC_INT:
-    if (!(Array = calloc(numPoints, SizeOfNumberType(NC_INT))))
-      ReportError((char *)Routine, 1);
-    break;
-
-  case NC_FLOAT:
-    if (!(Array = calloc(numPoints, SizeOfNumberType(NC_FLOAT))))
-      ReportError((char *)Routine, 1);
-    break;
-  case NC_DOUBLE:
-    if (!(Array = calloc(numPoints, SizeOfNumberType(NC_DOUBLE))))
-      ReportError((char *)Routine, 1);
-    break;
-  default:
-    Array = NULL;
-    ReportError((char *)Routine, 40);
-    break;
-  }
-
-  switch (DMap->ID) {
-
-  case 101:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = EvapMap[y][x].ETot;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-        DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 102:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
-            if (DMap->Layer > Veg->MaxLayers)
-              /* soil */
-              ((float *)Array)[y * Map->NX + x] = EvapMap[y][x].EPot[NVeg];
-            else if (DMap->Layer <= NVeg)
-              /* vegetation layer */
-              ((float *)Array)[y * Map->NX + x] =
-              EvapMap[y][x].EPot[DMap->Layer - 1];
-            else
-              /* vegetation layer not present at this pixel */
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-        DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 103:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
-            if (DMap->Layer > Veg->MaxLayers)
-              ((float *)Array)[y * Map->NX + x] = EvapMap[y][x].EInt[NVeg];
-            else if (DMap->Layer <= NVeg)
-              ((float *)Array)[y * Map->NX + x] =
-              EvapMap[y][x].EInt[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 104:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (i = 0; i < Soil->MaxLayers; i++) {
-        for (y = 0; y < Map->NY; y++) {
-          for (x = 0; x < Map->NX; x++) {
-            if (INBASIN(TopoMap[y][x].Mask)) {
-              NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
-              if (DMap->Layer <= NVeg)
-                ((float *)Array)[y * Map->NX + x] =
-                EvapMap[y][x].ESoil[DMap->Layer - 1][i];
-              else
-                ((float *)Array)[y * Map->NX + x] = NA;
-            }
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-        }
-        Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-      }
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 105:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
-            if (DMap->Layer > Veg->MaxLayers)
-              ((float *)Array)[y * Map->NX + x] = EvapMap[y][x].EAct[NVeg];
-            else if (DMap->Layer <= NVeg)
-              ((float *)Array)[y * Map->NX + x] =
-              EvapMap[y][x].EAct[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 201:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].Precip;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 202:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
-            if (DMap->Layer <= NVeg)
-              ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].IntRain[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 203:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
-            if (DMap->Layer <= NVeg)
-              ((float *)Array)[y * Map->NX + x] =
-              PrecipMap[y][x].IntSnow[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 206:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].SumPrecip;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-    /* incoming shortwave radiation with no shading adjustment */
-  case 301:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          ((float *)Array)[y * Map->NX + x] = RadMap[y][x].ObsShortIn;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-    /* net shortwave radiatoin received by the entire pixel*/
-  case 302:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = RadMap[y][x].PixelNetShort;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-
-    /* Net radiation (shortwave+longwave) received by the entire pixel*/
-  case 303:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = RadMap[y][x].NetRadiation[0] + RadMap[y][x].NetRadiation[1];
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 401:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((unsigned char *)Array)[y * Map->NX + x] = SnowMap[y][x].HasSnow;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 402:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((unsigned char *)Array)[y * Map->NX + x] =
-          SnowMap[y][x].SnowCoverOver;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 403:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].LastSnow;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 404:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].Swq;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 405:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].Melt;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 406:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].PackWater;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 407:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].TPack;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 408:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].SurfWater;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 409:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].TSurf;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 410:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].ColdContent;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 411:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].Albedo;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-        DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-    case 412:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SnowMap[y][x].MaxSwe;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-        DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-  
-  case 413:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((unsigned int *)Array)[y * Map->NX + x] = SnowMap[y][x].MaxSweDate;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-        DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 414:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((unsigned int *)Array)[y * Map->NX + x] = SnowMap[y][x].MeltOutDate;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-        DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-    
-  case 415:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].SnowAccum;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-                    DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-    
-  case 416:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = PrecipMap[y][x].SnowMelt;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map,
-                    DMap, Index);
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-    
-  case 501:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
-            if (DMap->Layer <= NSoil)
-              ((float *)Array)[y * Map->NX + x] =
-              SoilMap[y][x].Moist[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 502:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
-            if (DMap->Layer <= NSoil)
-              ((float *)Array)[y * Map->NX + x] =
-              SoilMap[y][x].Perc[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 503:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].TableDepth;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 504:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].SatFlow;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 505:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].TSurf;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 506:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].Qnet;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 507:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].Qs;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 508:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].Qe;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 509:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].Qg;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 510:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].Qst;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 513:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].IExcess;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-
-  case 514:
-    if (Options->Infiltration != DYNAMIC) {
-      ReportError(VarIDStr, 67);
-    }
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++)
-        for (x = 0; x < Map->NX; x++)
-          ((float *)Array)[y * Map->NX + x] = SoilMap[y][x].InfiltAcc;
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-    
-  case 515:
-    if (DMap->Resolution == MAP_OUTPUT) {
-      for (y = 0; y < Map->NY; y++) {
-        for (x = 0; x < Map->NX; x++) {
-          if (INBASIN(TopoMap[y][x].Mask)) {
-            NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
-            if (DMap->Layer <= NSoil)
-              ((float *)Array)[y * Map->NX + x] =
-              SoilMap[y][x].InterFlow[DMap->Layer - 1];
-            else
-              ((float *)Array)[y * Map->NX + x] = NA;
-          }
-          else
-            ((float *)Array)[y * Map->NX + x] = NA;
-        }
-      }
-      Write2DMatrix(DMap->FileName, Array, DMap->NumberType, Map, DMap, Index);
-
-    }
-    else
-      ReportError(VarIDStr, 66);
-    break;
-    
-  }
+  fprintf(File, "%.9g", Value);
 }
 
-/*****************************************************************************
-DumpPix()
-*****************************************************************************/
-void DumpPix(DATE *Current, int first, FILES *OutFile, EVAPPIX *Evap,
-  PRECIPPIX *Precip, PIXRAD *Rad, SNOWPIX *Snow, SOILPIX *Soil,
-  VEGPIX *Veg, int NSoil, int NCanopyStory, OPTIONSTRUCT *Options, int flag)
+/* A field of a series row: the value, or NA */
+static void WriteValue(FILE *File, double Value, int Has)
 {
-  int i, j;			/* counter */
-  float W;      /* available water for runoff - used in NG-IDF */
-  float deltaSWE; /* delta SWE over delta t */
-
-  /* calculate available water for runoff for NG-IDF */
-  if (first == 1)
-    deltaSWE = 0.;
+  fputc(',', File);
+  if (Has)
+    WriteNumber(File, Value);
   else
-    deltaSWE = Snow->OldSwq - Snow->Swq;
-  W = Precip->Precip + deltaSWE + Snow->VaporMassFlux;
-
-  if (W <= 1.e-9)
-    W = 0.;
-
-  if (first == 1) {
-
-    /* Main Aggregate Values File */
-    fprintf(OutFile->FilePtr, "Date ");
-    fprintf(OutFile->FilePtr, "W(mm) ");
-    fprintf(OutFile->FilePtr, "Precip(m) ");
-    fprintf(OutFile->FilePtr, "Snow(m) ");
-    fprintf(OutFile->FilePtr, "IExcess(m) ");
-    fprintf(OutFile->FilePtr, "HasSnow LastSnow Albedo Swq Melt ");
-    fprintf(OutFile->FilePtr, "PackWater TPack SurfWater TSurf ");
-
-    fprintf(OutFile->FilePtr, " TotalET ");   /*total evapotranspiration*/
-    for (i = 0; i < NCanopyStory + 1; i++)
-      fprintf(OutFile->FilePtr, " PotTransp.Story%d ", i); /* potential transpiration */
-    for (i = 0; i < NCanopyStory + 1; i++)
-      fprintf(OutFile->FilePtr, " ActTransp.Story%d ", i); /* Actual transpiration */
-    for (i = 0; i < NCanopyStory; i++)
-      fprintf(OutFile->FilePtr, "  EvapCanopyInt.Story%d ", i);
-    for (i = 0; i < NCanopyStory; i++)
-      for (j = 0; j < NSoil; j++)
-        fprintf(OutFile->FilePtr, " ActTransp.Story%d.Soil%d ", i, j);
-    fprintf(OutFile->FilePtr, " SoilEvap ");
-
-    for (i = 0; i < NCanopyStory; i++)
-      fprintf(OutFile->FilePtr, " IntRain.Story%d ", i);
-    for (i = 0; i < NCanopyStory; i++)
-      fprintf(OutFile->FilePtr, " IntSnow.Story%d ", i);
-
-    for (i = 0; i <= NSoil; i++)
-      fprintf(OutFile->FilePtr, " SoilMoist%d ", (i + 1));
-    for (i = 0; i < NSoil; i++)
-      fprintf(OutFile->FilePtr, " Perc%d ", (i + 1));
-    for (i = 0; i < NSoil; i++)
-      fprintf(OutFile->FilePtr, " InterFlow%d ", (i + 1));
-    fprintf(OutFile->FilePtr, " TableDepth SatFlow DetentionStorage ");
-
-    /* print radiation associated variables */
-    for (i = 0; i < NCanopyStory; i++)
-      fprintf(OutFile->FilePtr, " NetShort.Story%d ", (i + 1));
-    for (i = 0; i < NCanopyStory; i++)
-      fprintf(OutFile->FilePtr, " LongIn.Story%d ", (i + 1));
-    fprintf(OutFile->FilePtr, " PixelNetShort ");
-
-    if (Options->HeatFlux)
-      fprintf(OutFile->FilePtr, " TSurf ");
-
-    fprintf(OutFile->FilePtr, " Soil.Qnet Soil.Qs Soil.Qe Soil.Qg Soil.Qst Ra ");
-    fprintf(OutFile->FilePtr, " Snow.Qsw Snow.Qlw Snow.Qs Snow.Qe Snow.Qp Snow.MeltEnergy ");
-
-    if (TotNumGap > 0)
-      fprintf(OutFile->FilePtr, " Gap.SWE Gap.Qsw Gap.Qlin Gap.Qlw Gap.Qs Gap.Qe Gap.Qp Gap.MeltEnergy ");
-    fprintf(OutFile->FilePtr, " Tair ");
-    if (Options->Infiltration == DYNAMIC)
-      fprintf(OutFile->FilePtr, " InfiltAcc");
-
-    if (flag == 2)
-      if (Veg->Gapping > 0.0 )
-        fprintf(OutFile->FilePtr, "Gap_SW GAP_LW");
-
-    fprintf(OutFile->FilePtr, "\n");
-
-  }
-
-  /* All variables are dumped in the case of a pixel dump */
-  /* Main Aggregate Values File */
-  
-  PrintDate(Current, OutFile->FilePtr);
-  fprintf(OutFile->FilePtr, " %g ", W*1000);
-  fprintf(OutFile->FilePtr, " %g ", Precip->Precip);
-  fprintf(OutFile->FilePtr, " %g ", Precip->SnowFall);
-  fprintf(OutFile->FilePtr, " %g ", Soil->IExcess);
-
-  /* Snow */
-  fprintf(OutFile->FilePtr, " %g %g %g %g %g %g %g %g %g ",
-    ((float) Snow->HasSnow) / 255.0, Snow->LastSnow, Snow->Albedo, Snow->Swq,
-    Snow->Melt, Snow->PackWater, Snow->TPack, Snow->SurfWater, Snow->TSurf);
-
-  fprintf(OutFile->FilePtr, " %g", Evap->ETot);
-
-  /* Potential transpiration */
-  for (i = 0; i < NCanopyStory + 1; i++)
-    fprintf(OutFile->FilePtr, " %g", Evap->EPot[i]);
-  /* Actual transpiration */
-  for (i = 0; i < NCanopyStory + 1; i++)
-    fprintf(OutFile->FilePtr, " %g", Evap->EAct[i]);
-  for (i = 0; i < NCanopyStory; i++)
-    fprintf(OutFile->FilePtr, " %g", Evap->EInt[i]);
-  /* transpiration from each veg layer from each soil layer */
-  for (i = 0; i < NCanopyStory; i++)
-    for (j = 0; j < NSoil; j++)
-      fprintf(OutFile->FilePtr, " %g", Evap->ESoil[i][j]);
-  /* evaporation from uppper soil */
-  fprintf(OutFile->FilePtr, " %g", Evap->EvapSoil);
-
-  for (i = 0; i < NCanopyStory; i++)
-    fprintf(OutFile->FilePtr, " %g", Precip->IntRain[i]);
-  for (i = 0; i < NCanopyStory; i++)
-    fprintf(OutFile->FilePtr, " %g", Precip->IntSnow[i]);
-
-  for (i = 0; i <= NSoil; i++)
-    fprintf(OutFile->FilePtr, " %g ", Soil->Moist[i]);
-  for (i = 0; i < NSoil; i++)
-    fprintf(OutFile->FilePtr, " %g ", Soil->Perc[i]);
-  for (i = 0; i < NSoil; i++)
-    fprintf(OutFile->FilePtr, " %g ", Soil->InterFlow[i]);
-
-  fprintf(OutFile->FilePtr, " %g %g %g ", Soil->TableDepth,
-    Soil->SatFlow, Soil->DetentionStorage);
-
-  for (i = 0; i < NCanopyStory; i++) {
-    fprintf(OutFile->FilePtr, " %g ", Rad->NetShort[i]);
-  }
-
-  for (i = 0; i < NCanopyStory; i++) {
-    fprintf(OutFile->FilePtr, " %g ", Rad->LongIn[i]);
-  }
-
-  fprintf(OutFile->FilePtr, " %g ", Rad->PixelNetShort);
-
-  if (Options->HeatFlux)
-    fprintf(OutFile->FilePtr, " %g ", Soil->TSurf);
-
-  fprintf(OutFile->FilePtr, " %g %g %g %g %g %g ",
-    Soil->Qnet, Soil->Qs, Soil->Qe, Soil->Qg, Soil->Qst, Soil->Ra);
-  fprintf(OutFile->FilePtr, " %g %g %g %g %g %g ",
-    Snow->Qsw, Snow->Qlw, Snow->Qs, Snow->Qe, Snow->Qp, Snow->MeltEnergy);
-
-  if (TotNumGap > 0)
-    fprintf(OutFile->FilePtr, " %g %g %g %g %g %g %g %g ", Veg->Type[Opening].Swq,
-      Veg->Type[Opening].Qsw, Veg->Type[Opening].Qlin, Veg->Type[Opening].Qlw, Veg->Type[Opening].Qs,
-      Veg->Type[Opening].Qe, Veg->Type[Opening].Qp, Veg->Type[Opening].MeltEnergy);
-
-  fprintf(OutFile->FilePtr, " %g ", Rad->Tair);
-
-  if (Options->Infiltration == DYNAMIC)
-    fprintf(OutFile->FilePtr, " %g", Soil->InfiltAcc);
-
-  /* Only report the gap radiations values when dumping pixels instead of basin average */
-  if (flag == 2)
-    if (Veg->Gapping > 0.0)
-      fprintf(OutFile->FilePtr, " %g %g",
-        Veg->Type[Opening].NetShort[1], Veg->Type[Opening].LongIn[1]);
-  
-  /* store SWE */
-  Snow->OldSwq = Snow->Swq;
-
+    fputs("NA", File);
 }
 
-
-#ifdef TOPO_DUMP
-/******************************************************************************/
-/*                                DumpTopo                                    */
-/******************************************************************************/
-void
-DumpTopo(MAPSIZE *Map, TOPOPIX **TopoMap)
+/* One column of a series row with the column's value now, at the end of
+   the row's step: an Interval column writes it; an Instant column writes
+   the value held at the row's time and holds the value now for the next
+   row. Write FALSE (at Start) only holds. */
+static void SeriesColumn(FILE *File, int Write, int Instant, double Value, int Has,
+                         HELDVALUE *Held)
 {
-  int x, y, k;
-  int ntype;
-  float *Array;
-  int numPoints;
-  char FileName[BUFSIZE + 1];
-
-  numPoints = Map->NX*Map->NY;
-
-  if (!(Array = calloc(numPoints, SizeOfNumberType(NC_FLOAT))))
-    ReportError("DumpTopo", 1);
-
-  sprintf(FileName, "%s%s", "DEM", fileext);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        Array[y * Map->NX + x] = TopoMap[y][x].Dem;
-      }
-      else {
-        Array[y * Map->NX + x] = NA;
-      }
-    }
+  if (Instant) {
+    if (Write)
+      WriteValue(File, Held->Value, Held->Has);
+    Held->Value = Value;
+    Held->Has = Has;
   }
-  Write2DMatrix(FileName, Array, NC_FLOAT, Map, NULL, 0);
-
-  sprintf(FileName, "%s%s", "Slope", fileext);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        Array[y * Map->NX + x] = TopoMap[y][x].Slope;
-      }
-      else {
-        Array[y * Map->NX + x] = NA;
-      }
-    }
-  }
-  Write2DMatrix(FileName, Array, NC_FLOAT, Map, NULL, 0);
-
-
-  sprintf(FileName, "%s%s", "Mask", fileext);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        Array[y * Map->NX + x] = (float)TopoMap[y][x].Mask;
-      }
-      else {
-        Array[y * Map->NX + x] = NA;
-      }
-    }
-  }
-  Write2DMatrix(FileName, Array, NC_FLOAT, Map, NULL, 0);
-
-  sprintf(FileName, "%s%s", "Aspect", fileext);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        Array[y * Map->NX + x] = (float)TopoMap[y][x].Aspect;
-      }
-      else {
-        Array[y * Map->NX + x] = NA;
-      }
-    }
-  }
-  Write2DMatrix(FileName, Array, NC_FLOAT, Map, NULL, 0);
-
-  sprintf(FileName, "%s%s", "TotalDir", fileext);
-  for (y = 0; y < Map->NY; y++) {
-    for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        Array[y * Map->NX + x] = (float)TopoMap[y][x].TotalDir;
-      }
-      else {
-        Array[y * Map->NX + x] = NA;
-      }
-    }
-  }
-  Write2DMatrix(FileName, Array, NC_FLOAT, Map, NULL, 0);
-
-  for (k = 0; k < NDIRS; k++) {
-    sprintf(FileName, "%s%d%s", "Dir", k, fileext);
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          Array[y * Map->NX + x] = (float)TopoMap[y][x].Dir[k];
-        }
-        else {
-          Array[y * Map->NX + x] = NA;
-        }
-      }
-    }
-    Write2DMatrix(FileName, Array, NC_FLOAT, Map, NULL, 0);
-  }
-
-
-  free(Array);
+  else if (Write)
+    WriteValue(File, Value, Has);
 }
 
+/*****************************************************************************
+  WriteSeriesRows()
+
+  The rows of the time step starting at Current, written when it has
+  ended: basin means and basin variables, class means, point values.
+  Write FALSE: only the Instant values are held (at Start).
+*****************************************************************************/
+void WriteSeriesRows(DATE *Current, MODELVIEW *Model, TOTALS *Totals, DUMPSTRUCT *Dump,
+                     int Write)
+{
+  OUTLIST *List;
+  OUTVAR *Var;
+  FILE *File = NULL;
+  char Time[NAMESIZE + 1];
+  float Value;
+  int Has;
+  int i, k;
+
+  if (Write)
+    SPrintIsoDate(Current, Time);
+
+  List = &(Dump->List[OUT_BASIN]);
+  if (List->N > 0) {
+    if (Write) {
+      File = Dump->Basin.FilePtr;
+      fputs(Time, File);
+    }
+    for (i = 0; i < List->N; i++) {
+      Var = &(List->Vars[i]);
+      if (Write || Var->Instant)
+        SeriesColumn(File, Write, Var->Instant, BasinValue(Totals, Var->Code, Var->Layer), TRUE,
+                     &(Dump->BasinHeld[i]));
+    }
+    if (Write)
+      fputc('\n', File);
+  }
+
+  List = &(Dump->List[OUT_CLASS]);
+  for (k = 0; k < Dump->NClasses; k++) {
+    if (Write) {
+      File = Dump->Classes[k].File.FilePtr;
+      fputs(Time, File);
+    }
+    for (i = 0; i < List->N; i++) {
+      Var = &(List->Vars[i]);
+      if (Write || Var->Instant)
+        SeriesColumn(File, Write, Var->Instant,
+                     AggregateValue(&(Totals->Class[k]), Var->Code, Var->Layer), TRUE,
+                     &(Dump->Classes[k].Held[i]));
+    }
+    if (Write)
+      fputc('\n', File);
+  }
+
+  List = &(Dump->List[OUT_POINT]);
+  if (List->N > 0) {
+    for (k = 0; k < Dump->NPoints; k++) {
+      if (Write) {
+        File = Dump->Points[k].File.FilePtr;
+        fputs(Time, File);
+      }
+      for (i = 0; i < List->N; i++) {
+        Var = &(List->Vars[i]);
+        if (!(Write || Var->Instant))
+          continue;
+        Value = CellValue(Var->Code, Var->Layer, Model, Dump->Points[k].y, Dump->Points[k].x,
+                          &Has);
+        SeriesColumn(File, Write, Var->Instant, Value, Has, &(Dump->Points[k].Held[i]));
+      }
+      if (Write)
+        fputc('\n', File);
+    }
+  }
+}
+
+/*****************************************************************************
+  WriteChannelRows()
+
+  The rows of time step Step (0 = the first), starting at Current, written
+  when it has ended: outflow of the saved segments, the requested variables
+  of every segment, and the network dynamics every NetworkSteps steps (its
+  storage held every step). Write FALSE: only the Instant values are held
+  (at Start).
+*****************************************************************************/
+void WriteChannelRows(DATE *Current, int Step, MODELVIEW *Model, DUMPSTRUCT *Dump,
+                      int Write)
+{
+  OUTLIST *List = &(Dump->List[OUT_CHANNELS]);
+  OUTVAR *Var;
+  Channel *Segment;
+  FILE *File = NULL;
+  char Time[NAMESIZE + 1];
+  int Instant[NETWORK_NCOLUMNS];
+  int WriteNetwork;
+  int i, s;
+
+  if (Write)
+    SPrintIsoDate(Current, Time);
+
+  if (Dump->Streamflow && Write) {
+    File = Dump->StreamflowFile.FilePtr;
+    fputs(Time, File);
+    for (Segment = Model->Streams; Segment != NULL; Segment = Segment->next) {
+      if (Segment->record) {
+        fputc(',', File);
+        WriteNumber(File, SegmentValue(V_CHANNEL_OUTFLOW, Segment, Model->Dt));
+      }
+    }
+    fputc('\n', File);
+  }
+
+  if (List->N > 0) {
+    File = Dump->Channels.FilePtr;
+    for (Segment = Model->Streams, s = 0; Segment != NULL; Segment = Segment->next, s++) {
+      if (Write)
+        fprintf(File, "%s,%d", Time, (int) Segment->id);
+      for (i = 0; i < List->N; i++) {
+        Var = &(List->Vars[i]);
+        if (Write || Var->Instant)
+          SeriesColumn(File, Write, Var->Instant, SegmentValue(Var->Code, Segment, Model->Dt),
+                       TRUE, &(Dump->ChannelsHeld[s * List->N + i]));
+      }
+      if (Write)
+        fputc('\n', File);
+    }
+  }
+
+  if (Dump->NetworkSteps > 0) {
+    File = Dump->Network.FilePtr;
+    WriteNetwork = Write && (Step % Dump->NetworkSteps == 0);
+    for (i = 0; i < NETWORK_NCOLUMNS; i++)
+      Instant[i] = !RegistryIsInterval(CodeVar(NetworkCodes[i]));
+    for (Segment = Model->Streams, s = 0; Segment != NULL; Segment = Segment->next, s++) {
+      if (WriteNetwork)
+        fprintf(File, "%s,%d", Time, (int) Segment->id);
+      for (i = 0; i < NETWORK_NCOLUMNS; i++) {
+        if (WriteNetwork || Instant[i])
+          SeriesColumn(File, WriteNetwork, Instant[i],
+                       SegmentValue(NetworkCodes[i], Segment, Model->Dt), TRUE,
+                       &(Dump->NetworkHeld[s * NETWORK_NCOLUMNS + i]));
+      }
+      if (WriteNetwork)
+        fputc('\n', File);
+    }
+  }
+}
+
+/*****************************************************************************
+  HoldStartValues()
+
+  The Instant values at Start of every series file (after the aggregation
+  before the first step), held for the first rows
+*****************************************************************************/
+void HoldStartValues(MODELVIEW *Model, TOTALS *Totals, DUMPSTRUCT *Dump)
+{
+  WriteSeriesRows(NULL, Model, Totals, Dump, FALSE);
+#ifndef SNOW_ONLY
+  WriteChannelRows(NULL, 0, Model, Dump, FALSE);
 #endif
+}
+
+/*****************************************************************************
+  ExecDump()
+
+  Everything written after time step StepsDone (1 = the first) has ended:
+  the series rows of the step starting at Current, the snapshots valid at
+  its end, the map layers due
+*****************************************************************************/
+void ExecDump(MAPSIZE *Map, DATE *Current, int StepsDone, MODELVIEW *Model, TOTALS *Totals,
+              DUMPSTRUCT *Dump, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, CHANNEL *ChannelData,
+              LAKETABLE *LType)
+{
+  WriteSeriesRows(Current, Model, Totals, Dump, TRUE);
+#ifndef SNOW_ONLY
+  WriteChannelRows(Current, StepsDone - 1, Model, Dump, TRUE);
+#endif
+  StoreSnapshots(StepsDone, Map, Dump, Model->Topo, PrecipMap, SnowMap, Model->Veg,
+                 Model->VType, Model->Soil, ChannelData, LType);
+  WriteMapLayers(StepsDone, Model, Dump);
+}
+
+/*****************************************************************************
+  StoreSnapshots()
+
+  Writes the snapshots ([RUN] State Time n) valid after StepsDone time steps
+*****************************************************************************/
+void StoreSnapshots(int StepsDone, MAPSIZE *Map, DUMPSTRUCT *Dump,
+  TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, VEGPIX **VegMap,
+  VEGTABLE *VType, SOILPIX **SoilMap, CHANNEL *ChannelData, LAKETABLE *LType)
+{
+  int i;
+
+  for (i = 0; i < Dump->NStates; i++) {
+    if (Dump->StateStep[i] == StepsDone)
+      StoreModelState(Dump->Path, &(Dump->DState[i]), Map, TopoMap, PrecipMap,
+                      SnowMap, VegMap, VType, SoilMap, ChannelData, LType);
+  }
+}
+
+/*****************************************************************************
+  CloseOutputs()
+
+  Closes every output file; a write error is error 113
+*****************************************************************************/
+void CloseOutputs(DUMPSTRUCT *Dump)
+{
+  int i;
+
+  if (Dump->List[OUT_BASIN].N > 0)
+    CloseFile(&(Dump->Basin));
+  if (Dump->List[OUT_POINT].N > 0)
+    for (i = 0; i < Dump->NPoints; i++)
+      CloseFile(&(Dump->Points[i].File));
+  for (i = 0; i < Dump->NClasses; i++)
+    CloseFile(&(Dump->Classes[i].File));
+  if (Dump->Streamflow)
+    CloseFile(&(Dump->StreamflowFile));
+  if (Dump->List[OUT_CHANNELS].N > 0)
+    CloseFile(&(Dump->Channels));
+  if (Dump->NetworkSteps > 0)
+    CloseFile(&(Dump->Network));
+}
+
+static void CloseFile(FILES *File)
+{
+  if (ferror(File->FilePtr) || fclose(File->FilePtr) != 0)
+    ReportErrorCode(113, "%s: cannot write", File->FileName);
+}

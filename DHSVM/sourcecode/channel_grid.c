@@ -9,7 +9,6 @@
 #include <string.h>
 
 #include "channel_grid.h"
-#include "tableio.h"
 #include "errorhandler.h"
 #include "settings.h"
 #include "data.h"
@@ -32,6 +31,7 @@ char channel_grid_has_intersection(ChannelMapPtr **map, int Currid, int Nextid, 
 static int channel_grid_cols = 0;
 static int channel_grid_rows = 0;
 static char channel_grid_initialized = FALSE;
+static ChannelMapPtr channel_grid_rows_head = NULL; /* records in channel cell table order */
 
 /* -------------------------------------------------------------
  channel_grid_init
@@ -63,8 +63,11 @@ static ChannelMapRec *alloc_channel_map_record(void)
   p->avail_water = 0.0;
   p->satflow = 0.0;
   p->channel = NULL;
+  p->row = 0;
+  p->col = 0;
   p->next = NULL;
   p->next_seg = NULL;
+  p->next_row = NULL;
   return (p);
 }
 
@@ -136,90 +139,33 @@ void channel_grid_free_map(ChannelMapPtr ** map)
    ------------------------------------------------------------- */
 
 /* -------------------------------------------------------------
-   channel_grid_read_map
+   channel_grid_create_records
+   Builds the channel records of the grid cells from the rows of the
+   channel cell table (Row and Column from 1; in table order, so the
+   records of a cell keep the order of their rows). Each record's
+   infiltration rate is the vertical conductivity of the soil layer
+   holding the bottom of its channel cut.
    ------------------------------------------------------------- */
-ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
-				      SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap)
+ChannelMapPtr **channel_grid_create_records(Channel *net, int N, int *Row, int *Column,
+                                            int *Segment, float *Length, float *CutHeight,
+                                            float *CutWidth, SOILTABLE *SType,
+                                            SOILPIX **SoilMap, VEGTABLE *VType,
+                                            VEGPIX **VegMap)
 {
   ChannelMapPtr **map;
-  static const int fields = 6;
-  static TableField map_fields[6] = {
-    {"Column", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
-    {"Row", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
-    {"Segment ID", TABLE_INTEGER, TRUE, FALSE, {0.0}, "", NULL},
-    {"Segment Length", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Cut Height", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL},
-    {"Cut Width", TABLE_REAL, TRUE, FALSE, {0.0}, "", NULL}
-  };
-  int done, err = 0;
+  int i;
+  int row, col;
   int iSoil;
   float Depth;
-
-  if (!channel_grid_initialized) {
-    error_handler(ERRHDL_ERROR,
-		  "channel_grid_read_map: channel_grid module not initialized");
-    return NULL;
-  }
-
-  error_handler(ERRHDL_STATUS,
-		"channel_grid_read_map: reading file \"%s\"", file);
-
-  if (table_open(file) != 0) {
-    error_handler(ERRHDL_ERROR,
-		  "channel.grid_read_map: unable to read file \"%s\"", file);
-    return NULL;
-  }
+  ChannelMapPtr cell;
+  ChannelMapPtr last_row = NULL;
 
   map = channel_grid_create_map(channel_grid_cols, channel_grid_rows);
+  channel_grid_rows_head = NULL;
 
-  done = FALSE;
-  while (!done) {
-    int i;
-    int row = 0, col = 0;
-    int rec_err = 0;
-    ChannelMapPtr cell;
-
-    done = (table_get_fields(fields, map_fields) < 0);
-    if (done) {
-      for (i = 0; i < fields; i++) {
-	if (map_fields[i].read)
-	  break;
-      }
-      if (i >= fields)
-	continue;
-    }
-
-    if (map_fields[0].read) {
-      if (map_fields[0].value.integer < 0 ||
-	  map_fields[0].value.integer >= channel_grid_cols) {
-	rec_err++;
-      }
-      else {
-	col = map_fields[0].value.integer;
-      }
-    }
-    else {
-      rec_err++;
-    }
-    if (map_fields[1].read) {
-      if (map_fields[1].value.integer < 0 ||
-	  map_fields[1].value.integer >= channel_grid_rows) {
-	rec_err++;
-      }
-      else {
-	row = map_fields[1].value.integer;
-      }
-    }
-    else {
-      rec_err++;
-    }
-
-    if (rec_err) {
-      error_handler(ERRHDL_ERROR,
-		    "%s: line %d: bad coordinates", file, table_lineno());
-      err++;
-      continue;
-    }
+  for (i = 0; i < N; i++) {
+    row = Row[i] - 1;
+    col = Column[i] - 1;
 
     if (map[col][row] != NULL) {
       cell = map[col][row];
@@ -232,57 +178,19 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
       map[col][row] = alloc_channel_map_record();
       cell = map[col][row];
     }
-    
-    for (i = 2; i < fields; i++) {
-      if (map_fields[i].read) {
-	switch (i) {
-	case 2:
-	  if ((cell->channel =
-	       channel_find_segment(net,
-				    map_fields[i].value.integer)) == NULL) {
-	    error_handler(ERRHDL_ERROR,
-			  "%s, line %d: unable to locate segment %d", file,
-			  table_lineno(), map_fields[i].value.integer);
-	    err++;
-	  }
-	  break;
-	case 3:
-	  cell->length = map_fields[i].value.real;
-	  if (cell->length < 0.0) {
-	    error_handler(ERRHDL_ERROR,
-			  "%s, line %d: bad length", file, table_lineno());
-	    err++;
-	  }
-	  break;
-	case 4:
-	  cell->cut_height = map_fields[i].value.real;
-	  if (cell->cut_height > SoilMap[row][col].Depth) {
-	    /* Override cut depths with 95% of soil depth */
-	    cell->cut_height = SoilMap[row][col].Depth*0.95;
-	  }
-	  if (cell->cut_height < 0.0
-	      || cell->cut_height > SoilMap[row][col].Depth) {
-	    error_handler(ERRHDL_ERROR, "%s, line %d: bad cut_depth", file,
-			  table_lineno());
-	    err++;
-	  }
-	  break;
-	case 5:
-	  cell->cut_width = map_fields[i].value.real;
-	  if (cell->cut_width < 0.0) {
-	    error_handler(ERRHDL_ERROR,
-			  "%s, line %d: bad cut_width", file, table_lineno());
-	    err++;
-	  }
-	  break;
-	default:
-	  error_handler(ERRHDL_FATAL,
-			"channel_grid_read_map: this should not happen");
-	  break;
-	  }
-    }
-    }
-    
+    cell->row = row;
+    cell->col = col;
+    if (last_row == NULL)
+      channel_grid_rows_head = cell;
+    else
+      last_row->next_row = cell;
+    last_row = cell;
+
+    cell->channel = channel_find_segment(net, (SegmentID) Segment[i]);
+    cell->length = Length[i];
+    cell->cut_height = CutHeight[i];
+    cell->cut_width = CutWidth[i];
+
     /* Set infiltration rate to vertical hydraulic conductivity
        of soil layer containing bottom of channel cut */
     Depth = 0.0;
@@ -296,26 +204,9 @@ ChannelMapPtr **channel_grid_read_map(Channel *net, const char *file,
       cell->infiltration_rate = SoilMap[row][col].KsVert[iSoil - 1];
     else /* Channel bottom is below root zone */
       cell->infiltration_rate = SoilMap[row][col].KsVert[iSoil];
-    
+
     /* Initialize available storage for re-infiltration */
     cell->avail_water = 0.0;
-  }
-
-  table_errors += err;
-  error_handler(ERRHDL_STATUS,
-		"channel_grid_read_map: %s: %d errors, %d warnings",
-		file, table_errors, table_warnings);
-
-  table_close();
-
-  error_handler(ERRHDL_STATUS,
-		"channel_grid_read_map: done reading file \"%s\"", file);
-
-  if (table_errors) {
-    error_handler(ERRHDL_ERROR,
-		  "channel_grid_read_map: %s: too many errors", file);
-    channel_grid_free_map(map);
-    map = NULL;
   }
 
   return (map);
@@ -686,49 +577,22 @@ void channel_grid_inc_inflow(ChannelMapPtr ** map, int col, int row, float mass)
      }
    */
 
-  while (cell != NULL) {
-    cell->channel->lateral_inflow += mass * cell->length / len;
-    cell = cell->next;
-  }
-}
-
-/* -------------------------------------------------------------
- channel_grid_max_records
- Largest number of channel segments (stream map records) in one cell
- ------------------------------------------------------------- */
-int channel_grid_max_records(ChannelMapPtr ** map)
-{
-  ChannelMapPtr cell;
-  int col, row, n, max_records = 0;
-
-  if (map == NULL)
-    return 0;
-  for (col = 0; col < channel_grid_cols; col++) {
-    for (row = 0; row < channel_grid_rows; row++) {
-      n = 0;
-      for (cell = map[col][row]; cell != NULL; cell = cell->next)
-        n++;
-      if (n > max_records)
-        max_records = n;
+  if (len > 0.0) {
+    while (cell != NULL) {
+      cell->channel->lateral_inflow += mass * cell->length / len;
+      cell = cell->next;
     }
   }
-  return max_records;
 }
 
 /* -------------------------------------------------------------
- channel_grid_record
- The k-th (from 0) stream map record in a cell, in stream map file order,
- or NULL if the cell has fewer records
+ channel_grid_first_row
+ The first channel record in the order of the channel cell table
+ (follow next_row for the others), NULL without channels
  ------------------------------------------------------------- */
-ChannelMapPtr channel_grid_record(ChannelMapPtr ** map, int col, int row, int k)
+ChannelMapPtr channel_grid_first_row(void)
 {
-  ChannelMapPtr cell;
-
-  if (map == NULL)
-    return NULL;
-  for (cell = map[col][row]; cell != NULL && k > 0; k--)
-    cell = cell->next;
-  return cell;
+  return channel_grid_rows_head;
 }
 
 /* -------------------------------------------------------------
