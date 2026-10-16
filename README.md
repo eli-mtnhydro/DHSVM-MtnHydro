@@ -1,10 +1,9 @@
-<h1>Distributed Hydrology Soil Vegetation Model (DHSVM) </h1>
+<h1>Distributed Hydrology Soil Vegetation Model - eXtra (DHSVM-X) </h1>
 
-This repository is an EXPERIMENTAL version implementing updates and fixes to the Distributed Hydrology Soil Vegetation Model (DHSVM).
-This code is NOT yet part of the official PNNL DHSVM version--use at your own risk.
+This repository is a substantially rebuilt and scientifically enhanced hydrological modeling platform building on the legacy of the Distributed Hydrology Soil Vegetation Model (DHSVM). The model is used for a wide range of research and operations projects by Mountain Hydrology LLC and Chief Scientist Eli Boardman.
 
 Please refer to MountainHydrology.com for further information or to get in touch.
 
-**Current stable release: https://github.com/eli-mtnhydro/DHSVM-MtnHydro/releases**
+**Current release, with history of major improvements: https://github.com/eli-mtnhydro/DHSVM-MtnHydro/releases**
 
-**Uage of this modified version of DHSVM is subject to the terms of the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International license by noncommerical entities only. Please contact web.inquiry@mountainhydrology.com if you are interested in using this code in a commercial context.** 
+**Usage of this custom codebase is subject to the terms of the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International license by noncommerical entities only. Please contact web.inquiry@mountainhydrology.com if you are interested in using this code in a commercial context.** 
