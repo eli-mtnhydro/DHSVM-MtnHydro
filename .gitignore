@@ -2,5 +2,5 @@
 *.o
 *.exe
 DHSVM/sourcecode/DHSVM_X.*
-Note.txt
+GitHubNotes.txt
 CommitMsg.txt

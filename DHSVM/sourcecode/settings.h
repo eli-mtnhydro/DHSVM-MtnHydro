@@ -24,7 +24,7 @@ typedef unsigned int unint;
 
 #define DHSVM_HUGE     (1e20)
 
-#define DHSVM_VERSION  "X.3.0"	/* the [RUN] Model Version this executable reads */
+#define DHSVM_VERSION  "X.3.1"	/* the [RUN] Model Version this executable reads */
 
 /* When compiling DHSVM using Microsoft C++ define MSC++ at compile time.
    Microsoft C++ treats all numeric constants as doubles, and issues a
