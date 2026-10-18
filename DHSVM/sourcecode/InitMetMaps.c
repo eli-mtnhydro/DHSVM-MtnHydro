@@ -66,7 +66,7 @@ void InitEvapMap(MAPSIZE *Map, EVAPPIX ***EvapMap, SOILPIX **SoilMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
+        NVeg = Veg->MaxLayers;	/* room for any class (vegetation updates) */
         NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
         
         if (!((*EvapMap)[y][x].EPot =
@@ -119,7 +119,7 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
+        NVeg = Veg->MaxLayers;	/* room for any class (vegetation updates) */
         if (!((*PrecipMap)[y][x].IntRain =
           (float *)calloc(NVeg, sizeof(float))))
           ReportError((char *)Routine, 1);
@@ -130,7 +130,7 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        NVeg = Veg->NLayers[(VegMap[y][x].Veg - 1)];
+        NVeg = Veg->MaxLayers;	/* room for any class (vegetation updates) */
         if (!((*PrecipMap)[y][x].IntSnow =
           (float *)calloc(NVeg, sizeof(float))))
           ReportError((char *)Routine, 1);

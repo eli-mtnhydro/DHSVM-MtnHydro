@@ -27,7 +27,7 @@ SlopeAspect.o SnowInterception.o SnowMelt.o SnowPackEnergyBalance.o \
 StabilityCorrection.o StoreModelState.o      \
 SurfaceEvaporation.o SurfaceRouting.o UnsaturatedFlow.o WaterTableDepth.o  \
 channel.o channel_grid.o equal.o errorhandler.o globals.o Tables.o \
-DistributeSatflow.o SnowStats.o Validate.o
+DistributeSatflow.o SnowStats.o Validate.o VegUpdates.o
 
 SRCS = $(OBJS:%.o=%.c)
 

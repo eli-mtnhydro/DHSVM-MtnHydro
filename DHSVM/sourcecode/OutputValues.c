@@ -23,10 +23,13 @@ static const struct {
   {"Met.Snowfall", V_MET_SNOWFALL},
   {"Met.Rainfall", V_MET_RAINFALL},
   {"Met.AirTemperature", V_MET_AIRTEMPERATURE},
+  {"Met.WindSpeed", V_MET_WINDSPEED},
+  {"Met.RelativeHumidity", V_MET_RELATIVEHUMIDITY},
   {"Met.PrecipitationWaterYear", V_MET_PRECIPITATIONWATERYEAR},
   {"Rad.ShortwaveInObserved", V_RAD_SHORTWAVEINOBSERVED},
   {"Rad.ShortwaveIn", V_RAD_SHORTWAVEIN},
   {"Rad.NetShortwave", V_RAD_NETSHORTWAVE},
+  {"Rad.LongwaveIn", V_RAD_LONGWAVEIN},
   {"Rad.CanopyNetShortwave", V_RAD_CANOPYNETSHORTWAVE},
   {"Rad.CanopyLongwaveIn", V_RAD_CANOPYLONGWAVEIN},
   {"Rad.NetRadiation", V_RAD_NETRADIATION},
@@ -204,10 +207,13 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
   case V_MET_SNOWFALL: return Precip->SnowFall;
   case V_MET_RAINFALL: return Precip->RainFall;
   case V_MET_AIRTEMPERATURE: return Rad->Tair;
+  case V_MET_WINDSPEED: return Rad->Wind;
+  case V_MET_RELATIVEHUMIDITY: return Rad->Rh;
   case V_MET_PRECIPITATIONWATERYEAR: return Precip->SumPrecip;
   case V_RAD_SHORTWAVEINOBSERVED: return Rad->ObsShortIn;
   case V_RAD_SHORTWAVEIN: return Rad->BeamIn + Rad->DiffuseIn;
   case V_RAD_NETSHORTWAVE: return Rad->PixelNetShort;
+  case V_RAD_LONGWAVEIN: return Rad->PixelLongIn;
   case V_RAD_CANOPYNETSHORTWAVE: return Rad->NetShort[Index];
   case V_RAD_CANOPYLONGWAVEIN: return Rad->LongIn[Index];
   case V_RAD_NETRADIATION: return Rad->NetRadiation[0] + Rad->NetRadiation[1];

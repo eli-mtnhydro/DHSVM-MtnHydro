@@ -223,8 +223,8 @@ void WriteSeriesRows(DATE *Current, MODELVIEW *Model, TOTALS *Totals, DUMPSTRUCT
       Var = &(List->Vars[i]);
       if (Write || Var->Instant)
         SeriesColumn(File, Write, Var->Instant,
-                     AggregateValue(&(Totals->Class[k]), Var->Code, Var->Layer), TRUE,
-                     &(Dump->Classes[k].Held[i]));
+                     AggregateValue(&(Totals->Class[k]), Var->Code, Var->Layer),
+                     Totals->Class[k].NCells > 0, &(Dump->Classes[k].Held[i]));
     }
     if (Write)
       fputc('\n', File);

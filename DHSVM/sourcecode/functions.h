@@ -28,6 +28,24 @@ void ApplyParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
   TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, VEGTABLE *VType,
   SOILPIX ***SoilMap, VEGPIX ***VegMap, SNOWPIX **SnowMap, int Dt);
 
+void SetCellVegetation(OPTIONSTRUCT *Options, VEGTABLE *Veg, VEGPIX *Cell, float Cover,
+  float LAI, float OverstoryHeight, float UnderstoryHeight, int y, int x);
+
+void SetCellMonth(OPTIONSTRUCT *Options, VEGTABLE *VType, VEGPIX *Cell, int Month);
+
+void InitVegUpdateTimes(LISTPTR Input, OPTIONSTRUCT *Options, TIMESTRUCT *Time);
+
+void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUTMAPS *Raw,
+  LAYER *Veg, VEGTABLE *VType);
+
+void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOPIX **TopoMap,
+  LAYER *Veg, VEGTABLE *VType, VEGPIX **VegMap, SOILTABLE *SType, SOILPIX **SoilMap,
+  SNOWPIX **SnowMap, PRECIPPIX **PrecipMap, CHANNEL *ChannelData);
+
+void ValidateVegMaps(MAPSIZE *Map, unsigned char *Mask, unsigned char *VegClass, float *Cover,
+  float *LAI, float *OverstoryHeight, float *UnderstoryHeight, unsigned char *BaseClass,
+  LAYER *Veg, VEGTABLE *VType, const char *Suffix);
+
 void CheckInputFiles(LISTPTR Input, OPTIONSTRUCT *Options, int PointTable);
 
 unsigned char dequal(double a, double b);
@@ -139,13 +157,15 @@ uchar IsStationLocation(COORD *Loc, int NStats, METLOCATION *Station,
 			int *WhichStation);
 
 float LapseT(float Temp, float FromElev, float ToElev, float LapseRate);
- 
+float AirPressure(float Elev, float LapseRate);
+
 PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
-			OPTIONSTRUCT *Options, int NStats, METLOCATION *Stat, 
+			OPTIONSTRUCT *Options, int NStats, METLOCATION *Stat,
       uchar *MetWeights, float LocalElev, PIXRAD *RadMap,
-			PRECIPPIX *PrecipMap, 
+			PRECIPPIX *PrecipMap,
 			float **PrismMap, float **SnowPatternMap, SNOWPIX *LocalSnow,
-			float precipMultiplier, int Month, double ShadeFactor, float SkyView);
+			float precipMultiplier, int Month, double ShadeFactor, float SkyView,
+			float WindScale);
 
 void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
                        float SineSolarAltitude, float DX, float DY,

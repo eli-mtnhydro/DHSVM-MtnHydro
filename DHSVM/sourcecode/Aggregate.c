@@ -187,12 +187,15 @@ static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, in
   ADD(V_MET_SNOWFALL, 0, Precip->SnowFall);
   ADD(V_MET_RAINFALL, 0, Precip->RainFall);
   ADD(V_MET_AIRTEMPERATURE, 0, Rad->Tair);
+  ADD(V_MET_WINDSPEED, 0, Rad->Wind);
+  ADD(V_MET_RELATIVEHUMIDITY, 0, Rad->Rh);
   ADD(V_MET_PRECIPITATIONWATERYEAR, 0, Precip->SumPrecip);
   ADD(V_RAD_SHORTWAVEINOBSERVED, 0, Rad->ObsShortIn);
   ADD(V_RAD_SHORTWAVEIN, 0, Rad->BeamIn);
   for (t = 0; t < NTarget; t++)
     Target[t]->Sum[SlotDiffuse] += Rad->DiffuseIn;
   ADD(V_RAD_NETSHORTWAVE, 0, Rad->PixelNetShort);
+  ADD(V_RAD_LONGWAVEIN, 0, Rad->PixelLongIn);
   Term = Rad->NetRadiation[0] + Rad->NetRadiation[1];
   ADD(V_RAD_NETRADIATION, 0, Term);
 
@@ -295,6 +298,10 @@ static void FinishAggregate(AGGREGATE *Aggregate, int Dt)
   float Beam, Diffuse;
   int NSnow = (Aggregate->NSnow < 1) ? 1 : Aggregate->NSnow;
   int Code, k, s;
+
+  /* A class without cells (vegetation updates): no means (NA) */
+  if (Aggregate->NCells == 0)
+    return;
 
   for (Code = 0; Code < NVALUECODES; Code++) {
     for (k = 0; k < NLayers[Code]; k++) {

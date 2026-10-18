@@ -194,6 +194,7 @@ typedef struct {
   float Lin;					/* Incoming longwave (W/m^2) */
   float ClearIndex;				/* Cloudiness index */
   float Precip;					/* Precipitation if available (m) */
+  float Q;					/* Specific humidity at the station (kg/kg) */
 } MET;
 
 #define NMETCOLUMNS 7			/* Time and the six values of a station data file */
@@ -227,6 +228,18 @@ typedef struct {
   char fileprefix[BUFSIZE + 1]; /* file path */
 } GRID;
 
+/* Vegetation updates: at each instant the five Veg.* maps of the cells are
+   replaced by the maps <Directory>Veg.<Variable>.<stamp>.map */
+typedef struct {
+  int N;                        /* Updates in the config */
+  DATE *Time;                   /* Instant of each update */
+  long long *Step;              /* Time steps from Start to each update (negative before Start) */
+  char Directory[BUFSIZE + 1];  /* Directory of the update maps, ending in a separator */
+  int Next;                     /* First update applied during the run */
+  unsigned char *BaseClass;     /* Veg.Class as given, every cell */
+  unsigned char *Present;       /* Per vegetation class: TRUE if an update gives it to a mask cell */
+} VEGUPDATES;
+
 typedef struct {
   int FlowGradient;			/* Specifies whether the flow gradient is based
                            on the terrain elevation (TOPOGRAPHY) or the 
@@ -244,6 +257,7 @@ typedef struct {
                            station normals are used to interpolate precipitation */
   int SnowPattern;		  /* If TRUE, user supplied snow map will be used to redistribute precipitation */
   int MeltScale;        /* TRUE: the melt of every cell times its Snow.MeltScale value */
+  int WindScale;        /* TRUE: the wind of every cell times its Met.WindScale value */
   int CanopyRadAtt;			/* Radiation attenuation through the canopy, either FIXED (old method) or VARIABLE */
   int Shading;					/* if TRUE then terrain shading for solar is on */
   float MaxInterpDistance; /* Maximum station distance of the inverse distance interpolation (m) */
@@ -262,6 +276,7 @@ typedef struct {
   MAPFILE PrecipPattern;       /* Monthly precipitation pattern map, open during the run */
   MAPFILE HorizonAngle;        /* Horizon angle map, open until the shading is set up */
   char LakeTablePath[BUFSIZE + 1];    /* Lake table, for messages */
+  VEGUPDATES VegUpdates;       /* Vegetation maps replaced during the run */
 } OPTIONSTRUCT;
 
 /* The input maps as read, before the parameters apply (each array NY x NX
@@ -283,6 +298,7 @@ typedef struct {
   float *UnderstoryHeight;
   float *SnowPattern;
   float *MeltScale;
+  float *WindScale;
   float *InitialSWE;
   float *SkyView;
 } INPUTMAPS;
@@ -312,6 +328,8 @@ typedef struct {
   float BeamIn;             /* Incoming beam radiation */
   float DiffuseIn;          /* Incomning diffuse radiation */
   float Tair;               /* Air temperature */
+  float Wind;               /* Wind speed at the reference height (m/s) */
+  float Rh;                 /* Relative humidity (%) */
 } PIXRAD;
 
 typedef struct {
@@ -510,6 +528,7 @@ typedef struct {
   uchar LateralDir;    /* Direction of downhill grid cell for unsaturated flow */
   float CosSlope;    /* Cosine of slope for unsaturated flow partitioned downslope */
   float SinSlope;    /* Sine of slope for unsaturated flow partitioned downslope */
+  float WindScale;   /* Multiplier on the station wind (Met.WindScale map, else 1) */
 } TOPOPIX;
 
 typedef struct {

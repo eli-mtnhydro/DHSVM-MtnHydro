@@ -85,6 +85,8 @@ void ReadInputMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS
     Raw->SnowPattern = ReadMap(Input, "Met.SnowPattern", NC_FLOAT, "-", MAP_ONE, Map);
   if (Options->MeltScale)
     Raw->MeltScale = ReadMap(Input, "Snow.MeltScale", NC_FLOAT, "-", MAP_ONE, Map);
+  if (Options->WindScale)
+    Raw->WindScale = ReadMap(Input, "Met.WindScale", NC_FLOAT, "-", MAP_ONE, Map);
   if (Options->LakeDynamics)
     Raw->LakeID = ReadMap(Input, "Lake.ID", NC_BYTE, "-", MAP_ONE, Map);
   if (!IsEmptyStr(Options->InitialSWEPath))
@@ -122,12 +124,15 @@ void InitTopoMap(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
       (*TopoMap)[y][x].LakeID = 0;
       if (Options->LakeDynamics && INBASIN((*TopoMap)[y][x].Mask))
         (*TopoMap)[y][x].LakeID = Raw->LakeID[i];
+      (*TopoMap)[y][x].WindScale = (Raw->WindScale != NULL) ? Raw->WindScale[i] : 1.0;
     }
   }
   free(Raw->Elevation);
   free(Raw->Mask);
+  free(Raw->WindScale);
   Raw->Elevation = NULL;
   Raw->Mask = NULL;
+  Raw->WindScale = NULL;
   if (Raw->LakeID != NULL) {
     free(Raw->LakeID);
     Raw->LakeID = NULL;

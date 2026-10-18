@@ -205,6 +205,7 @@ static void InitRunTimes(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, RUN
 
   InitStateDump(Input, Time, Dump);
   CheckOutputTimes(Options, Map, Time, Dump);
+  InitVegUpdateTimes(Input, Options, Time);
 
   /* Every output file is written into the output directory */
   RequireConfigValue(Input, "RUN", "Output Directory", Value);
@@ -369,6 +370,10 @@ static void InitOptions(LISTPTR Input, OPTIONSTRUCT *Options)
   RequireConfigValue(Input, "OPTIONS", "Melt Scale", Value);
   Options->MeltScale = ConfigBool("OPTIONS", "Melt Scale", Value);
 
+  /* Wind scale map multiplying the station wind of every cell */
+  RequireConfigValue(Input, "OPTIONS", "Wind Scale", Value);
+  Options->WindScale = ConfigBool("OPTIONS", "Wind Scale", Value);
+
   /* Radiation attenuation through the canopy */
   Options->CanopyRadAtt =
     (ConfigChoice(Input, "OPTIONS", "Canopy Radiation Attenuation", Attenuation, 2) == 0) ?
@@ -421,6 +426,11 @@ static void InitInputKeys(LISTPTR Input, OPTIONSTRUCT *Options)
   else
     GetConfigValue(Input, "INPUTS", "Snow.MeltScale", Value);
 
+  if (Options->WindScale)
+    RequireConfigValue(Input, "INPUTS", "Met.WindScale", Value);
+  else
+    GetConfigValue(Input, "INPUTS", "Met.WindScale", Value);
+
   if (Options->LakeDynamics) {
     RequireConfigValue(Input, "INPUTS", "Lake.ID", Value);
     RequireConfigValue(Input, "INPUTS", "Lake Table", Value);
@@ -440,6 +450,17 @@ static void InitInputKeys(LISTPTR Input, OPTIONSTRUCT *Options)
 
   /* The point table: checked with the output requests */
   GetConfigValue(Input, "INPUTS", "Point Table", Value);
+
+  /* Vegetation updates: the directory of their maps (optional; the
+     instants are read by InitVegUpdateTimes()) */
+  Options->VegUpdates.Directory[0] = '\0';
+  if (GetConfigValue(Input, "INPUTS", "Vegetation Update Directory", Value)) {
+    if (IsEmptyStr(Value))
+      ReportErrorCode(103, "[INPUTS] Vegetation Update Directory is empty");
+    if (!IsDirectory(Value))
+      ReportErrorCode(104, "[INPUTS] Vegetation Update Directory %s does not exist", Value);
+    DirectoryPath(Options->VegUpdates.Directory, sizeof(Options->VegUpdates.Directory), Value);
+  }
 
   /* Horizon angles and sky view of the shading */
   if (Options->Shading) {
@@ -558,6 +579,8 @@ void PrintRunSettings(OPTIONSTRUCT *Options)
   Message("Temperature also adjusted by %.3e deg. C / m rel. to %.0f m\n",
           LAPSE_RATE_BIAS,LAPSE_BIAS_ELEV);
   Message("Precipitation inputs are rescaled by a factor of %.3f\n",PRECIP_MULTIPLIER);
+  if (Options->WindScale)
+    Message("Wind speed scaled by the Met.WindScale map\n");
 }
 
 /*****************************************************************************

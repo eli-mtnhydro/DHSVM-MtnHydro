@@ -38,16 +38,22 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
                         PRECIPPIX *PrecipMap, float **PrismMap, float **SnowPatternMap,
                         SNOWPIX *LocalSnow,
                         float precipMultiplier, int Month, double ShadeFactor,
-                        float SkyView)
+                        float SkyView, float WindScale)
 {
   float CurrentWeight;		/* weight for current station */
-  float Temp;			/* Temporary variable */
   float WeightSum = 0.0;		/* sum of the weights */
   int i;			/* counter */
   float TempLapseRate;
   PIXMET LocalMet;		/* local met data */
   float ContribPrecip, ContribSnow, ContribRain;
   float SnowfallRate;		/* snowfall of the step as a daily rate (m/d) */
+  float Lapsed;			/* station air temperature lapsed to the cell (C) */
+  float CellBias;		/* temperature offset and lapse rate bias at the cell (C) */
+  float StationBias;		/* the same at the station (C) */
+  float Q;			/* specific humidity (kg/kg) */
+  float Ea;			/* vapor pressure of the specific humidity at the cell (Pa) */
+  double Ratio;			/* cell over station air temperature (K/K) */
+  double Tk;			/* temperature of the terrain surface (K) */
 
   LocalMet.Tair = 0.0;
   LocalMet.Rh = 0.0;
@@ -57,6 +63,9 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   LocalMet.SinDiffuse = 0.0;
   LocalMet.Lin = 0.0;
   TempLapseRate = 0.0;
+  Q = 0.0;
+
+  CellBias = TEMPERATURE_OFFSET + LAPSE_RATE_BIAS * (LocalElev - LAPSE_BIAS_ELEV);
 
   WeightSum = 0.0;
   for (i = 0; i < NStats; i++) {
@@ -64,53 +73,60 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   }
   for (i = 0; i < NStats; i++) {
     CurrentWeight = ((float) MetWeights[i]) / WeightSum;
-    LocalMet.Tair += CurrentWeight *
-      LapseT(Stat[i].Data.Tair, Stat[i].Elev, LocalElev,
-             Stat[i].Data.TempLapse);
-    LocalMet.Rh += CurrentWeight * Stat[i].Data.Rh;
+    Lapsed = LapseT(Stat[i].Data.Tair, Stat[i].Elev, LocalElev, Stat[i].Data.TempLapse);
+    LocalMet.Tair += CurrentWeight * Lapsed;
+    Q += CurrentWeight * Stat[i].Data.Q;
     LocalMet.Wind += CurrentWeight * Stat[i].Data.Wind;
-    LocalMet.Lin += CurrentWeight * Stat[i].Data.Lin;
     LocalMet.Sin += CurrentWeight * Stat[i].Data.Sin;
-    
+
+    /* Longwave of the station at the cell: emissivity held, the emission
+       temperature lapsed from the station's air temperature to the cell's
+       (both with the temperature offset and lapse rate bias, so the ratio
+       is 1 at the station's elevation) */
+    StationBias = TEMPERATURE_OFFSET + LAPSE_RATE_BIAS * (Stat[i].Elev - LAPSE_BIAS_ELEV);
+    Ratio = ((double) Lapsed + CellBias + 273.15) /
+      ((double) Stat[i].Data.Tair + StationBias + 273.15);
+    Ratio *= Ratio;
+    LocalMet.Lin += CurrentWeight * Stat[i].Data.Lin * (Ratio * Ratio);
+
     LocalMet.SinBeam += CurrentWeight * Stat[i].Data.SinBeamObs;
     LocalMet.SinDiffuse += CurrentWeight * Stat[i].Data.SinDiffuseObs;
-    
+
     TempLapseRate += CurrentWeight * Stat[i].Data.TempLapse;
   }
   LocalMet.Tair += TEMPERATURE_OFFSET;
-  
+
   /* Optional additional elevation-dependent bias */
   LocalMet.Tair += LAPSE_RATE_BIAS * (LocalElev - LAPSE_BIAS_ELEV);
-  
-  /* WORK IN PROGRESS, taken from old DHSVM version */
-  /* Air pressure */
-  /* In rare cases - i.e. when the lapse rate has a different sign for 
-   different met stations - you can end up with a TemplapseRate of 0.0
-   This will result in a crash, so a check was put in (Jul 28, 1997 - Bart
-   Nijssen).  It is somewhat awkward to interpolate lapse rates anyway, so
-   a better way of doing this would be welcome */
-  if (TempLapseRate != 0.0) {
-    Temp = 9.8067 / (TempLapseRate * 287.0);
-    LocalMet.Press = 101300. * pow(((288.0 - TempLapseRate * LocalElev) / 288.0), Temp);
-  }
-  else
-    LocalMet.Press = 101300.;
+
+  /* Wind of the stations times the cell's wind scale */
+  LocalMet.Wind *= WindScale;
+
+  /* Air pressure of the cell from its interpolated lapse rate */
+  LocalMet.Press = AirPressure(LocalElev, TempLapseRate);
 
   /* Terrain shading: the beam on the cell (its slope, aspect and horizon)
      relative to the beam on a flat, unshaded surface, the diffuse scaled by
      the sky view factor; where beam and diffuse together would exceed the
-     solar constant the beam is reduced */
+     solar constant the beam is reduced. The longwave from the sky is
+     scaled by the sky view factor, the rest of the hemisphere is terrain
+     emitting at the air temperature, or at the cell's snow surface
+     temperature when the cell has snow */
   if (Options->Shading == TRUE) {
     LocalMet.SinBeam *= ShadeFactor;
     LocalMet.SinDiffuse *= SkyView;
 
     if (LocalMet.SinBeam + LocalMet.SinDiffuse > SOLARCON)
       LocalMet.SinBeam = SOLARCON - LocalMet.SinDiffuse;
+
+    Tk = ((LocalSnow->HasSnow) ? LocalSnow->TSurf : LocalMet.Tair) + 273.15;
+    LocalMet.Lin = SkyView * LocalMet.Lin + (1.0 - SkyView) * STEFAN * (Tk * Tk) * (Tk * Tk);
   }
 
   RadMap->BeamIn = LocalMet.SinBeam;
   RadMap->DiffuseIn = LocalMet.SinDiffuse;
   RadMap->Tair = LocalMet.Tair;
+  RadMap->Wind = LocalMet.Wind;
 
   /* Store the VIC incoming shortwave radiatio without topo or canopy shading */
   LocalMet.VICSin = LocalMet.Sin;
@@ -195,8 +211,13 @@ PIXMET MakeLocalMetData(int y, int x, MAPSIZE *Map, int DayStep, int NDaySteps,
   LocalMet.Slope = 4098.0 * LocalMet.Es /
     ((237.3 + LocalMet.Tair) * (237.3 + LocalMet.Tair));
 
-  /* Actual vapor pressure */
-  LocalMet.Eact = LocalMet.Es * (LocalMet.Rh / 100.);
+  /* Actual vapor pressure: the stations' specific humidity at the cell's
+     pressure, at most the saturation vapor pressure of the cell's air
+     temperature; the relative humidity follows */
+  Ea = Q * LocalMet.Press / (EPS + (1.0 - EPS) * Q);
+  LocalMet.Eact = (Ea < LocalMet.Es) ? Ea : LocalMet.Es;
+  LocalMet.Rh = 100. * LocalMet.Eact / LocalMet.Es;
+  RadMap->Rh = LocalMet.Rh;
 
   /* Vapor pressure deficit */
   LocalMet.Vpd = LocalMet.Es - LocalMet.Eact;

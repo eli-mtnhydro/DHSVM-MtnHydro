@@ -118,6 +118,10 @@ int main(int argc, char **argv) {
   ReadPointTable(Input, &Dump);
   InitMetSources(Input, &Options, &Map, &Time, &NStats, &Stat);
 
+  /* Vegetation updates checked; the latest before Start gives the
+     vegetation maps */
+  InitVegUpdates(&Options, &Map, &Time, &Raw, &Veg, VType);
+
   /* The input maps as given, then the parameters */
   ValidateInputs(Input, &Options, &Map, &Raw, &Soil, SType, &Veg, VType, NStats, Stat);
   InitTopoMap(&Options, &Map, &Raw, &TopoMap, LType);
@@ -205,6 +209,8 @@ int main(int argc, char **argv) {
 
   while (Time.Step < Time.NSteps) {
 
+    ApplyVegUpdate(&Options, &Time, &Map, TopoMap, &Veg, VType, VegMap, SType, SoilMap,
+                   SnowMap, PrecipMap, &ChannelData);
     if (IsNewWaterYear(&(Time.Current)))
       InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
     if (IsNewMonth(&(Time.Current), Time.Dt))
@@ -246,7 +252,7 @@ int main(int argc, char **argv) {
                             &(RadiationMap[y][x]), &(PrecipMap[y][x]),
                             PrismMap, SnowPatternMap, &(SnowMap[y][x]),
                             PRECIP_MULTIPLIER, Time.Current.Month, ShadeFactorCell,
-                            SkyViewCell);
+                            SkyViewCell, TopoMap[y][x].WindScale);
   	      
   		    /* Get surface temperature of each soil layer */
     		  for (i = 0; i < Soil.MaxLayers; i++) {

@@ -280,7 +280,6 @@ static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *R
   int x;			/* counter */
   int y;			/* counter */
   int j;			/* counter */
-  int NSet; /*Counter for LAI month*/
   VEGPIX *Cell;
   VEGTABLE *Veg;
 
@@ -300,69 +299,21 @@ static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *R
         continue;
       Veg = &(VType[Cell->Veg - 1]);
 
-      if (!(Cell->Fract = (float *)calloc(Veg->NVegLayers, sizeof(float))) ||
-          !(Cell->LAIMonthly = (float **)calloc(Veg->NVegLayers, sizeof(float *))) ||
-          !(Cell->LAI = (float *)calloc(Veg->NVegLayers, sizeof(float))) ||
-          !(Cell->MaxInt = (float *)calloc(Veg->NVegLayers, sizeof(float))) ||
-          !(Cell->Height = (float *)calloc(Veg->NVegLayers, sizeof(float))))
+      /* Room for both canopies, whatever the class (vegetation updates
+         change it) */
+      if (!(Cell->Fract = (float *)calloc(2, sizeof(float))) ||
+          !(Cell->LAIMonthly = (float **)calloc(2, sizeof(float *))) ||
+          !(Cell->LAI = (float *)calloc(2, sizeof(float))) ||
+          !(Cell->MaxInt = (float *)calloc(2, sizeof(float))) ||
+          !(Cell->Height = (float *)calloc(2, sizeof(float))))
         ReportError((char *)Routine, 1);
-      for (j = 0; j < Veg->NVegLayers; j++) {
+      for (j = 0; j < 2; j++) {
         if (!(Cell->LAIMonthly[j] = (float *)calloc(12, sizeof(float))))
           ReportError((char *)Routine, 1);
       }
 
-      /* 6 Overstory Cover Scale: at most 1; the understory cover is 1 */
-      if (Veg->OverStory == TRUE) {
-        Cell->Fract[0] = Raw->OverstoryCover[i];
-        if (Veg->UnderStory == TRUE)
-          Cell->Fract[1] = 1.0;
-        Cell->Fract[0] *= VEG_FC_ADJ;
-        /* Limit to maximum of 100% cover */
-        if (Cell->Fract[0] > 1.0)
-          Cell->Fract[0] = 1.0;
-      }
-      else {
-        if (Veg->UnderStory == TRUE)
-          Cell->Fract[0] = 1.0;
-      }
-
-      /* Canopy view factor */
-      if (Options->ImprovRadiation == TRUE && Veg->NVegLayers > 0)
-        Cell->Vf = Cell->Fract[0] * Veg->VfAdjust;
-
-      /* 7 Overstory LAI Scale, January to December: the map times the
-         class fraction of the month, times the scale; the understory LAI
-         from the vegetation table */
-      for (NSet = 0; NSet < 12; NSet++) {
-        if (Veg->OverStory == TRUE) {
-          Cell->LAIMonthly[0][NSet] = Raw->OverstoryLAI[i] * Veg->LAIFraction[NSet];
-          if (Veg->UnderStory == TRUE)
-            Cell->LAIMonthly[1][NSet] = Veg->LAIMonthly[1][NSet];
-          Cell->LAIMonthly[0][NSet] *= VEG_LAI_ADJ;
-        }
-        else {
-          if (Veg->UnderStory == TRUE)
-            Cell->LAIMonthly[0][NSet] = Veg->LAIMonthly[0][NSet];
-        }
-      }
-
-      /* Vegetation heights of the cell, layer order (overstory first), from
-         the overstory and understory height maps */
-      if (Veg->OverStory == TRUE) {
-        Cell->Height[0] = Raw->OverstoryHeight[i];
-        if (Veg->UnderStory == TRUE)
-          Cell->Height[1] = Raw->UnderstoryHeight[i];
-      }
-      else {
-        if (Veg->UnderStory == TRUE)
-          Cell->Height[0] = Raw->UnderstoryHeight[i];
-      }
-
-      /* Wind profile and aerodynamic resistances of the cell's layers,
-         normalized for a reference height wind speed of 1 m/s (scaled by
-         the actual wind each time step) */
-      CalcAerodynamic(y, x, Veg->NVegLayers, Veg->OverStory, Veg->Cn, Cell->Height, Veg->Trunk,
-                      Cell->U, &(Cell->USnow), Cell->Ra, &(Cell->RaSnow));
+      SetCellVegetation(Options, Veg, Cell, Raw->OverstoryCover[i], Raw->OverstoryLAI[i],
+                        Raw->OverstoryHeight[i], Raw->UnderstoryHeight[i], y, x);
     }
   }
 
@@ -373,6 +324,73 @@ static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *R
   free(Raw->UnderstoryHeight);
   Raw->VegClass = NULL;
   Raw->OverstoryCover = Raw->OverstoryLAI = Raw->OverstoryHeight = Raw->UnderstoryHeight = NULL;
+}
+
+/*****************************************************************************
+  SetCellVegetation()
+
+  Rows 6 and 7 on one mask cell of class Veg from its map values: the cover
+  of each layer, the canopy view factor, the LAI of every month, the
+  heights, the wind profile and aerodynamic resistances (layers in position
+  order, overstory first)
+*****************************************************************************/
+void SetCellVegetation(OPTIONSTRUCT *Options, VEGTABLE *Veg, VEGPIX *Cell, float Cover,
+                       float LAI, float OverstoryHeight, float UnderstoryHeight, int y, int x)
+{
+  int NSet;
+
+  /* 6 Overstory Cover Scale: at most 1; the understory cover is 1 */
+  if (Veg->OverStory == TRUE) {
+    Cell->Fract[0] = Cover;
+    if (Veg->UnderStory == TRUE)
+      Cell->Fract[1] = 1.0;
+    Cell->Fract[0] *= VEG_FC_ADJ;
+    /* Limit to maximum of 100% cover */
+    if (Cell->Fract[0] > 1.0)
+      Cell->Fract[0] = 1.0;
+  }
+  else {
+    if (Veg->UnderStory == TRUE)
+      Cell->Fract[0] = 1.0;
+  }
+
+  /* Canopy view factor */
+  if (Options->ImprovRadiation == TRUE && Veg->NVegLayers > 0)
+    Cell->Vf = Cell->Fract[0] * Veg->VfAdjust;
+
+  /* 7 Overstory LAI Scale, January to December: the map times the class
+     fraction of the month, times the scale; the understory LAI from the
+     vegetation table */
+  for (NSet = 0; NSet < 12; NSet++) {
+    if (Veg->OverStory == TRUE) {
+      Cell->LAIMonthly[0][NSet] = LAI * Veg->LAIFraction[NSet];
+      if (Veg->UnderStory == TRUE)
+        Cell->LAIMonthly[1][NSet] = Veg->LAIMonthly[1][NSet];
+      Cell->LAIMonthly[0][NSet] *= VEG_LAI_ADJ;
+    }
+    else {
+      if (Veg->UnderStory == TRUE)
+        Cell->LAIMonthly[0][NSet] = Veg->LAIMonthly[0][NSet];
+    }
+  }
+
+  /* Vegetation heights of the cell from the overstory and understory height
+     maps */
+  if (Veg->OverStory == TRUE) {
+    Cell->Height[0] = OverstoryHeight;
+    if (Veg->UnderStory == TRUE)
+      Cell->Height[1] = UnderstoryHeight;
+  }
+  else {
+    if (Veg->UnderStory == TRUE)
+      Cell->Height[0] = UnderstoryHeight;
+  }
+
+  /* Wind profile and aerodynamic resistances of the cell's layers,
+     normalized for a reference height wind speed of 1 m/s (scaled by the
+     actual wind each time step) */
+  CalcAerodynamic(y, x, Veg->NVegLayers, Veg->OverStory, Veg->Cn, Cell->Height, Veg->Trunk,
+                  Cell->U, &(Cell->USnow), Cell->Ra, &(Cell->RaSnow));
 }
 
 /*****************************************************************************

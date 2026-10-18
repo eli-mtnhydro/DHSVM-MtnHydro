@@ -204,7 +204,8 @@ void ValidateRequests(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
       Class = strtol(Token, NULL, 10);
       if (Class < 1 || Class > Veg->NTypes)
         ReportErrorCode(111, "[OUTPUT] Classes: class %s is not in %s", Token, Path);
-      if (NCells[Class - 1] == 0)
+      if (NCells[Class - 1] == 0 &&
+          !(Options->VegUpdates.Present != NULL && Options->VegUpdates.Present[Class - 1]))
         ReportErrorCode(111, "[OUTPUT] Classes: class %s has no cell in the mask", Token);
       for (j = 0; j < Dump->NClasses; j++)
         if (Dump->Classes[j].Class == Class)

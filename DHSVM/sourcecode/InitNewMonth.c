@@ -28,7 +28,6 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   int i;
   int j;
   int y, x;
-  float a, b, l;
   float *Array = NULL;
 
   if (DEBUG)
@@ -69,31 +68,9 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
 
   for (y = 0; y < Map->NY; y++) {
 		for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask)) {
-        for (j = 0; j < VType[(*VegMap)[y][x].Veg - 1].NVegLayers; j++) {
-          (*VegMap)[y][x].LAI[j] = (*VegMap)[y][x].LAIMonthly[j][Time->Current.Month - 1];
-          /*Due to LAI and FC change, have to change MaxInt to spatial as well*/
-          (*VegMap)[y][x].MaxInt[j] = (*VegMap)[y][x].LAI[j] * (*VegMap)[y][x].Fract[j] * LAI_WATER_MULTIPLIER;
-        }
-
-        /* Diffuse transmittance of the overstory from the cell's LAI of the
-           month (VARIABLE attenuation) */
-        if (Options->CanopyRadAtt == VARIABLE) {
-          if (VType[(*VegMap)[y][x].Veg - 1].OverStory) {
-            a = VType[(*VegMap)[y][x].Veg - 1].LeafAngleA;
-            b = VType[(*VegMap)[y][x].Veg - 1].LeafAngleB;
-            l = (*VegMap)[y][x].LAI[0] / VType[(*VegMap)[y][x].Veg - 1].ClumpingFactor;
-            if (l == 0)
-              (*VegMap)[y][x].Taud = 1.0;
-            else
-              (*VegMap)[y][x].Taud = exp(-b * l) * ((1 - a * l) * exp(-a * l) +
-                (a * l) * (a * l) * evalexpint(1, a * l));
-          }
-          else {
-            (*VegMap)[y][x].Taud = 0.0;
-          }
-        }
-      }
+      if (INBASIN(TopoMap[y][x].Mask))
+        SetCellMonth(Options, &(VType[(*VegMap)[y][x].Veg - 1]), &((*VegMap)[y][x]),
+                     Time->Current.Month);
 		}
 	}
   for (i = 0; i < NVegs; i++) {
@@ -125,6 +102,41 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   }
 }
 
+
+/*****************************************************************************
+  SetCellMonth()
+
+  The LAI of the month of each vegetation layer of a mask cell, its
+  interception capacity, and the diffuse transmittance of the overstory
+  from that LAI (VARIABLE attenuation)
+*****************************************************************************/
+void SetCellMonth(OPTIONSTRUCT *Options, VEGTABLE *VType, VEGPIX *Cell, int Month)
+{
+  int j;
+  float a, b, l;
+
+  for (j = 0; j < VType->NVegLayers; j++) {
+    Cell->LAI[j] = Cell->LAIMonthly[j][Month - 1];
+    /*Due to LAI and FC change, have to change MaxInt to spatial as well*/
+    Cell->MaxInt[j] = Cell->LAI[j] * Cell->Fract[j] * LAI_WATER_MULTIPLIER;
+  }
+
+  if (Options->CanopyRadAtt == VARIABLE) {
+    if (VType->OverStory) {
+      a = VType->LeafAngleA;
+      b = VType->LeafAngleB;
+      l = Cell->LAI[0] / VType->ClumpingFactor;
+      if (l == 0)
+        Cell->Taud = 1.0;
+      else
+        Cell->Taud = exp(-b * l) * ((1 - a * l) * exp(-a * l) +
+          (a * l) * (a * l) * evalexpint(1, a * l));
+    }
+    else {
+      Cell->Taud = 0.0;
+    }
+  }
+}
 
 /*****************************************************************************
   Function name: InitNewDay()

@@ -16,12 +16,22 @@ void GetMetData(OPTIONSTRUCT *Options, TIMESTRUCT *Time,
   int NStats, float SunMax, METLOCATION *Stat)
 {
   int i;			/* counter */
+  float Ea;			/* vapor pressure (Pa) */
+  float Press;			/* air pressure (Pa) */
 
   if (DEBUG)
     Message("Reading all met data for current timestep\n");
 
   for (i = 0; i < NStats; i++)
     ReadMetRecord(&(Time->Current), &(Stat[i]));
+
+  /* Specific humidity of each station from its relative humidity, air
+     temperature and air pressure (its elevation and lapse rate) */
+  for (i = 0; i < NStats; i++) {
+    Ea = SatVaporPressure(Stat[i].Data.Tair) * (Stat[i].Data.Rh / 100.);
+    Press = AirPressure(Stat[i].Elev, Stat[i].Data.TempLapse);
+    Stat[i].Data.Q = EPS * Ea / (Press - (1.0 - EPS) * Ea);
+  }
 
   for (i = 0; i < NStats; i++) {
     if (SunMax > 0.0) {
