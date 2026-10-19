@@ -33,7 +33,7 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
                      float *Perc, float *PercArea, float *Adjust,
                      int CutBankZone, float BankHeight, float *TableDepth,
                      float *IExcess, float *Moist, int InfiltOption,
-                     VEGTABLE *VType, VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
+                     VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
                      float cosTheta, float sinTheta, TOPOPIX **TopoMap,
                      MAPSIZE *Map, int y, int x);
 

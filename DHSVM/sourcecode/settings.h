@@ -46,10 +46,6 @@ typedef unsigned int unint;
 #define STATIC 1
 #define DYNAMIC 2
 
-/* Options for canopy radiation attenuation */
-#define FIXED    1
-#define VARIABLE 2
-
 #define TINY       1e-20
 #define DEBUG      FALSE
 
@@ -61,6 +57,7 @@ typedef unsigned int unint;
 
 #define MAXDIRS        8	/* Maximum number of directions in which water can flow, must equal 8 */
 #define NNEIGHBORS     8  /* Number of directions in which water can flow based on fine grid, must equal 8 */
+#define MAXVEGLAYERS   2  /* Vegetation layers a cell can hold: overstory and understory */
 
 
 #define NA          -9999	/* Not applicable */

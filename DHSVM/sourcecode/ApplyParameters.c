@@ -5,15 +5,16 @@
  *               numbered here:
  *                 T1 DeepFlux = (soil table DeepFlux + offset) / (365 x steps
  *                   per day), every soil class
- *                 T2 RsMin = vegetation table minimum resistance x scale,
- *                   every class and layer
- *                 T3 SnowIntEff = min(vegetation table SnowInterceptionEff
+ *                 T2 RsMin = MinResistance x scale, every row of the
+ *                   overstory and the understory table
+ *                 T3 SnowIntEff = min(overstory table SnowInterceptionEff
  *                   x scale, 1), every overstory class
  *                 T4 PowLawScale = lake table OutflowScale x scale, every
  *                   lake (Lake Dynamics)
  *                 T5 PowLawExponent = lake table OutflowExponent x scale,
  *                   every lake (Lake Dynamics)
- *                 1 Depth = max(Soil.Depth + offset, root zone depth + 0.01)
+ *                 1 Depth = max(Soil.Depth + offset, sum of
+ *                   Soil.LayerThickness + 0.01)
  *                 2 KsLat = Soil.LateralConductivity x scale
  *                 3 KsLatExp = Soil.ExponentialDecrease x scale
  *                   then the vertical conductivity, the maximum infiltration
@@ -21,8 +22,10 @@
  *                 4 FCap[l] = max(Soil.FieldCapacity[l] x scale, WP[l] + 0.01)
  *                 5 Porosity[l] = max(Soil.Porosity[l] x scale, FCap[l] + 0.01)
  *                 6 overstory cover = min(Veg.OverstoryCover x scale, 1)
- *                 7 overstory LAI of a month = Veg.OverstoryLAI x the class
- *                   fraction of the month x scale
+ *                 7 overstory LAI of a month = Veg.OverstoryLAI x the
+ *                   overstory class fraction of the month x scale (the
+ *                   understory LAI of a month = Veg.UnderstoryLAI x the
+ *                   understory class fraction of the month)
  *                 8-15 the snow parameters of every cell, with the forest
  *                   offset of the albedo decay rates
  *               and the melt scale of every cell from Snow.MeltScale (1
@@ -42,26 +45,25 @@
 #include "constants.h"
 
 static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
-  TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, VEGTABLE *VType, SOILPIX ***SoilMap,
-  int Dt);
+  TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, SOILPIX ***SoilMap, int Dt);
 static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
-  TOPOPIX **TopoMap, VEGTABLE *VType, VEGPIX ***VegMap);
+  TOPOPIX **TopoMap, VEGTABLES *Veg, VEGPIX ***VegMap);
 static void ApplySnowParameters(MAPSIZE *Map, INPUTMAPS *Raw, TOPOPIX **TopoMap,
-  VEGTABLE *VType, VEGPIX **VegMap, SNOWPIX **SnowMap);
+  VEGPIX **VegMap, SNOWPIX **SnowMap);
 
 /*****************************************************************************
   ApplyTableParameters()
 
   Rows T1-T5, on the class and lake tables as read, before the maps: the
   deep flux offset of every soil class (m/yr, then m per time step), the
-  minimum stomatal resistance of every vegetation layer, the snow
-  interception efficiency of every overstory class (at most 1), the outflow
-  scale and exponent of every lake
+  minimum stomatal resistance of every overstory and understory class, the
+  snow interception efficiency of every overstory class (at most 1), the
+  outflow scale and exponent of every lake
 *****************************************************************************/
 void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType, int NSoils,
-  VEGTABLE *VType, int NVegs, LAKETABLE *LType, int NLakes)
+  VEGTABLES *Veg, LAKETABLE *LType, int NLakes)
 {
-  int i, j;
+  int i;
 
   /* T1 Deep Flux Offset, then m/yr to m per time step */
   for (i = 0; i < NSoils; i++) {
@@ -69,17 +71,18 @@ void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType
     SType[i].DeepFlux /= (DAYPYEAR * NDaySteps);
   }
 
-  for (i = 0; i < NVegs; i++) {
-    /* T2 Min Stomatal Resistance Scale: every layer (the maximum unchanged) */
-    for (j = 0; j < VType[i].NVegLayers; j++)
-      VType[i].RsMin[j] *= VEG_RSMIN_ADJ;
+  for (i = 0; i < Veg->NOver; i++) {
+    /* T2 Min Stomatal Resistance Scale (the maximum unchanged) */
+    Veg->Over[i].Story.RsMin *= VEG_RSMIN_ADJ;
 
     /* T3 Snow Interception Efficiency Scale: at most 1 */
-    if (VType[i].OverStory == TRUE) {
-      VType[i].SnowIntEff *= VEG_SNOWINT_ADJ;
-      if (VType[i].SnowIntEff > 1.0)
-        VType[i].SnowIntEff = 1.0;
-    }
+    Veg->Over[i].SnowIntEff *= VEG_SNOWINT_ADJ;
+    if (Veg->Over[i].SnowIntEff > 1.0)
+      Veg->Over[i].SnowIntEff = 1.0;
+  }
+  for (i = 0; i < Veg->NUnder; i++) {
+    /* T2 Min Stomatal Resistance Scale (the maximum unchanged) */
+    Veg->Under[i].Story.RsMin *= VEG_RSMIN_ADJ;
   }
 
   /* T4 Lake Outflow Rate Scale, T5 Lake Outflow Exponent Scale */
@@ -99,14 +102,14 @@ void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType
   input maps it uses.
 *****************************************************************************/
 void ApplyParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
-  TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, VEGTABLE *VType,
+  TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, VEGTABLES *Veg,
   SOILPIX ***SoilMap, VEGPIX ***VegMap, SNOWPIX **SnowMap, int Dt)
 {
   Message("\nApplying parameters\n");
 
-  ApplySoilParameters(Options, Map, Raw, TopoMap, Soil, SType, VType, SoilMap, Dt);
-  ApplyVegParameters(Options, Map, Raw, TopoMap, VType, VegMap);
-  ApplySnowParameters(Map, Raw, TopoMap, VType, *VegMap, SnowMap);
+  ApplySoilParameters(Options, Map, Raw, TopoMap, Soil, SType, SoilMap, Dt);
+  ApplyVegParameters(Options, Map, Raw, TopoMap, Veg, VegMap);
+  ApplySnowParameters(Map, Raw, TopoMap, *VegMap, SnowMap);
 }
 
 /*****************************************************************************
@@ -115,8 +118,7 @@ void ApplyParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
   Rows 1-5 and the values derived from them
 *****************************************************************************/
 static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
-  TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, VEGTABLE *VType, SOILPIX ***SoilMap,
-  int Dt)
+  TOPOPIX **TopoMap, LAYER *Soil, SOILTABLE *SType, SOILPIX ***SoilMap, int Dt)
 {
   const char *Routine = "ApplySoilParameters";
   int i;			/* counter */
@@ -127,8 +129,7 @@ static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *
   int NSet, VSet;
   int sidx;
   SOILPIX *Cell;
-  VEGTABLE *Veg;
-  float TotalRootDepth, LayerDepth, Transmissivity, KsVertCalc;
+  float LayerDepth, Transmissivity, KsVertCalc;
   double MaxSeepage;		/* Largest seepage loss per time step (negative) */
 
   if (!(*SoilMap = (SOILPIX **)calloc(Map->NY, sizeof(SOILPIX *))))
@@ -145,7 +146,6 @@ static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *
       if (!INBASIN(TopoMap[y][x].Mask))
         continue;
       sidx = Cell->Soil - 1;
-      Veg = &(VType[Raw->VegClass[i] - 1]);
 
       /* allocate memory for the root zone layers and the deep layer */
       if (!(Cell->KsVert = (float *)calloc(NLayers + 1, sizeof(float))) ||
@@ -154,20 +154,25 @@ static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *
           !(Cell->Moist = (float *)calloc(NLayers + 1, sizeof(float))) ||
           !(Cell->Perc = (float *)calloc(NLayers, sizeof(float))) ||
           !(Cell->InterFlow = (float *)calloc(NLayers + 1, sizeof(float))) ||
-          !(Cell->Temp = (float *)calloc(NLayers, sizeof(float))))
+          !(Cell->Temp = (float *)calloc(NLayers, sizeof(float))) ||
+          !(Cell->LayerThickness = (float *)calloc(NLayers, sizeof(float))))
         ReportError((char *)Routine, 1);
       if (Options->Infiltration == DYNAMIC)
         Cell->InfiltAcc = 0.;
       Cell->MoistInit = 0.;
 
+      /* Root zone layer thicknesses and their sum */
+      Cell->TotalThickness = 0.0;
+      for (NSet = 0; NSet < NLayers; NSet++) {
+        Cell->LayerThickness[NSet] = Raw->LayerThickness[NSet * NCells + i];
+        Cell->TotalThickness += Cell->LayerThickness[NSet];
+      }
+
       /* 1 Soil Depth Offset: at least 0.01 m deeper than the root zone */
       Cell->Depth = Raw->Depth[i];
       Cell->Depth += SOIL_DEPTH_ADJ;
-      TotalRootDepth = 0.0;
-      for (NSet = 0; NSet < NLayers; NSet++)
-        TotalRootDepth += Veg->RootDepth[NSet];
-      if (Cell->Depth < (TotalRootDepth + 0.01))
-        Cell->Depth = (TotalRootDepth + 0.01);
+      if (Cell->Depth < (Cell->TotalThickness + 0.01))
+        Cell->Depth = (Cell->TotalThickness + 0.01);
 
       /* 2 Lateral Conductivity Scale */
       Cell->KsLat = Raw->LateralConductivity[i];
@@ -184,13 +189,13 @@ static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *
           /* Get total depth of current soil layer bottom */
           LayerDepth = 0.0;
           for (VSet = 0; VSet <= NSet; VSet++)
-            LayerDepth += Veg->RootDepth[VSet];
+            LayerDepth += Cell->LayerThickness[VSet];
 
           /* Calculate effective lateral conductivity of current soil layer */
           Transmissivity =
-            CalcTransmissivity(LayerDepth, LayerDepth - Veg->RootDepth[NSet],
+            CalcTransmissivity(LayerDepth, LayerDepth - Cell->LayerThickness[NSet],
                                Cell->KsLat, Cell->KsLatExp, SType[sidx].DepthThresh);
-          KsVertCalc = Transmissivity / Veg->RootDepth[NSet];
+          KsVertCalc = Transmissivity / Cell->LayerThickness[NSet];
 
           /* Account for user-supplied vertical anisotropy */
           KsVertCalc /= SType[sidx].KsAnisotropy;
@@ -206,9 +211,9 @@ static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *
       if (Options->UseKsatAnisotropy) {
         /* Calculate effective lateral conductivity of current soil layer */
         Transmissivity =
-          CalcTransmissivity(Cell->Depth, Cell->Depth - Veg->TotalDepth,
+          CalcTransmissivity(Cell->Depth, Cell->Depth - Cell->TotalThickness,
                              Cell->KsLat, Cell->KsLatExp, SType[sidx].DepthThresh);
-        KsVertCalc = Transmissivity / (Cell->Depth - Veg->TotalDepth);
+        KsVertCalc = Transmissivity / (Cell->Depth - Cell->TotalThickness);
 
         /* Account for user-supplied vertical anisotropy */
         KsVertCalc /= SType[sidx].KsAnisotropy;
@@ -259,21 +264,22 @@ static void ApplySoilParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *
   free(Raw->ExponentialDecrease);
   free(Raw->FieldCapacity);
   free(Raw->Porosity);
+  free(Raw->LayerThickness);
   Raw->SoilClass = NULL;
   Raw->Depth = Raw->LateralConductivity = Raw->ExponentialDecrease = NULL;
-  Raw->FieldCapacity = Raw->Porosity = NULL;
+  Raw->FieldCapacity = Raw->Porosity = Raw->LayerThickness = NULL;
 }
 
 /*****************************************************************************
   ApplyVegParameters()
 
-  Rows 6 and 7: the overstory cover and LAI of overstory cells from the maps,
-  the understory cover 1.0 (lowered later on channel cells), the understory
-  LAI from the vegetation table; the heights from the height maps and the
-  wind profile and aerodynamic resistances of every mask cell
+  Rows 6 and 7 on every mask cell from the eight vegetation maps: the
+  classes, the overstory cover and LAI, the understory cover (lowered later
+  on channel cells) and LAI, the heights and the wind profile and
+  aerodynamic resistances
 *****************************************************************************/
 static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *Raw,
-  TOPOPIX **TopoMap, VEGTABLE *VType, VEGPIX ***VegMap)
+  TOPOPIX **TopoMap, VEGTABLES *Veg, VEGPIX ***VegMap)
 {
   const char *Routine = "ApplyVegParameters";
   int i;			/* counter */
@@ -281,7 +287,7 @@ static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *R
   int y;			/* counter */
   int j;			/* counter */
   VEGPIX *Cell;
-  VEGTABLE *Veg;
+  VEGMAPS *V = &(Raw->Veg);
 
   if (!(*VegMap = (VEGPIX **)calloc(Map->NY, sizeof(VEGPIX *))))
     ReportError((char *)Routine, 1);
@@ -293,104 +299,150 @@ static void ApplyVegParameters(OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS *R
   for (y = 0, i = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++, i++) {
       Cell = &((*VegMap)[y][x]);
-      Cell->Veg = Raw->VegClass[i];
+      Cell->OverClass = V->OverstoryClass[i];
+      Cell->UnderClass = V->UnderstoryClass[i];
       Cell->Tcanopy = 0.0;
       if (!INBASIN(TopoMap[y][x].Mask))
         continue;
-      Veg = &(VType[Cell->Veg - 1]);
 
-      /* Room for both canopies, whatever the class (vegetation updates
-         change it) */
-      if (!(Cell->Fract = (float *)calloc(2, sizeof(float))) ||
-          !(Cell->LAIMonthly = (float **)calloc(2, sizeof(float *))) ||
-          !(Cell->LAI = (float *)calloc(2, sizeof(float))) ||
-          !(Cell->MaxInt = (float *)calloc(2, sizeof(float))) ||
-          !(Cell->Height = (float *)calloc(2, sizeof(float))))
+      /* Room for both canopies, whatever the classes (vegetation updates
+         change them) */
+      if (!(Cell->Fract = (float *)calloc(MAXVEGLAYERS, sizeof(float))) ||
+          !(Cell->LAIMonthly = (float **)calloc(MAXVEGLAYERS, sizeof(float *))) ||
+          !(Cell->LAI = (float *)calloc(MAXVEGLAYERS, sizeof(float))) ||
+          !(Cell->MaxInt = (float *)calloc(MAXVEGLAYERS, sizeof(float))) ||
+          !(Cell->Height = (float *)calloc(MAXVEGLAYERS, sizeof(float))))
         ReportError((char *)Routine, 1);
-      for (j = 0; j < 2; j++) {
+      for (j = 0; j < MAXVEGLAYERS; j++) {
         if (!(Cell->LAIMonthly[j] = (float *)calloc(12, sizeof(float))))
           ReportError((char *)Routine, 1);
       }
 
-      SetCellVegetation(Options, Veg, Cell, Raw->OverstoryCover[i], Raw->OverstoryLAI[i],
-                        Raw->OverstoryHeight[i], Raw->UnderstoryHeight[i], y, x);
+      SetCellVegetation(Options, Veg, Cell, V, i, y, x);
     }
   }
 
-  free(Raw->VegClass);
-  free(Raw->OverstoryCover);
-  free(Raw->OverstoryLAI);
-  free(Raw->OverstoryHeight);
-  free(Raw->UnderstoryHeight);
-  Raw->VegClass = NULL;
-  Raw->OverstoryCover = Raw->OverstoryLAI = Raw->OverstoryHeight = Raw->UnderstoryHeight = NULL;
+  FreeVegMaps(V);
 }
 
 /*****************************************************************************
   SetCellVegetation()
 
-  Rows 6 and 7 on one mask cell of class Veg from its map values: the cover
-  of each layer, the canopy view factor, the LAI of every month, the
+  Rows 6 and 7 on one mask cell from the values of cell i of the vegetation
+  maps V: the overstory and understory classes and the layers present, the
+  cover of each layer, the LAI of every month, the
   heights, the wind profile and aerodynamic resistances (layers in position
   order, overstory first)
 *****************************************************************************/
-void SetCellVegetation(OPTIONSTRUCT *Options, VEGTABLE *Veg, VEGPIX *Cell, float Cover,
-                       float LAI, float OverstoryHeight, float UnderstoryHeight, int y, int x)
+void SetCellVegetation(OPTIONSTRUCT *Options, VEGTABLES *Veg, VEGPIX *Cell, VEGMAPS *V,
+                       size_t i, int y, int x)
 {
+  OVERTABLE *Over;
+  UNDERTABLE *Under;
+  int Lower;			/* Position of the understory layer */
   int NSet;
 
-  /* 6 Overstory Cover Scale: at most 1; the understory cover is 1 */
-  if (Veg->OverStory == TRUE) {
-    Cell->Fract[0] = Cover;
-    if (Veg->UnderStory == TRUE)
-      Cell->Fract[1] = 1.0;
+  /* Classes and the layers present: an understory class with cover 0 has
+     no understory layer */
+  Cell->OverClass = V->OverstoryClass[i];
+  Cell->UnderClass = V->UnderstoryClass[i];
+  Cell->OverStory = (Cell->OverClass > 0) ? TRUE : FALSE;
+  Cell->UnderStory = (Cell->UnderClass > 0 && V->UnderstoryCover[i] > 0.0) ? TRUE : FALSE;
+  Cell->NVegLayers = Cell->OverStory + Cell->UnderStory;
+  Over = OverstoryRow(Veg, Cell);
+  Under = UnderstoryRow(Veg, Cell);
+  Lower = CanopyIndex(Cell, 1);
+
+  /* 6 Overstory Cover Scale: at most 1; the understory cover from its map */
+  if (Cell->OverStory == TRUE) {
+    Cell->Fract[0] = V->OverstoryCover[i];
     Cell->Fract[0] *= VEG_FC_ADJ;
     /* Limit to maximum of 100% cover */
     if (Cell->Fract[0] > 1.0)
       Cell->Fract[0] = 1.0;
   }
-  else {
-    if (Veg->UnderStory == TRUE)
-      Cell->Fract[0] = 1.0;
+  Cell->UnderstoryCover = 0.0;
+  if (Cell->UnderStory == TRUE) {
+    Cell->UnderstoryCover = V->UnderstoryCover[i];
+    Cell->Fract[Lower] = V->UnderstoryCover[i];
   }
 
-  /* Canopy view factor */
-  if (Options->ImprovRadiation == TRUE && Veg->NVegLayers > 0)
-    Cell->Vf = Cell->Fract[0] * Veg->VfAdjust;
-
-  /* 7 Overstory LAI Scale, January to December: the map times the class
-     fraction of the month, times the scale; the understory LAI from the
-     vegetation table */
+  /* 7 Overstory LAI Scale, January to December: the overstory LAI map times
+     the overstory class fraction of the month, times the scale; the
+     understory LAI map times the understory class fraction of the month */
   for (NSet = 0; NSet < 12; NSet++) {
-    if (Veg->OverStory == TRUE) {
-      Cell->LAIMonthly[0][NSet] = LAI * Veg->LAIFraction[NSet];
-      if (Veg->UnderStory == TRUE)
-        Cell->LAIMonthly[1][NSet] = Veg->LAIMonthly[1][NSet];
+    if (Cell->OverStory == TRUE) {
+      Cell->LAIMonthly[0][NSet] = V->OverstoryLAI[i] * Over->Story.LAIFraction[NSet];
       Cell->LAIMonthly[0][NSet] *= VEG_LAI_ADJ;
     }
-    else {
-      if (Veg->UnderStory == TRUE)
-        Cell->LAIMonthly[0][NSet] = Veg->LAIMonthly[0][NSet];
-    }
+    if (Cell->UnderStory == TRUE)
+      Cell->LAIMonthly[Lower][NSet] = V->UnderstoryLAI[i] * Under->Story.LAIFraction[NSet];
   }
 
   /* Vegetation heights of the cell from the overstory and understory height
      maps */
-  if (Veg->OverStory == TRUE) {
-    Cell->Height[0] = OverstoryHeight;
-    if (Veg->UnderStory == TRUE)
-      Cell->Height[1] = UnderstoryHeight;
-  }
-  else {
-    if (Veg->UnderStory == TRUE)
-      Cell->Height[0] = UnderstoryHeight;
-  }
+  if (Cell->OverStory == TRUE)
+    Cell->Height[0] = V->OverstoryHeight[i];
+  if (Cell->UnderStory == TRUE)
+    Cell->Height[Lower] = V->UnderstoryHeight[i];
 
   /* Wind profile and aerodynamic resistances of the cell's layers,
      normalized for a reference height wind speed of 1 m/s (scaled by the
-     actual wind each time step) */
-  CalcAerodynamic(y, x, Veg->NVegLayers, Veg->OverStory, Veg->Cn, Cell->Height, Veg->Trunk,
-                  Cell->U, &(Cell->USnow), Cell->Ra, &(Cell->RaSnow));
+     actual wind each time step); the overstory's wind attenuation and trunk
+     space, the understory cover */
+  if (Cell->OverStory == TRUE)
+    CalcAerodynamic(y, x, Cell->NVegLayers, Cell->OverStory, Cell->UnderstoryCover,
+                    Over->Cn, Cell->Height, Over->Trunk, Cell->U, &(Cell->USnow),
+                    Cell->Ra, &(Cell->RaSnow));
+  else
+    CalcAerodynamic(y, x, Cell->NVegLayers, Cell->OverStory, Cell->UnderstoryCover,
+                    NOT_APPLICABLE, Cell->Height, NOT_APPLICABLE, Cell->U, &(Cell->USnow),
+                    Cell->Ra, &(Cell->RaSnow));
+}
+
+/*****************************************************************************
+  GroundAlbedo()
+
+  The albedo of the ground under the snowpack of a cell in a month: the
+  understory albedo over the understory cover, the soil albedo over the
+  rest (the soil albedo without an understory layer)
+*****************************************************************************/
+float GroundAlbedo(VEGTABLES *Veg, VEGPIX *Cell, float SoilAlbedo, int Month)
+{
+  float Fu = Cell->UnderstoryCover;
+
+  if (Cell->UnderStory != TRUE)
+    return SoilAlbedo;
+  return Fu * UnderstoryRow(Veg, Cell)->Story.AlbedoMonthly[Month - 1] +
+    (1 - Fu) * SoilAlbedo;
+}
+
+/*****************************************************************************
+  OverstoryRow(), UnderstoryRow()
+
+  The overstory and understory table rows of a cell's classes, NULL for
+  class 0. A cell with an understory class and cover 0 has an understory row
+  (its impervious fraction) but no understory layer.
+*****************************************************************************/
+OVERTABLE *OverstoryRow(VEGTABLES *Veg, VEGPIX *Cell)
+{
+  return (Cell->OverClass > 0) ? &(Veg->Over[Cell->OverClass - 1]) : NULL;
+}
+
+UNDERTABLE *UnderstoryRow(VEGTABLES *Veg, VEGPIX *Cell)
+{
+  return (Cell->UnderClass > 0) ? &(Veg->Under[Cell->UnderClass - 1]) : NULL;
+}
+
+/*****************************************************************************
+  ImperviousFraction()
+
+  The impervious fraction of a cell: its understory class's, 0 without an
+  understory class
+*****************************************************************************/
+float ImperviousFraction(VEGTABLES *Veg, VEGPIX *Cell)
+{
+  return (Cell->UnderClass > 0) ? Veg->Under[Cell->UnderClass - 1].ImpervFrac : 0.0;
 }
 
 /*****************************************************************************
@@ -401,7 +453,7 @@ void SetCellVegetation(OPTIONSTRUCT *Options, VEGTABLE *Veg, VEGPIX *Cell, float
   minima of every cell; the melt scale of every mask cell from its map, or 1
 *****************************************************************************/
 static void ApplySnowParameters(MAPSIZE *Map, INPUTMAPS *Raw, TOPOPIX **TopoMap,
-  VEGTABLE *VType, VEGPIX **VegMap, SNOWPIX **SnowMap)
+  VEGPIX **VegMap, SNOWPIX **SnowMap)
 {
   int x, y, i;
 
@@ -422,7 +474,7 @@ static void ApplySnowParameters(MAPSIZE *Map, INPUTMAPS *Raw, TOPOPIX **TopoMap,
   /* Adjust albedo melt/acc lambda in forested regions */
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
-      if (INBASIN(TopoMap[y][x].Mask) && VType[VegMap[y][x].Veg - 1].OverStory == TRUE) {
+      if (INBASIN(TopoMap[y][x].Mask) && VegMap[y][x].OverStory == TRUE) {
         SnowMap[y][x].LamdaAcc += (LAMBDA_FOREST_OFFSET * VegMap[y][x].Fract[0]);
         SnowMap[y][x].LamdaMelt += (LAMBDA_FOREST_OFFSET * VegMap[y][x].Fract[0]);
       }

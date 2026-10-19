@@ -60,7 +60,7 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
   float *Perc, float *PercArea, float *Adjust,
   int CutBankZone, float BankHeight, float *TableDepth,
   float *IExcess, float *Moist, int InfiltOption,
-  VEGTABLE *VType, VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
+  VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
   float cosTheta, float sinTheta, TOPOPIX **TopoMap,
   MAPSIZE *Map, int y, int x)
 {
@@ -157,7 +157,7 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
             
             /* Only allow enough lateral flow to raise neighboring layer to saturation */
             DownhillCapacity = (SoilMap[ny][nx].Porosity[i] - SoilMap[ny][nx].Moist[i] - SoilMap[ny][nx].InterFlow[i]) *
-                                VType[VegMap[ny][nx].Veg - 1].RootDepth[i] * Network[ny][nx].Adjust[i];
+                                SoilMap[ny][nx].LayerThickness[i] * Network[ny][nx].Adjust[i];
             if (DownhillCapacity < 0.0)
               DownhillCapacity = 0.0;
             if (InterFlowK > DownhillCapacity) {
@@ -165,7 +165,7 @@ void UnsaturatedFlow(OPTIONSTRUCT *Options, int Dt, float DX, float DY, float In
               Perc[i] -= (InterFlowK - DownhillCapacity);
             }
             InterFlow += InterFlowK;
-            SoilMap[ny][nx].InterFlow[i] += InterFlowK / (VType[VegMap[ny][nx].Veg - 1].RootDepth[i] * Network[ny][nx].Adjust[i]);
+            SoilMap[ny][nx].InterFlow[i] += InterFlowK / (SoilMap[ny][nx].LayerThickness[i] * Network[ny][nx].Adjust[i]);
           }
         }
       }

@@ -30,13 +30,12 @@
  *****************************************************************************/
 void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   float SineSolarAltitude, float DX, float DY,
-  int Dt, int CanopyRadAttOption,
-  int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
+  int Dt, int InfiltOption, int MaxSoilLayers, int MaxVegLayers, PIXMET *LocalMet,
   NETSTRUCT *LocalNetwork, PRECIPPIX *LocalPrecip,
-  VEGTABLE *LocalVType, VEGPIX *LocalVeg, SOILTABLE *SType,
+  OVERTABLE *Over, UNDERTABLE *Under, VEGPIX *LocalVeg, SOILTABLE *SType,
   SOILPIX *LocalSoil, SNOWPIX *LocalSnow, PIXRAD *LocalRad,
   EVAPPIX *LocalEvap, CHANNEL *ChannelData,
-  VEGTABLE *VType, VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
+  VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
   TOPOPIX *LocalTopo, TOPOPIX **TopoMap, MAPSIZE *Map)
 {
   float SurfaceWater;		/* Pixel average depth of water before infiltration is calculated (m) */
@@ -60,6 +59,23 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   float Tsurf;				/* Surface temperature used in LongwaveBalance (C) */
   int   NVegLActual;		/* Number of vegetation layers above snow */
   float DryChannelEvap;
+  int   NVeg;               /* Vegetation layers of the cell (the soil's entry of EPot and EAct) */
+
+  /* Understory cover and burial by the snow */
+  int   Lower;              /* Radiation index of the lower surface (understory, soil or snow) */
+  float Fu;                 /* Understory cover (0 without an understory layer) */
+  float FuR;                /* Fraction of the lower surface covered by the understory for the
+                               shortwave of the step (0 with the understory buried) */
+  float Cu;                 /* Fraction of the lower surface opaque to longwave by the
+                               understory (0 with the understory buried) */
+  float BurySwe;            /* Snow water equivalent above which the understory is buried (m) */
+  int   Exposed;            /* TRUE if the understory is above the snow at the start of the step,
+                               with the step's snowfall */
+  float NetShortL;          /* Net shortwave of the lower surface (W/m2) */
+  float NetRadGround;       /* Net radiation of the ground (soil or snow) (W/m2) */
+  float LongOutU;           /* Longwave emitted by the understory (W/m2) */
+  float SoilEvap;           /* Evaporation from the soil (m) */
+  float SoilEPot;           /* Potential evaporation of the soil (m) */
 
   /* Used in snow surface energy balance */
   float OldSnowTSurf;       /* Effective surface temperature at the end of the last timestep (C) */
@@ -70,14 +86,32 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* Edited by Zhuoran Duan zhuoran.duan@pnnl.gov 06/21/2006*/
   /*Add a function to modify soil moisture by add/extract SatFlow from previous time step*/
   DistributeSatflow(Dt, DX, DY, LocalSoil->SatFlow,
-    SType->NLayers, LocalSoil->Depth, LocalVType->RootDepth,
+    SType->NLayers, LocalSoil->Depth, LocalSoil->LayerThickness,
     LocalSoil->Porosity, LocalSoil->FCap,
     LocalNetwork->Adjust, &(LocalSoil->TableDepth),
     &(LocalSoil->IExcess), LocalSoil->Moist);
   
+  /* The understory covers the fraction Fu of the cell and is buried when the
+     snow water equivalent exceeds SNOW_DENSITY times its height. The lower
+     surface at the start of the step (with the step's snowfall): the
+     understory over FuR above the ground (soil or snow), transmitting the
+     shortwave with TauU; it is opaque to longwave over Cu */
+  NVeg = LocalVeg->NVegLayers;
+  Lower = (LocalVeg->OverStory == TRUE) ? 1 : 0;
+  Fu = 0.0;
+  BurySwe = 0.0;
+  Exposed = FALSE;
+  if (LocalVeg->UnderStory == TRUE) {
+    Fu = LocalVeg->UnderstoryCover;
+    BurySwe = SNOW_DENSITY * LocalVeg->Height[Lower];
+    Exposed = (LocalSnow->Swq + LocalPrecip->SnowFall <= BurySwe) ? TRUE : FALSE;
+  }
+  FuR = (LocalSnow->HasSnow == TRUE && Exposed != TRUE) ? 0.0 : Fu;
+  Cu = FuR * (1 - LocalVeg->TauU);
+
   /* Calculate the number of vegetation layers above the snow */
-  NVegLActual = LocalVType->NVegLayers;
-  if (LocalSnow->HasSnow == TRUE && LocalVType->UnderStory == TRUE)
+  NVegLActual = LocalVeg->NVegLayers;
+  if (LocalVeg->UnderStory == TRUE && FuR == 0.0)
     --NVegLActual;
 
   /* initialize the total amount of evapotranspiration, and MeltEnergy */
@@ -86,16 +120,16 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   LocalVeg->MoistureFlux = 0.0;
 
   /* calculate the radiation balance for pixels */
-  RadiationBalance(Options, CanopyRadAttOption,
-    LocalVType->OverStory, LocalVType->UnderStory, SineSolarAltitude,
+  RadiationBalance(Options,
+    LocalVeg->OverStory, FuR, Cu, SineSolarAltitude,
     LocalMet->VICSin, LocalMet->Sin, LocalMet->SinBeam,
     LocalMet->SinDiffuse, LocalMet->Lin, LocalMet->Tair, LocalVeg->Tcanopy,
-    SType->Albedo, LocalVType, LocalSnow, LocalRad, LocalVeg);
+    SType->Albedo, Over, Under, LocalSnow, LocalRad, LocalVeg);
 
   /* calculate the actual aerodynamic resistances and wind speeds */
   UpperWind = LocalVeg->U[0] * LocalMet->Wind;
   UpperRa = LocalVeg->Ra[0] / LocalMet->Wind;
-  if (LocalVType->OverStory == TRUE)
+  if (LocalVeg->OverStory == TRUE)
     LowerRa = LocalVeg->Ra[1] / LocalMet->Wind;
   else
     LowerRa = UpperRa;
@@ -105,18 +139,18 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
      vegetation present. */
 #ifndef NO_SNOW
 
-  if (LocalVType->OverStory == TRUE &&
+  if (LocalVeg->OverStory == TRUE &&
     (LocalPrecip->IntSnow[0] || LocalPrecip->SnowFall > 0.0)) {
-    SnowInterception(Options, y, x, Dt, LocalVeg->Fract[0], LocalVeg->Vf,
-      LocalVeg->LAI[0], LocalVeg->MaxInt[0], LocalVType->MaxSnowInt, LocalVType->MDRatio,
-      LocalVType->SnowIntEff, UpperRa, LocalMet->AirDens,
+    SnowInterception(Options, y, x, Dt, LocalVeg->Fract[0],
+      LocalVeg->LAI[0], LocalVeg->MaxInt[0], Over->MaxSnowInt, Over->MDRatio,
+      Over->SnowIntEff, UpperRa, LocalMet->AirDens,
       LocalMet->Eact, LocalMet->Lv, LocalRad, LocalMet->Press,
       LocalMet->Tair, LocalMet->Vpd, UpperWind,
       &(LocalPrecip->RainFall), &(LocalPrecip->SnowFall),
       &(LocalPrecip->IntRain[0]), &(LocalPrecip->IntSnow[0]),
       &(LocalPrecip->TempIntStorage),
       &(LocalSnow->CanopyVaporMassFlux), &(LocalVeg->Tcanopy),
-      &(LocalVeg->MeltEnergy), LocalVeg->Height, LocalVType->UnderStory);
+      &(LocalVeg->MeltEnergy), LocalVeg->Height, LocalVeg->UnderStory);
     LocalVeg->MoistureFlux -= LocalSnow->CanopyVaporMassFlux;
     /* Because we now have a new estimate of the canopy temperature we can
        recalculate the longwave balance */
@@ -124,11 +158,16 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       Tsurf = LocalSnow->TSurf;
     else
       Tsurf = LocalMet->Tair;
-    LongwaveBalance(Options, LocalVType->OverStory, LocalVeg->Fract[0], LocalVeg->Vf,
-      LocalMet->Lin, LocalVeg->Tcanopy, Tsurf, LocalRad);
+    LongwaveBalance(LocalVeg->OverStory, LocalVeg->Fract[0],
+      LocalMet->Lin, LocalVeg->Tcanopy, Tsurf, Cu, LocalMet->Tair, LocalRad);
+
+    /* An exposed understory intercepts the rain passing the overstory */
+    if (NVegLActual > 1)
+      InterceptionStorage(1, &(LocalVeg->MaxInt[1]), &(LocalVeg->Fract[1]),
+        &(LocalPrecip->IntRain[1]), &(LocalPrecip->RainFall));
   }
   /* if no snow */
-  else if (LocalVType->NVegLayers > 0) {
+  else if (LocalVeg->NVegLayers > 0) {
     LocalVeg->Tcanopy = LocalMet->Tair;
     LocalSnow->CanopyVaporMassFlux = 0.0;
     LocalPrecip->TempIntStorage = 0.0;
@@ -138,13 +177,15 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
   /* if snow is present, simulate the snow pack dynamics */
   if (LocalSnow->HasSnow || LocalPrecip->SnowFall > 0.0) {
-    if (LocalVType->OverStory == TRUE) {
-      SnowLongIn = LocalRad->LongIn[1];
-      SnowNetShort = LocalRad->NetShort[1];
+    /* Under an exposed understory the snow gets the ground's shortwave and
+       longwave; otherwise all of the lower surface's */
+    if (Exposed == TRUE) {
+      SnowNetShort = LocalRad->NetShortGround;
+      SnowLongIn = LocalRad->LongInGround;
     }
     else {
-      SnowLongIn = LocalRad->LongIn[0];
-      SnowNetShort = LocalRad->NetShort[0];
+      SnowNetShort = LocalRad->NetShort[Lower] + LocalRad->NetShortGround;
+      SnowLongIn = LocalRad->LongIn[Lower];
     }
 
     SnowWind = LocalVeg->USnow * LocalMet->Wind;
@@ -202,10 +243,13 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     LocalVeg->MoistureFlux -= LocalSnow->VaporMassFlux;
 
     /* Because we now have a new estimate of the snow surface temperature we
-       can recalculate the longwave balance */
+       can recalculate the longwave balance (with the understory if it is
+       above the remaining snow) */
     Tsurf = LocalSnow->TSurf;
-    LongwaveBalance(Options, LocalVType->OverStory, LocalVeg->Fract[0],
-      LocalVeg->Vf, LocalMet->Lin, LocalVeg->Tcanopy, Tsurf, LocalRad);
+    Cu = (LocalSnow->Swq <= BurySwe) ? Fu * (1 - LocalVeg->TauU) : 0.0;
+    LongwaveBalance(LocalVeg->OverStory, LocalVeg->Fract[0],
+      LocalMet->Lin, LocalVeg->Tcanopy, Tsurf, Cu, LocalMet->Tair,
+      LocalRad);
   }
   else {
     LocalSnow->Outflow = 0.0;
@@ -231,135 +275,124 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* calculate the amount of evapotranspiration from each vegetation layer
      above the ground/soil surface.  Also calculate the total amount of
      evapotranspiration from the vegetation */
-  if (LocalVType->OverStory == TRUE) {
+  if (LocalVeg->OverStory == TRUE) {
     Rp = VISFRACT * LocalRad->NetShort[0];
-    if (Options->ImprovRadiation)
-      NetRadiation = LocalRad->NetShort[0] +
-      LocalRad->LongIn[0] - 2 * LocalVeg->Vf * LocalRad->LongOut[0];
-    else
-      NetRadiation = LocalRad->NetShort[0] +
+    NetRadiation = LocalRad->NetShort[0] +
       LocalRad->LongIn[0] - 2 * LocalVeg->Fract[0] * LocalRad->LongOut[0];
     LocalRad->NetRadiation[0] = NetRadiation;
-    EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
-      Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
+    EvapoTranspiration(0, Dt, LocalMet, NetRadiation,
+      Rp, &(Over->Story), SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, UpperRa, LocalVeg);
+      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LocalSoil->LayerThickness,
+      UpperRa, LocalVeg);
     LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
+  }				/* end if(LocalVeg->OverStory == TRUE) */
 
-    if (LocalSnow->HasSnow != TRUE && LocalVType->UnderStory == TRUE) {
-      Rp = VISFRACT * LocalRad->NetShort[1];
+  /* The net shortwave of the whole lower surface, and the net radiation of
+     the ground (soil or snow) under and outside the understory */
+  NetShortL = LocalRad->NetShort[Lower] + LocalRad->NetShortGround;
+  NetRadGround = LocalRad->NetShortGround + LocalRad->LongInGround - LocalRad->LongOutGround;
+
+  /* Understory above the snow at the end of the step. Net radiation from
+     its part of the shortwave, the longwave it absorbs from above and from
+     the ground, and its emission at the air temperature up and down over
+     its opaque fraction (of its limited fraction Fract on channel cells);
+     if it was buried at the start of the step, its opaque fraction's share of
+     the whole lower surface's shortwave and incoming longwave (the ground
+     takes the rest). The visible radiation per covered area; the demand
+     above it per covered area */
+  if (LocalVeg->UnderStory == TRUE && LocalSnow->Swq <= BurySwe) {
+    Tmp = LocalMet->Tair + 273.15;
+    LongOutU = STEFAN * (Tmp * Tmp * Tmp * Tmp);
+    if (FuR > 0.0) {
+      Rp = VISFRACT * LocalRad->NetShort[Lower] / FuR;
       NetRadiation =
-        LocalRad->NetShort[1] +
-        LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
-      LocalRad->NetRadiation[1] = NetRadiation;
-      EvapoTranspiration(1, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
-        Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
-        &(LocalPrecip->IntRain[1]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-        LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg);
-      LocalVeg->MoistureFlux += LocalEvap->EAct[1] + LocalEvap->EInt[1];
+        LocalRad->NetShort[Lower] +
+        Cu * (LocalRad->LongIn[Lower] + LocalRad->LongOutGround) -
+        2 * LocalVeg->Fract[Lower] * (1 - LocalVeg->TauU) * LongOutU;
     }
-    else if (LocalVType->UnderStory == TRUE) {
-      int k;
-      LocalEvap->EPot[1] = 0.;
-      for (k = 0; k < MaxSoilLayers; k++)
-        LocalEvap->ESoil[1][k] = 0.;
-      LocalEvap->EAct[1] = 0.;
-      LocalEvap->EInt[1] = 0.;
-      LocalRad->NetRadiation[1] = 0.;
+    else {
+      /* The shortwave and incoming longwave of the lower surface shared
+         between the understory (its opaque fraction, emitting at the air
+         temperature up and down) and the ground below and outside it */
+      float CuE = Fu * (1 - LocalVeg->TauU);
+      Rp = VISFRACT * (1 - LocalVeg->TauU) * NetShortL;
+      NetRadiation =
+        CuE * (NetShortL + LocalRad->LongIn[Lower] + LocalRad->LongOutGround) -
+        2 * LocalVeg->Fract[Lower] * (1 - LocalVeg->TauU) * LongOutU;
+      NetRadGround = (1 - CuE) * (NetShortL + LocalRad->LongIn[Lower]) + CuE * LongOutU -
+        LocalRad->LongOutGround;
     }
-  }				/* end if(LocalVType->OverStory == TRUE) */
-  else if (LocalSnow->HasSnow != TRUE && LocalVType->UnderStory == TRUE) {
-    Rp = VISFRACT * LocalRad->NetShort[0];
-    NetRadiation =
-      LocalRad->NetShort[0] +
-      LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
-    EvapoTranspiration(0, Options->ImprovRadiation, Dt, LocalMet, NetRadiation,
-      Rp, LocalVType, SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
-      &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
-      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LowerRa, LocalVeg);
-    LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
-    LocalRad->NetRadiation[0] = NetRadiation;
-    LocalRad->NetRadiation[1] = 0.;
+    LocalRad->NetRadiation[Lower] = NetRadiation;
+    EvapoTranspiration(Lower, Dt, LocalMet, NetRadiation,
+      Rp, &(Under->Story), SType, LocalVeg->MoistureFlux * LocalVeg->Fract[Lower],
+      LocalSoil->Moist, LocalSoil->Temp,
+      &(LocalPrecip->IntRain[Lower]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
+      LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LocalSoil->LayerThickness,
+      LowerRa, LocalVeg);
+    LocalVeg->MoistureFlux += LocalEvap->EAct[Lower] + LocalEvap->EInt[Lower];
   }
-  else if (LocalVType->UnderStory == TRUE) {
+  else if (LocalVeg->UnderStory == TRUE) {
     int k;
-    LocalEvap->EPot[0] = 0.;
+    LocalEvap->EPot[Lower] = 0.;
     for (k = 0; k < MaxSoilLayers; k++)
-      LocalEvap->ESoil[0][k] = 0.;
-    LocalEvap->EAct[0] = 0.;
-    LocalEvap->EInt[0] = 0.;
-    LocalRad->NetRadiation[0] = 0;
-    LocalRad->NetRadiation[1] = 0.;
+      LocalEvap->ESoil[Lower][k] = 0.;
+    LocalEvap->EAct[Lower] = 0.;
+    LocalEvap->EInt[Lower] = 0.;
+    LocalRad->NetRadiation[Lower] = 0.;
   }
-  
-  /* Calculate open water evaporation from surface ponding if present */
+
+  /* Calculate open water evaporation from surface ponding if present, with
+     the ground's net radiation */
   if (LocalSnow->HasSnow != TRUE && LocalSoil->IExcess > 0.) {
-    if (LocalVType->OverStory == TRUE && LocalVType->UnderStory == TRUE)
-      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
-    else if (LocalVType->OverStory == TRUE && LocalVType->UnderStory != TRUE)
-      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalRad->LongOut[1];
-    else if (LocalVType->UnderStory == TRUE)
-      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
-    else
-      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
-    
     LocalEvap->EvapSoil =
       PondEvaporation(Dt, (DX*DY), LocalNetwork->Area,
                       LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadGround, LowerRa,
                       LocalVeg->MoistureFlux, &(LocalSoil->IExcess));
   }
   else
     LocalEvap->EvapSoil = 0.0;
-  
-  /* Calculate soil evaporation from the upper soil layer if no snow is
-     present and there is no understory */
-  if (LocalSnow->HasSnow != TRUE && LocalVType->UnderStory != TRUE) {
-    if (LocalVType->OverStory == TRUE) {
-      NetRadiation =
-        LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalRad->LongOut[1];
-      LocalRad->NetRadiation[1] = NetRadiation;
-    }
-    else {
-      NetRadiation =
-        LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
-      LocalRad->NetRadiation[0] = NetRadiation;
-      LocalRad->NetRadiation[1] = 0.;
-    }
+
+  /* Calculate soil evaporation from the upper soil layer of the whole cell
+     (under and outside the understory) if no snow is present: the ground's
+     net radiation, the demand above it (and the ponding evaporation) */
+  if (LocalSnow->HasSnow != TRUE) {
+    if (LocalVeg->UnderStory == TRUE)
+      LocalRad->NetRadiation[Lower] += NetRadGround;
+    else
+      LocalRad->NetRadiation[Lower] = NetRadGround;
     /* New: SoilEvaporation is added to the pre-existing value of EvapSoil,
        which is either equal to SurfaceEvaporation or 0. */
-    LocalEvap->EvapSoil +=
+    SoilEvap =
       SoilEvaporation(Dt,
                       LocalMet->Tair, LocalMet->Slope, LocalMet->Gamma,
-                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadiation, LowerRa,
+                      LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadGround, LowerRa,
                       (LocalVeg->MoistureFlux + LocalEvap->EvapSoil),
                       LocalSoil->Porosity[0], LocalSoil->FCap[0], LocalSoil->KsVert[0],
-                      SType->Press[0], SType->PoreDist[0], LocalVType->RootDepth[0],
-                      &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0]);
+                      SType->Press[0], SType->PoreDist[0], LocalSoil->LayerThickness[0],
+                      &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0], &SoilEPot,
+                      &(LocalSoil->DesorptionAcc));
+    LocalEvap->EvapSoil += SoilEvap;
+    LocalEvap->EAct[NVeg] = SoilEvap;
+    LocalEvap->EPot[NVeg] = SoilEPot / Dt;
   }
-  else if (LocalVType->UnderStory != TRUE) {
-    if (LocalVType->OverStory == TRUE)
-      LocalRad->NetRadiation[1] = 0.;
-    else {
-      LocalRad->NetRadiation[0] = 0.;
-      LocalRad->NetRadiation[1] = 0.;
-    }
+  else {
+    if (LocalVeg->UnderStory != TRUE)
+      LocalRad->NetRadiation[Lower] = 0.;
+    LocalEvap->EAct[NVeg] = 0.;
+    LocalEvap->EPot[NVeg] = 0.;
   }
-  
+  if (LocalVeg->OverStory != TRUE)
+    LocalRad->NetRadiation[1] = 0.;
+
   LocalVeg->MoistureFlux += LocalEvap->EvapSoil;
   LocalEvap->ETot += LocalEvap->EvapSoil;
-  
+
   /* Calculate open water and/or dry soil evaporation from stream channels */
   if (channel_grid_has_channel(ChannelData->stream_map, x, y)) {
-    if (LocalVType->OverStory == TRUE && LocalVType->UnderStory == TRUE)
-      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalVeg->Fract[1] * LocalRad->LongOut[1];
-    else if (LocalVType->OverStory == TRUE && LocalVType->UnderStory != TRUE)
-      NetRadiation = LocalRad->NetShort[1] + LocalRad->LongIn[1] - LocalRad->LongOut[1];
-    else if (LocalVType->UnderStory == TRUE)
-      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalVeg->Fract[0] * LocalRad->LongOut[0];
-    else
-      NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - LocalRad->LongOut[0];
-    
+    NetRadiation = NetRadGround;
+
     /* Calculate soil evaporation from dry channels if not snow-covered */
     if (LocalSnow->HasSnow != TRUE) {
       DryChannelEvap =
@@ -370,8 +403,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
                                LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->KsVert,
                                SType->Press, SType->PoreDist,
                                ((SType->NLayers == LocalNetwork->CutBankZone) ?
-                                  LocalSoil->Depth - LocalVType->TotalDepth :
-                                  LocalVType->RootDepth[LocalNetwork->CutBankZone]),
+                                  LocalSoil->Depth - LocalSoil->TotalThickness :
+                                  LocalSoil->LayerThickness[LocalNetwork->CutBankZone]),
                                LocalSoil->Moist, LocalNetwork->Adjust,
                                x, y, ChannelData, LocalNetwork->CutBankZone);
       LocalEvap->EvapSoil += DryChannelEvap;
@@ -394,6 +427,9 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* add the water that was not intercepted to the upper soil layer */
 
 #ifndef NO_SOIL
+
+  /* Impervious fraction of the cell: its understory class's (0 without one) */
+  float ImpervFrac = (Under != NULL) ? Under->ImpervFrac : 0.0;
 
   /* This has been modified so that PercArea for infiltration is calculated
      locally to account for the fact that some cells have streams.
@@ -418,7 +454,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   SurfaceWater = (PercArea * LocalPrecip->RainFall) + LocalSnow->Outflow + LocalSoil->IExcess;
   
   if (InfiltOption == STATIC)
-    MaxInfiltration = (1. - LocalVType->ImpervFrac) * PercArea * LocalSoil->MaxInfiltrationRate * Dt;
+    MaxInfiltration = (1. - ImpervFrac) * PercArea * LocalSoil->MaxInfiltrationRate * Dt;
   else { /* InfiltOption == DYNAMIC
         Dynamic Infiltration Capacity after Parlange and Smith 1978,
         as used in KINEROS and THALES */
@@ -439,7 +475,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       else
         Infiltrability = SurfaceWater / Dt;
 
-      MaxInfiltration = Infiltrability * PercArea * (1. - LocalVType->ImpervFrac) * Dt;
+      MaxInfiltration = Infiltrability * PercArea * (1. - ImpervFrac) * Dt;
       LocalPrecip->PrecipStart = FALSE;
     }/* end  if (SurfaceWater > 0.) */
     else
@@ -447,12 +483,18 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 
   } /* end Dynamic MaxInfiltration calculation */
 
-  Infiltration = (1. - LocalVType->ImpervFrac) * SurfaceWater;
+  Infiltration = (1. - ImpervFrac) * SurfaceWater;
 
   if (Infiltration > MaxInfiltration)
     Infiltration = MaxInfiltration;
   
   LocalSoil->IExcess = SurfaceWater - Infiltration;
+
+  /* The infiltration rewets the top layer: it offsets the soil evaporation
+     accumulated since the last wetting */
+  LocalSoil->DesorptionAcc -= Infiltration;
+  if (LocalSoil->DesorptionAcc < 0.0)
+    LocalSoil->DesorptionAcc = 0.0;
 
   /*Add water that hits the channel network to the channel network */
   if (ChannelWater > 0.) {
@@ -463,12 +505,12 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* Calculate unsaturated soil water movement, and adjust soil water table depth */
   UnsaturatedFlow(Options, Dt, DX, DY, Infiltration,
     SType->NLayers, LocalSoil->Depth,
-    LocalNetwork->Area, LocalVType->RootDepth, LocalSoil->KsVert, SType->KsAnisotropy,
+    LocalNetwork->Area, LocalSoil->LayerThickness, LocalSoil->KsVert, SType->KsAnisotropy,
     SType->PoreDist, LocalSoil->Porosity, LocalSoil->FCap, LocalSoil->Perc,
     LocalNetwork->PercArea, LocalNetwork->Adjust, LocalNetwork->CutBankZone,
     LocalNetwork->BankHeight, &(LocalSoil->TableDepth), &(LocalSoil->IExcess),
     LocalSoil->Moist, InfiltOption,
-    VType, VegMap, Network, SoilMap,
+    VegMap, Network, SoilMap,
     LocalTopo->CosSlope, LocalTopo->SinSlope, TopoMap,
     Map, y, x);
 

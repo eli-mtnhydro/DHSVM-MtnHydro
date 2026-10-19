@@ -25,7 +25,8 @@ enum VALUECODE {
   V_EVAP_TRANSPIRATION, V_EVAP_SOIL, V_EVAP_CHANNEL,
   V_SOIL_MOISTURE, V_SOIL_PERCOLATION, V_SOIL_INTERFLOW, V_SOIL_TABLEDEPTH,
   V_SOIL_SATFLOW, V_SOIL_WATERLEVEL, V_SOIL_SURFACEWATER,
-  V_SOIL_INFILTRATIONACCUMULATED, V_SOIL_WATER, V_SOIL_DEEPFLUX, V_SOIL_LATENTHEAT,
+  V_SOIL_INFILTRATIONACCUMULATED, V_SOIL_DESORPTIONACCUMULATED, V_SOIL_WATER,
+  V_SOIL_DEEPFLUX, V_SOIL_LATENTHEAT,
   V_SURFACE_DETENTION, V_SURFACE_RUNOFF, V_STREAM_INTERCEPTION,
   V_STREAM_INFILTRATION, V_LAKE_STORAGE, V_LAKE_LEVEL, V_BALANCE_WATERINPUT,
   /* basin variables */
@@ -55,7 +56,7 @@ float SnowColdContent(SNOWPIX *Snow);
 double SegmentValue(int Code, Channel *Segment, int Dt);
 
 /* Aggregate.c */
-void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg,
+void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap,
                 DUMPSTRUCT *Dump, TOTALS *Totals);
 void Aggregate(MODELVIEW *Model, TOTALS *Totals);
 float AggregateValue(AGGREGATE *Aggregate, int Code, int Layer);
@@ -80,7 +81,7 @@ int OutputListNamesAny(OUTLIST *List);
 int ExpandList(OUTLIST *List, int Kind, const char *KindName, OPTIONSTRUCT *Options,
                int SoilLayers, int Strict);
 void ValidateRequests(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-                      TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg, Channel *Streams,
+                      TOPOPIX **TopoMap, VEGPIX **VegMap, VEGTABLES *Veg, Channel *Streams,
                       DUMPSTRUCT *Dump);
 
 /* ExecDump.c and OutputMaps.c */

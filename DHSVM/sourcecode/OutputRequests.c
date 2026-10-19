@@ -159,23 +159,20 @@ int ExpandList(OUTLIST *List, int Kind, const char *KindName, OPTIONSTRUCT *Opti
 
   The checks of the output requests in order: checks 1-3 of ExpandList()
   over every variable list, then the classes, the points and the saved
-  segments. Leaves the expanded lists, the classes (a class listed again
-  is not added again) and the points' cells in Dump.
+  segments. Leaves the expanded lists and the points' cells in Dump.
 *****************************************************************************/
 void ValidateRequests(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
-                      TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg, Channel *Streams,
+                      TOPOPIX **TopoMap, VEGPIX **VegMap, VEGTABLES *Veg, Channel *Streams,
                       DUMPSTRUCT *Dump)
 {
   const int Kinds[NOUTLISTS] = { KIND_BASIN, KIND_POINT, KIND_CLASS, KIND_CHANNELS, KIND_MAP };
   const char *KindNames[NOUTLISTS] = { "Basin", "Point", "Class", "Channels", "a map" };
-  char Text[BUFSIZE + 1];
   char Path[BUFSIZE + 1];
-  char *Token;
   const char *c;
   Channel *Segment;
-  int *NCells;
+  CLASSOUT *Class;
+  int Found;
   int Check, i, j, k, x, y;
-  long Class;
   double Row, Col;
 
   for (Check = 1; Check <= 3; Check++) {
@@ -183,37 +180,36 @@ void ValidateRequests(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map,
       ExpandList(&(Dump->List[k]), Kinds[k], KindNames[k], Options, Map->SoilLayers, Check);
   }
 
-  /* Classes, paired with a Class list */
-  Dump->NClasses = 0;
-  Dump->Classes = NULL;
+  /* Class combinations, paired with a Class list: each class a row of its
+     table or 0, each combination on a mask cell at Start or given to one by
+     a vegetation update before End */
   if (Dump->List[OUT_CLASS].N > 0 && IsEmptyStr(Dump->ClassesText))
     ReportErrorCode(111, "[OUTPUT] Class needs Classes");
   if (Dump->List[OUT_CLASS].N == 0 && !IsEmptyStr(Dump->ClassesText))
     ReportErrorCode(111, "[OUTPUT] Classes needs Class");
-  if (Dump->List[OUT_CLASS].N > 0) {
-    if (!(NCells = (int *) calloc(Veg->NTypes, sizeof(int))) ||
-        !(Dump->Classes = (CLASSOUT *) calloc(strlen(Dump->ClassesText), sizeof(CLASSOUT))))
-      ReportError("ValidateRequests", 1);
-    for (y = 0; y < Map->NY; y++)
-      for (x = 0; x < Map->NX; x++)
-        if (INBASIN(TopoMap[y][x].Mask))
-          NCells[VegMap[y][x].Veg - 1]++;
-    GetConfigValue(Input, "INPUTS", "Vegetation Table", Path);
-    strcpy(Text, Dump->ClassesText);
-    for (Token = strtok(Text, " \t"); Token != NULL; Token = strtok(NULL, " \t")) {
-      Class = strtol(Token, NULL, 10);
-      if (Class < 1 || Class > Veg->NTypes)
-        ReportErrorCode(111, "[OUTPUT] Classes: class %s is not in %s", Token, Path);
-      if (NCells[Class - 1] == 0 &&
-          !(Options->VegUpdates.Present != NULL && Options->VegUpdates.Present[Class - 1]))
-        ReportErrorCode(111, "[OUTPUT] Classes: class %s has no cell in the mask", Token);
-      for (j = 0; j < Dump->NClasses; j++)
-        if (Dump->Classes[j].Class == Class)
-          break;
-      if (j == Dump->NClasses)
-        Dump->Classes[Dump->NClasses++].Class = (int) Class;
+  for (j = 0; j < Dump->NClasses; j++) {
+    Class = &(Dump->Classes[j]);
+    if (Class->Over < 0 || Class->Over > Veg->NOver) {
+      GetConfigValue(Input, "INPUTS", "Overstory Table", Path);
+      ReportErrorCode(111, "[OUTPUT] Classes: %d_%d: overstory class %d is not in 0..%d "
+                      "(the rows of %s)", Class->Over, Class->Under, Class->Over, Veg->NOver,
+                      Path);
     }
-    free(NCells);
+    if (Class->Under < 0 || Class->Under > Veg->NUnder) {
+      GetConfigValue(Input, "INPUTS", "Understory Table", Path);
+      ReportErrorCode(111, "[OUTPUT] Classes: %d_%d: understory class %d is not in 0..%d "
+                      "(the rows of %s)", Class->Over, Class->Under, Class->Under, Veg->NUnder,
+                      Path);
+    }
+    Found = Class->Present;
+    for (y = 0; y < Map->NY && !Found; y++)
+      for (x = 0; x < Map->NX && !Found; x++)
+        if (INBASIN(TopoMap[y][x].Mask) && VegMap[y][x].OverClass == Class->Over &&
+            VegMap[y][x].UnderClass == Class->Under)
+          Found = TRUE;
+    if (!Found)
+      ReportErrorCode(111, "[OUTPUT] Classes: %d_%d has no cell in the mask", Class->Over,
+                      Class->Under);
   }
 
   /* The points: a point table, names, cells inside the mask. Names are

@@ -43,8 +43,7 @@ void channel_grid_init(int cols, int rows);
 ChannelMapPtr **channel_grid_create_records(Channel *net, int N, int *Row, int *Column,
                                             int *Segment, float *Length, float *CutHeight,
                                             float *CutWidth, SOILTABLE *SType,
-                                            SOILPIX **SoilMap, VEGTABLE *VType,
-                                            VEGPIX **VegMap);
+                                            SOILPIX **SoilMap);
 
 void channel_combine_map_network(Channel * net, ChannelMapPtr ** map, MAPSIZE * Map);
 

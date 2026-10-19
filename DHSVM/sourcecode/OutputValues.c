@@ -76,6 +76,7 @@ static const struct {
   {"Soil.WaterLevel", V_SOIL_WATERLEVEL},
   {"Soil.SurfaceWater", V_SOIL_SURFACEWATER},
   {"Soil.InfiltrationAccumulated", V_SOIL_INFILTRATIONACCUMULATED},
+  {"Soil.DesorptionAccumulated", V_SOIL_DESORPTIONACCUMULATED},
   {"Soil.Water", V_SOIL_WATER},
   {"Soil.DeepFlux", V_SOIL_DEEPFLUX},
   {"Soil.LatentHeat", V_SOIL_LATENTHEAT},
@@ -156,7 +157,7 @@ int CodeVar(int Code)
 
   Value of layer Layer of the variable with value code Code in mask cell
   (y, x). *Has is FALSE (and the value NA) where the cell does not have the
-  layer: a canopy layer its vegetation class lacks, the lake level off the
+  layer: a canopy layer the cell lacks, the lake level off the
   lakes.
 *****************************************************************************/
 float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
@@ -167,7 +168,6 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
   SNOWPIX *Snow = &(Model->Snow[y][x]);
   SOILPIX *Soil = &(Model->Soil[y][x]);
   VEGPIX *Veg = &(Model->Veg[y][x]);
-  VEGTABLE *VType = &(Model->VType[Veg->Veg - 1]);
   NETSTRUCT *Network = &(Model->Network[y][x]);
   int L = Model->Map->SoilLayers;
   int Index;
@@ -184,14 +184,14 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
   case V_CANOPY_INTERCEPTEDRAIN:
   case V_CANOPY_INTERCEPTEDSNOW:
   case V_EVAP_INTERCEPTION:
-    Index = CanopyIndex(VType, Layer);
+    Index = CanopyIndex(Veg, Layer);
     break;
   case V_EVAP_POTENTIAL:
   case V_EVAP_ACTUAL:
-    Index = (Layer == 2) ? VType->NVegLayers : CanopyIndex(VType, Layer);
+    Index = (Layer == 2) ? Veg->NVegLayers : CanopyIndex(Veg, Layer);
     break;
   case V_EVAP_TRANSPIRATION:
-    Index = CanopyIndex(VType, Layer / L);
+    Index = CanopyIndex(Veg, Layer / L);
     break;
   default:
     Index = 0;
@@ -245,7 +245,7 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
   case V_CANOPY_TEMPERATURE: return Veg->Tcanopy;
   case V_CANOPY_STORAGE:
     Value = 0.0;
-    for (i = 0; i < VType->NVegLayers; i++)
+    for (i = 0; i < Veg->NVegLayers; i++)
       Value += Precip->IntRain[i] + Precip->IntSnow[i];
     return Value;
   case V_CANOPY_SNOWVAPOR: return Snow->CanopyVaporMassFlux;
@@ -264,12 +264,13 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
   case V_SOIL_WATERLEVEL: return Soil->WaterLevel;
   case V_SOIL_SURFACEWATER: return Soil->IExcess;
   case V_SOIL_INFILTRATIONACCUMULATED: return Soil->InfiltAcc;
+  case V_SOIL_DESORPTIONACCUMULATED: return Soil->DesorptionAcc;
   case V_SOIL_WATER:
     Value = 0.0;
     DeepDepth = 0.0;
     for (i = 0; i < L; i++) {
-      Value += Soil->Moist[i] * VType->RootDepth[i] * Network->Adjust[i];
-      DeepDepth += VType->RootDepth[i];
+      Value += Soil->Moist[i] * Soil->LayerThickness[i] * Network->Adjust[i];
+      DeepDepth += Soil->LayerThickness[i];
     }
     Value += Soil->Moist[L] * (Soil->Depth - DeepDepth) * Network->Adjust[L];
     return Value;

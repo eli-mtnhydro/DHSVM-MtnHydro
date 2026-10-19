@@ -31,7 +31,7 @@ const char *TableText(TABLE *Table, int Row, int Column);
 float TableFloat(TABLE *Table, int Row, int Column);
 double TableDouble(TABLE *Table, int Row, int Column);
 int TableInt(TABLE *Table, int Row, int Column);
-void TableCheckRows(TABLE *Table, const char *IdColumn, int MaxRows);
+void TableCheckRows(TABLE *Table, const char *IdColumn, int MinRows, int MaxRows);
 void TableWarnUnknown(TABLE *Table);
 
 #endif

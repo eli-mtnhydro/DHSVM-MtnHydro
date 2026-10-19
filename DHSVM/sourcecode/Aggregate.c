@@ -1,8 +1,8 @@
 /*
  * DESCRIPTION:  Basin and class means. One pass over the mask cells (north
  *               to south, west to east) adds each cell's values to running
- *               totals in float: the basin's and, if requested, the cell's
- *               vegetation class's. Most variables add one value per cell;
+ *               totals in float: the basin's and, if requested, those of
+ *               the cell's overstory and understory class combination. Most variables add one value per cell;
  *               canopy storage, soil water and incoming shortwave are formed
  *               term by term. Means are the totals divided by the number of
  *               cells (cells with snow for the snow pack variables). The pass
@@ -28,6 +28,7 @@ static int SlotDiffuse;		/* Diffuse shortwave (incoming shortwave is beam + diff
 static int NSlots;
 
 static void InitAggregate(AGGREGATE *Aggregate);
+static int CellClass(TOTALS *Totals, VEGPIX *Cell);
 static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, int x);
 static void FinishAggregate(AGGREGATE *Aggregate, int Dt);
 
@@ -35,9 +36,9 @@ static void FinishAggregate(AGGREGATE *Aggregate, int Dt);
   InitTotals()
 
   Slots of the variables with basin and class means, the basin aggregate and
-  one aggregate per class of [OUTPUT] Classes
+  one aggregate per class combination of [OUTPUT] Classes
 *****************************************************************************/
-void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg,
+void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap,
                 DUMPSTRUCT *Dump, TOTALS *Totals)
 {
   const char *Aggregation;
@@ -61,16 +62,15 @@ void InitTotals(MAPSIZE *Map, TOPOPIX **TopoMap, VEGPIX **VegMap, LAYER *Veg,
   memset(Totals, 0, sizeof(TOTALS));
   InitAggregate(&(Totals->Basin));
   Totals->NClasses = Dump->NClasses;
-  if (!(Totals->ClassIndex = (int *) malloc(Veg->NTypes * sizeof(int))))
-    ReportError("InitTotals", 1);
-  for (i = 0; i < Veg->NTypes; i++)
-    Totals->ClassIndex[i] = -1;
   if (Totals->NClasses > 0) {
-    if (!(Totals->Class = (AGGREGATE *) calloc(Totals->NClasses, sizeof(AGGREGATE))))
+    if (!(Totals->Class = (AGGREGATE *) calloc(Totals->NClasses, sizeof(AGGREGATE))) ||
+        !(Totals->ClassOver = (int *) calloc(Totals->NClasses, sizeof(int))) ||
+        !(Totals->ClassUnder = (int *) calloc(Totals->NClasses, sizeof(int))))
       ReportError("InitTotals", 1);
     for (i = 0; i < Totals->NClasses; i++) {
       InitAggregate(&(Totals->Class[i]));
-      Totals->ClassIndex[Dump->Classes[i].Class - 1] = i;
+      Totals->ClassOver[i] = Dump->Classes[i].Over;
+      Totals->ClassUnder[i] = Dump->Classes[i].Under;
     }
   }
 }
@@ -120,7 +120,7 @@ void Aggregate(MODELVIEW *Model, TOTALS *Totals)
       if (INBASIN(Model->Topo[y][x].Mask)) {
         NTarget = 0;
         Target[NTarget++] = &(Totals->Basin);
-        Class = Totals->ClassIndex[Model->Veg[y][x].Veg - 1];
+        Class = CellClass(Totals, &(Model->Veg[y][x]));
         if (Class >= 0)
           Target[NTarget++] = &(Totals->Class[Class]);
         AddCell(Target, NTarget, Model, y, x);
@@ -150,6 +150,19 @@ void Aggregate(MODELVIEW *Model, TOTALS *Totals)
   Totals->SaturatedFraction = (float) Totals->NSaturated / (float) Totals->Basin.NCells;
 }
 
+/* The class combination of a cell's overstory and understory classes, -1
+   if it has no means */
+static int CellClass(TOTALS *Totals, VEGPIX *Cell)
+{
+  int i;
+
+  for (i = 0; i < Totals->NClasses; i++) {
+    if (Totals->ClassOver[i] == Cell->OverClass && Totals->ClassUnder[i] == Cell->UnderClass)
+      return i;
+  }
+  return -1;
+}
+
 /* Adds Value to slot Layer of value code Code of every target */
 #define ADD(Code, Layer, Value) \
   for (t = 0; t < NTarget; t++) Target[t]->Sum[Base[Code] + (Layer)] += (Value)
@@ -167,10 +180,10 @@ static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, in
   PIXRAD *Rad = &(Model->Rad[y][x]);
   SNOWPIX *Snow = &(Model->Snow[y][x]);
   SOILPIX *Soil = &(Model->Soil[y][x]);
-  VEGTABLE *VType = &(Model->VType[Model->Veg[y][x].Veg - 1]);
+  VEGPIX *Veg = &(Model->Veg[y][x]);
   NETSTRUCT *Network = &(Model->Network[y][x]);
   int L = Model->Map->SoilLayers;
-  int NVeg = VType->NVegLayers;
+  int NVeg = Veg->NVegLayers;
   int Index[2];
   int c, i, t;
   float Term;
@@ -179,8 +192,8 @@ static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, in
   for (t = 0; t < NTarget; t++)
     Target[t]->NCells++;
 
-  Index[0] = CanopyIndex(VType, 0);
-  Index[1] = CanopyIndex(VType, 1);
+  Index[0] = CanopyIndex(Veg, 0);
+  Index[1] = CanopyIndex(Veg, 1);
 
   /* Meteorology and radiation */
   ADD(V_MET_PRECIPITATION, 0, Precip->Precip);
@@ -265,9 +278,9 @@ static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, in
     ADD(V_SOIL_MOISTURE, i, Soil->Moist[i]);
     ADD(V_SOIL_INTERFLOW, i, Soil->InterFlow[i]);
     ADD(V_SOIL_PERCOLATION, i, Soil->Perc[i]);
-    Term = Soil->Moist[i] * VType->RootDepth[i] * Network->Adjust[i];
+    Term = Soil->Moist[i] * Soil->LayerThickness[i] * Network->Adjust[i];
     ADD(V_SOIL_WATER, 0, Term);
-    DeepDepth += VType->RootDepth[i];
+    DeepDepth += Soil->LayerThickness[i];
   }
   ADD(V_SOIL_MOISTURE, L, Soil->Moist[L]);
   Term = Soil->Moist[L] * (Soil->Depth - DeepDepth) * Network->Adjust[L];

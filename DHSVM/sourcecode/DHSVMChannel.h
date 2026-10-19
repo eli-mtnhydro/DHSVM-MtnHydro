@@ -55,17 +55,17 @@ void ReadChannelTables(LISTPTR Input, CHANNELTABLES *Tables);
 void ValidateChannels(OPTIONSTRUCT *Options, MAPSIZE *Map, TOPOPIX **TopoMap,
                       SOILPIX **SoilMap, CHANNELTABLES *Tables, LAKETABLE *LType);
 void InitChannel(MAPSIZE *Map, int deltat, CHANNEL *channel, CHANNELTABLES *Tables,
-	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
+	    SOILTABLE *SType, SOILPIX ** SoilMap,
 	    LAKETABLE *LType, TOPOPIX **TopoMap,
 	    int *MaxStreamID, OPTIONSTRUCT *Options);
 double ChannelCulvertFlow(int y, int x, CHANNEL *ChannelData);
 void RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 		  TOPOPIX **TopoMap, SOILPIX **SoilMap,
 		  OPTIONSTRUCT *Options, NETSTRUCT **Network, SOILTABLE *SType,
-		  VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType);
+		  VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType);
 void ChannelCut(int y, int x, CHANNEL *ChannelData, NETSTRUCT *Network);
 void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
-                       VEGTABLE *VType, VEGPIX *LocalVeg);
+                       VEGPIX *LocalVeg);
 uchar ChannelFraction(TOPOPIX *topo, ChannelMapRec *rds);
 
 #endif

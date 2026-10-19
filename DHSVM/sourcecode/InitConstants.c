@@ -327,7 +327,6 @@ static void InitOptions(LISTPTR Input, OPTIONSTRUCT *Options)
   const char *Routing[] = { "CONVENTIONAL", "KINEMATIC" };
   const char *Ksat[] = { "ANISOTROPY", "TABLE" };
   const char *Infiltration[] = { "STATIC", "DYNAMIC" };
-  const char *Attenuation[] = { "FIXED", "VARIABLE" };
   char Value[BUFSIZE + 1];
 
   /* Subsurface flow gradient: land surface (TOPOGRAPHY) or water table */
@@ -374,15 +373,6 @@ static void InitOptions(LISTPTR Input, OPTIONSTRUCT *Options)
   RequireConfigValue(Input, "OPTIONS", "Wind Scale", Value);
   Options->WindScale = ConfigBool("OPTIONS", "Wind Scale", Value);
 
-  /* Radiation attenuation through the canopy */
-  Options->CanopyRadAtt =
-    (ConfigChoice(Input, "OPTIONS", "Canopy Radiation Attenuation", Attenuation, 2) == 0) ?
-    FIXED : VARIABLE;
-
-  /* Improved radiation scheme (tree height, solar altitude, cover) */
-  RequireConfigValue(Input, "OPTIONS", "Variable Light Transmittance", Value);
-  Options->ImprovRadiation = ConfigBool("OPTIONS", "Variable Light Transmittance", Value);
-
   /* Terrain shading of the beam radiation */
   RequireConfigValue(Input, "OPTIONS", "Shading", Value);
   Options->Shading = ConfigBool("OPTIONS", "Shading", Value);
@@ -400,9 +390,10 @@ static void InitInputKeys(LISTPTR Input, OPTIONSTRUCT *Options)
   const char *Always[] = {
     "Terrain.Elevation", "Terrain.Mask", "Soil.Class", "Soil.Depth",
     "Soil.LateralConductivity", "Soil.ExponentialDecrease", "Soil.Porosity",
-    "Soil.FieldCapacity", "Veg.Class", "Veg.OverstoryCover", "Veg.OverstoryLAI",
-    "Veg.OverstoryHeight", "Veg.UnderstoryHeight", "Soil Table",
-    "Vegetation Table", "Channel Class Table", "Channel Segment Table", "Channel Cell Table",
+    "Soil.FieldCapacity", "Soil.LayerThickness", "Veg.OverstoryClass", "Veg.UnderstoryClass",
+    "Veg.OverstoryCover", "Veg.OverstoryLAI", "Veg.OverstoryHeight", "Veg.UnderstoryCover",
+    "Veg.UnderstoryLAI", "Veg.UnderstoryHeight", "Soil Table", "Overstory Table",
+    "Understory Table", "Channel Class Table", "Channel Segment Table", "Channel Cell Table",
     "Station Table", "Station Data Directory"
   };
   char Value[BUFSIZE + 1];

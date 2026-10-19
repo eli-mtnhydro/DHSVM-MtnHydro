@@ -32,8 +32,8 @@ static void AddListKey(OUTLIST *List, const char *Where, const char *Value);
 
   [OUTPUT]: each key present is read and its form checked (exit 103). The
   variable lists Basin, Point, Class, Channels and Maps, each continued by
-  <Key> 2, <Key> 3, ... up to the first missing number; Classes (vegetation
-  class numbers); Streamflow (TRUE or FALSE); Network Dynamics Interval
+  <Key> 2, <Key> 3, ... up to the first missing number; Classes (pairs
+  <overstory class>_<understory class>, each pair once); Streamflow (TRUE or FALSE); Network Dynamics Interval
   (hours); Map Time 1, 2, ... (instants); Request Table (a table of
   variables whose requests follow the list keys of each kind; empty = none).
   Map Time 1 is required when a list of Maps names a variable. Every key is
@@ -46,7 +46,7 @@ void InitOutputKeys(LISTPTR Input, DUMPSTRUCT *Dump)
   char KeyName[BUFSIZE + 1];
   char *Token;
   char *End;
-  long Class;
+  long Over, Under;
   int i, n;
 
   for (i = 0; i < NOUTLISTS; i++) {
@@ -54,15 +54,35 @@ void InitOutputKeys(LISTPTR Input, DUMPSTRUCT *Dump)
     ReadListKeys(Input, ListBases[i], &(Dump->List[i]));
   }
 
-  /* Vegetation classes with a Class_<N>.csv */
+  /* Class combinations with a Class_<O>_<U>.csv: <overstory class>_<understory
+     class> (the classes are checked by ValidateRequests()) */
   Dump->ClassesText[0] = '\0';
+  Dump->NClasses = 0;
+  Dump->Classes = NULL;
   if (GetConfigValue(Input, "OUTPUT", "Classes", Value)) {
+    if (!(Dump->Classes = (CLASSOUT *) calloc(strlen(Value) + 1, sizeof(CLASSOUT))))
+      ReportError("InitOutputKeys", 1);
     strcpy(Text, Value);
     for (Token = strtok(Text, " \t"); Token != NULL; Token = strtok(NULL, " \t")) {
       errno = 0;
-      Class = strtol(Token, &End, 10);
-      if (End == Token || *End != '\0' || errno == ERANGE || Class < -1000000 || Class > 1000000)
-        ReportErrorCode(103, "[OUTPUT] Classes = %s: expected vegetation class numbers", Value);
+      Over = strtol(Token, &End, 10);
+      if (End == Token || *End != '_' || errno == ERANGE || Over < -1000000 || Over > 1000000)
+        ReportErrorCode(103, "[OUTPUT] Classes = %s: expected overstory_understory class pairs "
+                        "such as 3_2", Value);
+      Token = End + 1;
+      Under = strtol(Token, &End, 10);
+      if (End == Token || *End != '\0' || errno == ERANGE || Under < -1000000 || Under > 1000000)
+        ReportErrorCode(103, "[OUTPUT] Classes = %s: expected overstory_understory class pairs "
+                        "such as 3_2", Value);
+      for (i = 0; i < Dump->NClasses; i++)
+        if (Dump->Classes[i].Over == Over && Dump->Classes[i].Under == Under)
+          break;
+      if (i == Dump->NClasses) {
+        Dump->Classes[Dump->NClasses].Over = (int) Over;
+        Dump->Classes[Dump->NClasses].Under = (int) Under;
+        Dump->Classes[Dump->NClasses].Present = FALSE;
+        Dump->NClasses++;
+      }
     }
     strcpy(Dump->ClassesText, Value);
   }

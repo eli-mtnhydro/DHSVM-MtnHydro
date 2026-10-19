@@ -41,7 +41,7 @@ enum SNAPSHOTSLOT {
   SNAP_WATERLEVEL, SNAP_WATERLEVELLAST, SNAP_INFILTACC, SNAP_MOISTINIT,
   SNAP_PRECIPSTART, SNAP_RUNOFF, SNAP_STARTRUNOFF, SNAP_DETENTION,
   SNAP_LAKEOUTFLOW, SNAP_SUMPRECIP, SNAP_SNOWACCUM, SNAP_SNOWMELT,
-  SNAP_MAXSWE, SNAP_MAXSWEDATE, SNAP_MELTOUTDATE
+  SNAP_MAXSWE, SNAP_MAXSWEDATE, SNAP_MELTOUTDATE, SNAP_DESORPTIONACC
 };
 
 typedef struct {
@@ -51,13 +51,13 @@ typedef struct {
 
 static int SnapshotLayers(int L, SNAPLAYER **Layers, char (**Names)[MAP_NAMESIZE]);
 static int CellHasLayer(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
-                        VEGPIX **VegMap, VEGTABLE *VType, LAKETABLE *LType);
+                        VEGPIX **VegMap, LAKETABLE *LType);
 static float GetLayerValue(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
                            PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, VEGPIX **VegMap,
-                           VEGTABLE *VType, SOILPIX **SoilMap, LAKETABLE *LType);
+                           SOILPIX **SoilMap, LAKETABLE *LType);
 static void SetLayerValue(SNAPLAYER *Layer, int y, int x, float Value,
                           TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
-                          VEGPIX **VegMap, VEGTABLE *VType, SOILPIX **SoilMap,
+                          VEGPIX **VegMap, SOILPIX **SoilMap,
                           LAKETABLE *LType);
 
 /*****************************************************************************
@@ -77,23 +77,23 @@ void SnapshotFile(char *Buffer, size_t Size, char *Dir, DATE *Valid, const char 
   CanopyIndex()
 
   Position of the overstory (Canopy 0) or the understory (Canopy 1) among
-  the vegetation layers of a class (0 = the top layer present), -1 if the
-  class lacks it
+  the vegetation layers of a cell (0 = the top layer present), -1 if the
+  cell lacks it
 *****************************************************************************/
-int CanopyIndex(VEGTABLE *VType, int Canopy)
+int CanopyIndex(VEGPIX *Cell, int Canopy)
 {
   if (Canopy == 0)
-    return (VType->OverStory == TRUE) ? 0 : -1;
-  if (VType->UnderStory != TRUE)
+    return (Cell->OverStory == TRUE) ? 0 : -1;
+  if (Cell->UnderStory != TRUE)
     return -1;
-  return (VType->OverStory == TRUE) ? 1 : 0;
+  return (Cell->OverStory == TRUE) ? 1 : 0;
 }
 
 /*****************************************************************************
   SnapshotLayers()
 
   The layers of a snapshot map in file order, with their names; L is the
-  number of root zone layers. Returns the number of layers (34 + 2 L).
+  number of root zone layers. Returns the number of layers (35 + 2 L).
 *****************************************************************************/
 static void AddLayer(SNAPLAYER *Layers, char (*Names)[MAP_NAMESIZE], int *n,
                      int Slot, int Sub, const char *Name)
@@ -107,7 +107,7 @@ static void AddLayer(SNAPLAYER *Layers, char (*Names)[MAP_NAMESIZE], int *n,
 static int SnapshotLayers(int L, SNAPLAYER **Layers, char (**Names)[MAP_NAMESIZE])
 {
   char Name[MAP_NAMESIZE];
-  int NLayers = 34 + 2 * L;
+  int NLayers = 35 + 2 * L;
   int n = 0;
   int l;
 
@@ -157,6 +157,7 @@ static int SnapshotLayers(int L, SNAPLAYER **Layers, char (**Names)[MAP_NAMESIZE
   AddLayer(*Layers, *Names, &n, SNAP_MAXSWE, 0, "Snow.PeakSWE");
   AddLayer(*Layers, *Names, &n, SNAP_MAXSWEDATE, 0, "Snow.PeakSWEDay");
   AddLayer(*Layers, *Names, &n, SNAP_MELTOUTDATE, 0, "Snow.MeltOutDay");
+  AddLayer(*Layers, *Names, &n, SNAP_DESORPTIONACC, 0, "Soil.DesorptionAccumulated");
 
   return n;
 }
@@ -164,16 +165,16 @@ static int SnapshotLayers(int L, SNAPLAYER **Layers, char (**Names)[MAP_NAMESIZE
 /*****************************************************************************
   CellHasLayer()
 
-  TRUE if a mask cell has the layer: a canopy layer only if its vegetation
-  class has that canopy, the lake outflow only on lake cells
+  TRUE if a mask cell has the layer: a canopy layer only if the cell has
+  that canopy, the lake outflow only on lake cells
 *****************************************************************************/
 static int CellHasLayer(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
-                        VEGPIX **VegMap, VEGTABLE *VType, LAKETABLE *LType)
+                        VEGPIX **VegMap, LAKETABLE *LType)
 {
   switch (Layer->Slot) {
   case SNAP_INTRAIN:
   case SNAP_INTSNOW:
-    return CanopyIndex(&(VType[VegMap[y][x].Veg - 1]), Layer->Sub) >= 0;
+    return CanopyIndex(&(VegMap[y][x]), Layer->Sub) >= 0;
   case SNAP_LAKEOUTFLOW:
     return (TopoMap[y][x].LakeID > 0 && LType != NULL);
   default:
@@ -188,7 +189,7 @@ static int CellHasLayer(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
 *****************************************************************************/
 static float GetLayerValue(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
                            PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, VEGPIX **VegMap,
-                           VEGTABLE *VType, SOILPIX **SoilMap, LAKETABLE *LType)
+                           SOILPIX **SoilMap, LAKETABLE *LType)
 {
   PRECIPPIX *Precip = &(PrecipMap[y][x]);
   SNOWPIX *Snow = &(SnowMap[y][x]);
@@ -197,10 +198,10 @@ static float GetLayerValue(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
 
   switch (Layer->Slot) {
   case SNAP_INTRAIN:
-    i = CanopyIndex(&(VType[VegMap[y][x].Veg - 1]), Layer->Sub);
+    i = CanopyIndex(&(VegMap[y][x]), Layer->Sub);
     return Precip->IntRain[i];
   case SNAP_INTSNOW:
-    i = CanopyIndex(&(VType[VegMap[y][x].Veg - 1]), Layer->Sub);
+    i = CanopyIndex(&(VegMap[y][x]), Layer->Sub);
     return Precip->IntSnow[i];
   case SNAP_TEMPINT: return Precip->TempIntStorage;
   case SNAP_TCANOPY: return VegMap[y][x].Tcanopy;
@@ -233,6 +234,7 @@ static float GetLayerValue(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
   case SNAP_MAXSWE: return Snow->MaxSwe;
   case SNAP_MAXSWEDATE: return (float) Snow->MaxSweDate;
   case SNAP_MELTOUTDATE: return (float) Snow->MeltOutDate;
+  case SNAP_DESORPTIONACC: return Soil->DesorptionAcc;
   default:
     return NA;
   }
@@ -240,7 +242,7 @@ static float GetLayerValue(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
 
 static void SetLayerValue(SNAPLAYER *Layer, int y, int x, float Value,
                           TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
-                          VEGPIX **VegMap, VEGTABLE *VType, SOILPIX **SoilMap,
+                          VEGPIX **VegMap, SOILPIX **SoilMap,
                           LAKETABLE *LType)
 {
   PRECIPPIX *Precip = &(PrecipMap[y][x]);
@@ -250,11 +252,11 @@ static void SetLayerValue(SNAPLAYER *Layer, int y, int x, float Value,
 
   switch (Layer->Slot) {
   case SNAP_INTRAIN:
-    i = CanopyIndex(&(VType[VegMap[y][x].Veg - 1]), Layer->Sub);
+    i = CanopyIndex(&(VegMap[y][x]), Layer->Sub);
     Precip->IntRain[i] = Value;
     break;
   case SNAP_INTSNOW:
-    i = CanopyIndex(&(VType[VegMap[y][x].Veg - 1]), Layer->Sub);
+    i = CanopyIndex(&(VegMap[y][x]), Layer->Sub);
     Precip->IntSnow[i] = Value;
     break;
   case SNAP_TEMPINT: Precip->TempIntStorage = Value; break;
@@ -291,6 +293,7 @@ static void SetLayerValue(SNAPLAYER *Layer, int y, int x, float Value,
   case SNAP_MAXSWE: Snow->MaxSwe = Value; break;
   case SNAP_MAXSWEDATE: Snow->MaxSweDate = (unint) Value; break;
   case SNAP_MELTOUTDATE: Snow->MeltOutDate = (unint) Value; break;
+  case SNAP_DESORPTIONACC: Soil->DesorptionAcc = Value; break;
   default:
     break;
   }
@@ -303,7 +306,7 @@ static void SetLayerValue(SNAPLAYER *Layer, int y, int x, float Value,
 *****************************************************************************/
 void StoreModelState(char *Path, DATE *Valid, MAPSIZE *Map, TOPOPIX **TopoMap,
                      PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, VEGPIX **VegMap,
-                     VEGTABLE *VType, SOILPIX **SoilMap, CHANNEL *ChannelData,
+                     SOILPIX **SoilMap, CHANNEL *ChannelData,
                      LAKETABLE *LType)
 {
   char FileName[BUFSIZE * 2 + 1];
@@ -330,10 +333,10 @@ void StoreModelState(char *Path, DATE *Valid, MAPSIZE *Map, TOPOPIX **TopoMap,
     for (y = 0; y < Map->NY; y++) {
       for (x = 0; x < Map->NX; x++) {
         if (INBASIN(TopoMap[y][x].Mask) &&
-            CellHasLayer(&(Layers[k]), y, x, TopoMap, VegMap, VType, LType))
+            CellHasLayer(&(Layers[k]), y, x, TopoMap, VegMap, LType))
           Array[y * Map->NX + x] =
             GetLayerValue(&(Layers[k]), y, x, TopoMap, PrecipMap, SnowMap, VegMap,
-                          VType, SoilMap, LType);
+                          SoilMap, LType);
         else
           Array[y * Map->NX + x] = NA;
       }
@@ -370,7 +373,7 @@ void StoreModelState(char *Path, DATE *Valid, MAPSIZE *Map, TOPOPIX **TopoMap,
 *****************************************************************************/
 void ReadModelState(char *Path, DATE *Start, int Dt, MAPSIZE *Map,
                     TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
-                    VEGPIX **VegMap, VEGTABLE *VType, SOILPIX **SoilMap,
+                    VEGPIX **VegMap, SOILPIX **SoilMap,
                     CHANNEL *ChannelData, LAKETABLE *LType)
 {
   const char *Suffix[3] = { ".map", ".Segments.csv", ".ChannelCells.csv" };
@@ -413,7 +416,7 @@ void ReadModelState(char *Path, DATE *Start, int Dt, MAPSIZE *Map,
     for (y = 0; y < Map->NY; y++) {
       for (x = 0; x < Map->NX; x++) {
         if (INBASIN(TopoMap[y][x].Mask) &&
-            CellHasLayer(&(Layers[k]), y, x, TopoMap, VegMap, VType, LType) &&
+            CellHasLayer(&(Layers[k]), y, x, TopoMap, VegMap, LType) &&
             Array[y * Map->NX + x] == NA) {
           if (NoData == 0) {
             FirstY = y;
@@ -429,9 +432,9 @@ void ReadModelState(char *Path, DATE *Start, int Dt, MAPSIZE *Map,
     for (y = 0; y < Map->NY; y++) {
       for (x = 0; x < Map->NX; x++) {
         if (INBASIN(TopoMap[y][x].Mask) &&
-            CellHasLayer(&(Layers[k]), y, x, TopoMap, VegMap, VType, LType))
+            CellHasLayer(&(Layers[k]), y, x, TopoMap, VegMap, LType))
           SetLayerValue(&(Layers[k]), y, x, Array[y * Map->NX + x], TopoMap,
-                        PrecipMap, SnowMap, VegMap, VType, SoilMap, LType);
+                        PrecipMap, SnowMap, VegMap, SoilMap, LType);
       }
     }
   }

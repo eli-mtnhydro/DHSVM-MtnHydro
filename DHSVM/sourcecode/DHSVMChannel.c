@@ -116,7 +116,7 @@ void ReadChannelTables(LISTPTR Input, CHANNELTABLES *Tables)
    -------------------------------------------------------------------------- */
 void
 InitChannel(MAPSIZE *Map, int deltat, CHANNEL *ChannelData, CHANNELTABLES *Tables,
-	    SOILTABLE *SType, SOILPIX ** SoilMap, VEGTABLE *VType, VEGPIX **VegMap,
+	    SOILTABLE *SType, SOILPIX ** SoilMap,
 	    LAKETABLE *LType, TOPOPIX **TopoMap,
 	    int *MaxStreamID, OPTIONSTRUCT *Options)
 {
@@ -143,8 +143,7 @@ InitChannel(MAPSIZE *Map, int deltat, CHANNEL *ChannelData, CHANNELTABLES *Table
   ChannelData->stream_map =
     channel_grid_create_records(ChannelData->streams, Tables->NCells, Tables->Row,
                                 Tables->Column, Tables->Segment, Tables->CellLength,
-                                Tables->CutHeight, Tables->CutWidth, SType, SoilMap,
-                                VType, VegMap);
+                                Tables->CutHeight, Tables->CutWidth, SType, SoilMap);
 
   /* Associate each channel segment with its constituent map cells */
   channel_combine_map_network(ChannelData->streams, ChannelData->stream_map, Map);
@@ -186,7 +185,7 @@ void
 RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 	    TOPOPIX **TopoMap, SOILPIX **SoilMap,
 	     OPTIONSTRUCT *Options, NETSTRUCT **Network, SOILTABLE *SType,
-	     VEGTABLE *VType, VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType)
+	     VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType)
 {
   int k, x, y;
   float max_bank_height = 0.0;
@@ -244,14 +243,14 @@ RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
         MaxInfiltrationCap = 0.0;
         Depth = 0.0;
         for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < ChannelTableDepth; i++) {
-          if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
-            Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
+          if (SoilMap[y][x].LayerThickness[i] < (SoilMap[y][x].Depth - Depth))
+            Depth += SoilMap[y][x].LayerThickness[i];
           else
             Depth = SoilMap[y][x].Depth;
           
           if (Depth > max_bank_height) {
-            EffThickness = ((Depth - max_bank_height) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
-                              (Depth - max_bank_height) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
+            EffThickness = ((Depth - max_bank_height) < SoilMap[y][x].LayerThickness[i] ?
+                              (Depth - max_bank_height) : SoilMap[y][x].LayerThickness[i]);
             if (Depth < ChannelTableDepth)
               MaxInfiltrationCap += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
             else {
@@ -326,16 +325,17 @@ void ChannelCut(int y, int x, CHANNEL * ChannelData, NETSTRUCT * Network)
  so that FC does not exceed 1 - channel area / cell area
  ------------------------------------------------------------- */
 void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
-                       VEGTABLE *VType, VEGPIX *LocalVeg)
+                       VEGPIX *LocalVeg)
 {
   float cut_area = 0.0;
   float FCmax = 0.0;
-  
+  int Lower;
+
   /* Only understory FC is limited, while overstory FC can be > FCmax
    since riparian forest canopies may overhang the stream channel */
   
   if (channel_grid_has_channel(ChannelData->stream_map, x, y) &&
-      VType->UnderStory == TRUE) {
+      LocalVeg->UnderStory == TRUE) {
     
     cut_area = channel_grid_cell_width(ChannelData->stream_map, x, y) * 
       channel_grid_cell_length(ChannelData->stream_map, x, y);
@@ -346,14 +346,8 @@ void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
     if (FCmax < 0.01) /* Require minimum of 1 percent FC if understory is present */
       FCmax = 0.01;
     
-    if (VType->OverStory == TRUE && LocalVeg->Fract[1] > FCmax) {
-      // printf("Warning: overriding understory FC %f with %f due to channel area\n",
-      //        LocalVeg->Fract[1],FCmax);
-      LocalVeg->Fract[1] = FCmax;
-    } else if (LocalVeg->Fract[0] > FCmax) {
-      // printf("Warning: overriding understory FC %f with %f due to channel area\n",
-      //        LocalVeg->Fract[0],FCmax);
-      LocalVeg->Fract[0] = FCmax;
-    }
+    Lower = CanopyIndex(LocalVeg, 1);
+    if (LocalVeg->Fract[Lower] > FCmax)
+      LocalVeg->Fract[Lower] = FCmax;
   }
 }

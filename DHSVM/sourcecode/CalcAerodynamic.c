@@ -24,6 +24,9 @@
      int NVegLayers - Number of vegetation layers
      char OverStory - flag for presence of overstory.  Only used if NVegLayers
                       is equal to 1
+     float UnderCover - Understory cover (0-1): the lower boundary's roughness
+                      and displacement blend the understory's (over the cover)
+                      with bare ground (over the rest)
      float Zref     - Reference height for windspeed
      float n        - Attenuation coefficient for wind in the overstory
      float *Height  - Height of the vegetation layers (top layer first)
@@ -52,7 +55,7 @@
 
  *****************************************************************************/
 void CalcAerodynamic(int y, int x, int NVegLayers, unsigned char OverStory,
-  float n, float *Height, float Trunk, float *U,
+  float UnderCover, float n, float *Height, float Trunk, float *U,
   float *U2mSnow, float *Ra, float *RaSnow)
 {
   char Text[BUFSIZE + 1];
@@ -78,8 +81,8 @@ void CalcAerodynamic(int y, int x, int NVegLayers, unsigned char OverStory,
     }
     /* understory present*/
     else {
-      Z0_Lower = Z0_MULTIPLIER * Height[0];
-      d_Lower = D0_MULTIPLIER * Height[0];
+      Z0_Lower = UnderCover * Z0_MULTIPLIER * Height[0] + (1 - UnderCover) * Z0_GROUND;
+      d_Lower = UnderCover * D0_MULTIPLIER * Height[0];
     }
 
     /* No snow: get wind speed & aerodynamic resistence value */
@@ -101,8 +104,8 @@ void CalcAerodynamic(int y, int x, int NVegLayers, unsigned char OverStory,
       d_Lower = 0;
     }
     else {
-      Z0_Lower = Z0_MULTIPLIER * Height[1];
-      d_Lower = D0_MULTIPLIER * Height[1];
+      Z0_Lower = UnderCover * Z0_MULTIPLIER * Height[1] + (1 - UnderCover) * Z0_GROUND;
+      d_Lower = UnderCover * D0_MULTIPLIER * Height[1];
     }
 
     Zw = 1.5 * Height[0] - 0.5 * d_Upper;

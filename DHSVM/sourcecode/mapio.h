@@ -14,6 +14,7 @@
 #define MAP_SOIL  1			/* soil layers 1..L and Deep */
 #define MAP_MONTH 2			/* Jan..Dec */
 #define MAP_AZIMUTH 3			/* Az000..Az350 */
+#define MAP_ROOT  4			/* soil layers 1..L (no Deep) */
 
 #define MAP_NAZIMUTHS 36		/* Azimuths of a horizon angle map */
 

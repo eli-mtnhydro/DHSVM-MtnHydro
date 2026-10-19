@@ -19,12 +19,9 @@ float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
   float TFactor;		/* multiplier for resistance due to soil temperaure feed-back */
   float VpdFactor;		/* multiplier for resistance due to vapor pressure deficit feed-back */
 
-  if (TSoil <= 0) {
-    Resistance = DHSVM_HUGE;
-    return Resistance;
-  }
-
-  /* for OBS */
+  /* for OBS; below 0 C the factor keeps its value at 0 C */
+  if (TSoil < 0)
+    TSoil = 0;
   TFactor = 1.0 / (0.176 + 0.0770 * TSoil - 0.0018 * TSoil * TSoil);
 
   if (TFactor <= 0) {

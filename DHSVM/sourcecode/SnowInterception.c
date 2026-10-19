@@ -66,7 +66,7 @@ layers (similar to InterceptionStorage()).
 Of course:  NO vegetation -> NO interception
 *****************************************************************************/
 void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
-  float Vf, float LAI, float MaxInt, float MaxSnowIntCap, float MDRatio,
+  float LAI, float MaxInt, float MaxSnowIntCap, float MDRatio,
   float SnowIntEff, float Ra, float AirDens, float EactAir,
   float Lv, PIXRAD *LocalRad, float Press, float Tair,
   float Vpd, float Wind, float *RainFall, float *SnowFall,
@@ -192,17 +192,8 @@ void SnowInterception(OPTIONSTRUCT *Options, int y, int x, int Dt, float F,
   Tmp = *Tcanopy + 273.15;
   LongOut = STEFAN * (Tmp * Tmp * Tmp * Tmp);
 
-  /* If the improved radiation scheme, the forested cell is considered continuous with
-  small canopy gaps. This assumption is valid for the typical DHSVM implmentation on the
-  spatial scale of 30-150 m. As such,  F is not needed for weighting radiation  */
-  if (Options->ImprovRadiation) {
-    NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - 2 * Vf*LongOut;
-    NetRadiation /= F;
-  }
-  else {
-    NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - 2 * F*LongOut;
-    NetRadiation /= F;
-  }
+  NetRadiation = LocalRad->NetShort[0] + LocalRad->LongIn[0] - 2 * F*LongOut;
+  NetRadiation /= F;
 
   /* Calculate the vapor mass flux between the canopy and the surrounding air mass
   - snow covered aerodynamic resistance is assumed to increase by an order

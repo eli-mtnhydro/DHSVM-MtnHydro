@@ -292,15 +292,15 @@ int TableInt(TABLE *Table, int Row, int Column)
 /*****************************************************************************
   TableCheckRows()
 
-  A class table: at least one row, at most MaxRows, and the IdColumn of row
-  i equal to i
+  A class table: at least MinRows rows, at most MaxRows, and the IdColumn
+  of row i equal to i
 *****************************************************************************/
-void TableCheckRows(TABLE *Table, const char *IdColumn, int MaxRows)
+void TableCheckRows(TABLE *Table, const char *IdColumn, int MinRows, int MaxRows)
 {
   int Column = TableColumn(Table, IdColumn, "-", TRUE);
   int i;
 
-  if (Table->NRows < 1)
+  if (Table->NRows < MinRows)
     ReportErrorCode(106, "%s: no data rows", Table->Path);
   if (Table->NRows > MaxRows)
     ReportErrorCode(106, "%s: %d rows, at most %d allowed", Table->Path, Table->NRows, MaxRows);

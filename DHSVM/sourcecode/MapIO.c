@@ -122,7 +122,8 @@ static void HeaderNumber(char *Buffer, double x)
   MapLayerCount(), MapLayerNames()
 
   Number and names of the layers of a map with a layer set: one layer named
-  like the map; soil layers <Name>.1 .. <Name>.<L>, <Name>.Deep; months
+  like the map; soil layers <Name>.1 .. <Name>.<L>, <Name>.Deep; root zone
+  layers <Name>.1 .. <Name>.<L>; months
   <Name>.Jan .. <Name>.Dec; azimuths <Name>.Az000 .. <Name>.Az350 (every
   10 degrees clockwise from north)
 *****************************************************************************/
@@ -131,6 +132,8 @@ int MapLayerCount(int LayerSet, int SoilLayers)
   switch (LayerSet) {
   case MAP_SOIL:
     return SoilLayers + 1;
+  case MAP_ROOT:
+    return SoilLayers;
   case MAP_MONTH:
     return 12;
   case MAP_AZIMUTH:
@@ -150,6 +153,10 @@ void MapLayerNames(const char *Name, int LayerSet, int SoilLayers,
     for (k = 0; k < SoilLayers; k++)
       snprintf(LayerNames[k], MAP_NAMESIZE, "%s.%d", Name, k + 1);
     snprintf(LayerNames[SoilLayers], MAP_NAMESIZE, "%s.Deep", Name);
+    break;
+  case MAP_ROOT:
+    for (k = 0; k < SoilLayers; k++)
+      snprintf(LayerNames[k], MAP_NAMESIZE, "%s.%d", Name, k + 1);
     break;
   case MAP_MONTH:
     for (k = 0; k < 12; k++)

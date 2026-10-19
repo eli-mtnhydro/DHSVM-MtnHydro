@@ -25,7 +25,8 @@
      Cold start: no interception, snow only where the initial snow water
      equivalent map has some (its liquid water at capacity), every soil
      layer at its porosity with the
-     water table at the surface, every channel segment filled to the initial
+     water table at the surface and no soil evaporation accumulated since a
+     wetting, every channel segment filled to the initial
      channel depth. The groundwater spin-up, if any, follows the cold start.
      Snapshot: the values as read; with Recompute Derived State, the states
      that follow from other states are then rebuilt from them
@@ -33,23 +34,21 @@
  *****************************************************************************/
 static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
                            PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
-                           SOILPIX **SoilMap, VEGPIX **VegMap, LAYER Veg,
+                           SOILPIX **SoilMap, VEGPIX **VegMap,
                            TOPOPIX **TopoMap);
 static void RecomputeDerivedState(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **SnowMap,
-                                  SOILPIX **SoilMap, SOILTABLE *SType, VEGPIX **VegMap,
-                                  VEGTABLE *VType, NETSTRUCT **Network,
-                                  CHANNEL *ChannelData);
+                                  SOILPIX **SoilMap, SOILTABLE *SType,
+                                  NETSTRUCT **Network, CHANNEL *ChannelData);
 
 void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
   PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, SOILPIX **SoilMap, LAYER Soil,
-  SOILTABLE *SType, VEGPIX **VegMap, LAYER Veg, VEGTABLE *VType, char *Path,
+  SOILTABLE *SType, VEGPIX **VegMap, VEGTABLES *Veg, char *Path,
   TOPOPIX **TopoMap, NETSTRUCT **Network, CHANNEL *ChannelData, LAKETABLE *LType)
 {
   const char *Routine = "InitModelState";
   int i, j;		         /* counter */
   int x;				 /* counter */
   int y;				 /* counter */
-  VEGTABLE *LocalVType;
 
   /* Channel segments and cells */
   if (Options->ColdStart) {
@@ -57,14 +56,13 @@ void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
 #ifndef SNOW_ONLY
     ColdStartChannelState(Options->InitChannelDepth, ChannelData->streams);
 #endif
-    ColdStartCells(Map, Options, PrecipMap, SnowMap, SoilMap, VegMap, Veg, TopoMap);
+    ColdStartCells(Map, Options, PrecipMap, SnowMap, SoilMap, VegMap, TopoMap);
   }
   else {
     ReadModelState(Path, &(Time->Start), Time->Dt, Map, TopoMap, PrecipMap, SnowMap,
-                   VegMap, VType, SoilMap, ChannelData, LType);
+                   VegMap, SoilMap, ChannelData, LType);
     if (Options->RecomputeDerived)
-      RecomputeDerivedState(Map, TopoMap, SnowMap, SoilMap, SType, VegMap, VType, Network,
-                            ChannelData);
+      RecomputeDerivedState(Map, TopoMap, SnowMap, SoilMap, SType, Network, ChannelData);
   }
 
   /* Albedo of the ground or understory under the snow for the month of
@@ -72,16 +70,8 @@ void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        LocalVType = &(VType[VegMap[y][x].Veg - 1]);
-        if (LocalVType->UnderStory == TRUE) {
-          if (LocalVType->OverStory == TRUE) {
-            SnowMap[y][x].AlbedoGround = LocalVType->AlbedoMonthly[1][Time->Start.Month - 1];
-          } else {
-            SnowMap[y][x].AlbedoGround = LocalVType->AlbedoMonthly[0][Time->Start.Month - 1];
-          }
-        } else {
-          SnowMap[y][x].AlbedoGround = SType[SoilMap[y][x].Soil - 1].Albedo;
-        }
+        SnowMap[y][x].AlbedoGround = GroundAlbedo(Veg, &(VegMap[y][x]),
+          SType[SoilMap[y][x].Soil - 1].Albedo, Time->Start.Month);
 
         if (Options->ColdStart) {
           if (SnowMap[y][x].HasSnow)
@@ -147,7 +137,7 @@ void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
         Message("Groundwater spinup: year %d\n",i+1);
         for (j = 0; j < DAYPYEAR; j++) {
           RouteSubSurfaceSpinup(Time->Dt * Time->NDaySteps, Time->NDaySteps, Map, TopoMap,
-                                VType, VegMap, Network, SType, SoilMap, Options,
+                                VegMap, Network, SType, SoilMap, Options,
                                 SubFlowGrad, SubDir, SubTotalDir);
         }
       }
@@ -193,13 +183,13 @@ void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
 /*****************************************************************************
   ColdStartCells()
 
-  Cold start of every mask cell (the soil at its porosity in every layer,
-  snow from the optional initial snow water equivalent map, the liquid water
-  of both snow layers at capacity)
+  Cold start of every mask cell (the soil at its porosity in every layer and
+  freshly wetted, snow from the optional initial snow water equivalent map,
+  the liquid water of both snow layers at capacity)
 *****************************************************************************/
 static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
                            PRECIPPIX **PrecipMap, SNOWPIX **SnowMap,
-                           SOILPIX **SoilMap, VEGPIX **VegMap, LAYER Veg,
+                           SOILPIX **SoilMap, VEGPIX **VegMap,
                            TOPOPIX **TopoMap)
 {
   MAPFILE File;
@@ -222,7 +212,7 @@ static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
         /* Interception */
-        NVeg = Veg.NLayers[VegMap[y][x].Veg - 1];
+        NVeg = VegMap[y][x].NVegLayers;
         for (i = 0; i < NVeg; i++) {
           PrecipMap[y][x].IntRain[i] = 0.0;
           PrecipMap[y][x].IntSnow[i] = 0.0;
@@ -250,6 +240,7 @@ static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
           SoilMap[y][x].InterFlow[i] = 0.0;
         }
         SoilMap[y][x].IExcess = 0.0;
+        SoilMap[y][x].DesorptionAcc = 0.0;
       }
     }
   }
@@ -275,9 +266,8 @@ static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
   storage, as the cold start computes them.
 *****************************************************************************/
 static void RecomputeDerivedState(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **SnowMap,
-                                  SOILPIX **SoilMap, SOILTABLE *SType, VEGPIX **VegMap,
-                                  VEGTABLE *VType, NETSTRUCT **Network,
-                                  CHANNEL *ChannelData)
+                                  SOILPIX **SoilMap, SOILTABLE *SType,
+                                  NETSTRUCT **Network, CHANNEL *ChannelData)
 {
   SNOWPIX *Snow;
   SOILPIX *Soil;
@@ -306,7 +296,7 @@ static void RecomputeDerivedState(MAPSIZE *Map, TOPOPIX **TopoMap, SNOWPIX **Sno
 
       Soil = &(SoilMap[y][x]);
       Soil->TableDepth = WaterTableDepth(SType[Soil->Soil - 1].NLayers, Soil->Depth,
-                                         VType[VegMap[y][x].Veg - 1].RootDepth, Soil->Porosity,
+                                         Soil->LayerThickness, Soil->Porosity,
                                          Soil->FCap, Network[y][x].Adjust, Soil->Moist);
       if (Soil->TableDepth < 0.0) {
         Soil->IExcess += -(Soil->TableDepth);

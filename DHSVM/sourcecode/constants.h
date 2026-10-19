@@ -19,6 +19,7 @@
 #define PI   3.14159265358979323846
 #define RADPHOUR    0.2617994   /* radians per hour: Earth's Rotation (2 PI rad/day) * (1 day/24 h) */
 #define RADPDEG     (PI/180.0)	/* radians per degree */
+#define SNOW_DENSITY 0.4		/* Snow density relative to water (snow depth = SWE / SNOW_DENSITY) */
 #define SOLARCON    1360.	    /* Solar constant (W/m^2) */
 #define STEFAN    (5.6696e-8)	/* Stefan-Boltzmann constant (W/(M^2*C^4) */
 #define VISFRACT    0.5		    /* part of shortwave that is in the visible range of the spectrum */

@@ -21,14 +21,16 @@
  *****************************************************************************/
 void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   TOPOPIX **TopoMap, float **PrismMap, float **SnowPatternMap, float **SnowPatternMapBase,
-  INPUTFILES *InFiles, int NVegs, VEGTABLE *VType, int NStats,
-  METLOCATION *Stat, char *Path, VEGPIX ***VegMap, SNOWPIX **SnowMap)
+  INPUTFILES *InFiles, VEGTABLES *Veg, int NStats,
+  METLOCATION *Stat, char *Path, VEGPIX ***VegMap, SNOWPIX **SnowMap,
+  SOILTABLE *SType, SOILPIX **SoilMap)
 {
   const char *Routine = "InitNewMonth";
   int i;
-  int j;
   int y, x;
   float *Array = NULL;
+  OVERTABLE *Over;
+  UNDERTABLE *Under;
 
   if (DEBUG)
     Message("Initializing new month\n");
@@ -69,35 +71,26 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   for (y = 0; y < Map->NY; y++) {
 		for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask))
-        SetCellMonth(Options, &(VType[(*VegMap)[y][x].Veg - 1]), &((*VegMap)[y][x]),
-                     Time->Current.Month);
+        SetCellMonth(Options, Veg, &((*VegMap)[y][x]), Time->Current.Month);
 		}
 	}
-  for (i = 0; i < NVegs; i++) {
-    if (Options->ImprovRadiation) {
-      if (VType[i].OverStory == TRUE) {
-        VType[i].ExtnCoeff = VType[i].MonthlyExtnCoeff[Time->Current.Month - 1];
-      }
-      else
-        VType[i].ExtnCoeff = 0.;
-    }
-    
-    /* Update vegetation albedo and corresponding understory albedo for snowpack */
-    for (j = 0; j < VType[i].NVegLayers; j++) {
-      VType[i].Albedo[j] = VType[i].AlbedoMonthly[j][Time->Current.Month - 1];
-    }
-    for (y = 0; y < Map->NY; y++) {
-      for (x = 0; x < Map->NX; x++) {
-        if (INBASIN(TopoMap[y][x].Mask)) {
-          if (VType[(*VegMap)[y][x].Veg - 1].UnderStory == TRUE) {
-            if (VType[(*VegMap)[y][x].Veg - 1].OverStory == TRUE) {
-              SnowMap[y][x].AlbedoGround = VType[(*VegMap)[y][x].Veg - 1].Albedo[1];
-            } else {
-              SnowMap[y][x].AlbedoGround = VType[(*VegMap)[y][x].Veg - 1].Albedo[0];
-            }
-          }
-        }
-      }
+
+  /* Albedo of the month of every overstory and understory class */
+  for (i = 0; i < Veg->NOver; i++) {
+    Over = &(Veg->Over[i]);
+    Over->Story.Albedo = Over->Story.AlbedoMonthly[Time->Current.Month - 1];
+  }
+  for (i = 0; i < Veg->NUnder; i++) {
+    Under = &(Veg->Under[i]);
+    Under->Story.Albedo = Under->Story.AlbedoMonthly[Time->Current.Month - 1];
+  }
+
+  /* The ground albedo under the snowpack */
+  for (y = 0; y < Map->NY; y++) {
+    for (x = 0; x < Map->NX; x++) {
+      if (INBASIN(TopoMap[y][x].Mask))
+        SnowMap[y][x].AlbedoGround = GroundAlbedo(Veg, &((*VegMap)[y][x]),
+          SType[SoilMap[y][x].Soil - 1].Albedo, Time->Current.Month);
     }
   }
 }
@@ -107,34 +100,36 @@ void InitNewMonth(TIMESTRUCT *Time, OPTIONSTRUCT *Options, MAPSIZE *Map,
   SetCellMonth()
 
   The LAI of the month of each vegetation layer of a mask cell, its
-  interception capacity, and the diffuse transmittance of the overstory
-  from that LAI (VARIABLE attenuation)
+  interception capacity, the shortwave transmittance of the understory from
+  its LAI, and the diffuse transmittance of the overstory from its LAI
+  (hemispherical integration of the beam transmittance, 2 E3(k LAI))
 *****************************************************************************/
-void SetCellMonth(OPTIONSTRUCT *Options, VEGTABLE *VType, VEGPIX *Cell, int Month)
+void SetCellMonth(OPTIONSTRUCT *Options, VEGTABLES *Veg, VEGPIX *Cell, int Month)
 {
+  OVERTABLE *Over = OverstoryRow(Veg, Cell);
   int j;
-  float a, b, l;
+  float l;
 
-  for (j = 0; j < VType->NVegLayers; j++) {
+  for (j = 0; j < Cell->NVegLayers; j++) {
     Cell->LAI[j] = Cell->LAIMonthly[j][Month - 1];
     /*Due to LAI and FC change, have to change MaxInt to spatial as well*/
     Cell->MaxInt[j] = Cell->LAI[j] * Cell->Fract[j] * LAI_WATER_MULTIPLIER;
   }
 
-  if (Options->CanopyRadAtt == VARIABLE) {
-    if (VType->OverStory) {
-      a = VType->LeafAngleA;
-      b = VType->LeafAngleB;
-      l = Cell->LAI[0] / VType->ClumpingFactor;
-      if (l == 0)
-        Cell->Taud = 1.0;
-      else
-        Cell->Taud = exp(-b * l) * ((1 - a * l) * exp(-a * l) +
-          (a * l) * (a * l) * evalexpint(1, a * l));
-    }
-    else {
-      Cell->Taud = 0.0;
-    }
+  if (Cell->UnderStory == TRUE)
+    Cell->TauU = exp(-UnderstoryRow(Veg, Cell)->RadAtten * Cell->LAI[CanopyIndex(Cell, 1)]);
+  else
+    Cell->TauU = 1.0;
+
+  if (Cell->OverStory) {
+    l = Over->ExtnCoeff * Cell->LAI[0];
+    if (l == 0)
+      Cell->Taud = 1.0;
+    else
+      Cell->Taud = (1 - l) * exp(-l) + l * l * evalexpint(1, l);
+  }
+  else {
+    Cell->Taud = 0.0;
   }
 }
 

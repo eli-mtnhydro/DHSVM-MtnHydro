@@ -81,7 +81,7 @@
  
 *****************************************************************************/
 void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
-		     VEGTABLE *VType, VEGPIX **VegMap,
+		     VEGPIX **VegMap,
 		     NETSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, CHANNEL *ChannelData,
 		     TIMESTRUCT *Time, OPTIONSTRUCT *Options)
@@ -151,7 +151,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
     y = Map->OrderedCells[q].y;
     x = Map->OrderedCells[q].x;
     
-    for (i = 0; i <= VType[VegMap[y][x].Veg - 1].NSoilLayers; i++) {
+    for (i = 0; i <= SType[SoilMap[y][x].Soil - 1].NLayers; i++) {
       SoilMap[y][x].Moist[i] += SoilMap[y][x].InterFlow[i];
     }
     
@@ -242,8 +242,8 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
          moisture and the actual table depth, the state DistributeSatflow
          extracts it from (the averaged water level sets only the head) */
       TotalAvailableWater =
-      CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-                         SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
+      CalcAvailableWater(SType[SoilMap[y][x].Soil - 1].NLayers,
+                         SoilMap[y][x].Depth, SoilMap[y][x].LayerThickness,
                          SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                          SoilMap[y][x].TableDepth, Adjust);
     } else {
@@ -269,8 +269,8 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
                              SType[SoilMap[y][x].Soil - 1].DepthThresh);
         
         AvailableWater = 
-          CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-                             ChannelWaterLevel, VType[VegMap[y][x].Veg - 1].RootDepth,
+          CalcAvailableWater(SType[SoilMap[y][x].Soil - 1].NLayers,
+                             ChannelWaterLevel, SoilMap[y][x].LayerThickness,
                              SoilMap[y][x].Porosity,
                              SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                              SoilMap[y][x].TableDepth, Adjust);
@@ -299,17 +299,17 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
         SoilDeficit = 0.0;
         Depth = 0.0;
         for (i = 0; i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < AdjTableDepth; i++) {
-          if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
-            Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
+          if (SoilMap[y][x].LayerThickness[i] < (SoilMap[y][x].Depth - Depth))
+            Depth += SoilMap[y][x].LayerThickness[i];
           else
             Depth = SoilMap[y][x].Depth;
 
           if (Depth > ChannelWaterLevel) {
             if (Depth < AdjTableDepth)
-              EffThickness = ((Depth - ChannelWaterLevel) < VType[VegMap[y][x].Veg - 1].RootDepth[i] ?
-                                (Depth - ChannelWaterLevel) : VType[VegMap[y][x].Veg - 1].RootDepth[i]);
+              EffThickness = ((Depth - ChannelWaterLevel) < SoilMap[y][x].LayerThickness[i] ?
+                                (Depth - ChannelWaterLevel) : SoilMap[y][x].LayerThickness[i]);
             else
-              EffThickness = VType[VegMap[y][x].Veg - 1].RootDepth[i] - (Depth - AdjTableDepth);
+              EffThickness = SoilMap[y][x].LayerThickness[i] - (Depth - AdjTableDepth);
 
             SoilDeficit += (SoilMap[y][x].Porosity[i] - SoilMap[y][x].Moist[i]) * EffThickness;
           }
@@ -394,8 +394,8 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
           i = 0;
           Depth = 0.0;
           while (i < SType[SoilMap[y][x].Soil - 1].NLayers && Depth < AdjTableDepth) {
-            if (VType[VegMap[y][x].Veg - 1].RootDepth[i] < (SoilMap[y][x].Depth - Depth))
-              Depth += VType[VegMap[y][x].Veg - 1].RootDepth[i];
+            if (SoilMap[y][x].LayerThickness[i] < (SoilMap[y][x].Depth - Depth))
+              Depth += SoilMap[y][x].LayerThickness[i];
             else
               Depth = SoilMap[y][x].Depth;
             i++;
@@ -412,32 +412,32 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
             
             if (i < SType[SoilMap[y][x].Soil - 1].NLayers) {
               LayerContribWater = (SoilMap[y][x].Moist[i] - SoilMap[y][x].FCap[i]) *
-                                  Adjust[i] * VType[VegMap[y][x].Veg - 1].RootDepth[i];
+                                  Adjust[i] * SoilMap[y][x].LayerThickness[i];
               if (LayerContribWater > PotentialSatFlow)
                 LayerContribWater = PotentialSatFlow;
               
               LayerStorageCap = (SoilMap[y][x].Porosity[i] - SoilMap[y][x].FCap[i]) *
-                                Adjust[i] * VType[VegMap[y][x].Veg - 1].RootDepth[i];
+                                Adjust[i] * SoilMap[y][x].LayerThickness[i];
               DeltaTableDepth = (-1.0 * LayerContribWater / LayerStorageCap) *
-                                VType[VegMap[y][x].Veg - 1].RootDepth[i];
+                                SoilMap[y][x].LayerThickness[i];
             } else { /* Water table in deep layer */
               LayerContribWater = (SoilMap[y][x].Moist[i] - SoilMap[y][x].FCap[i]) *
-                                  Adjust[i] * (SoilMap[y][x].Depth - VType[VegMap[y][x].Veg - 1].TotalDepth);
+                                  Adjust[i] * (SoilMap[y][x].Depth - SoilMap[y][x].TotalThickness);
               if (LayerContribWater > PotentialSatFlow)
                 LayerContribWater = PotentialSatFlow;
               
               LayerStorageCap = (SoilMap[y][x].Porosity[i] - SoilMap[y][x].FCap[i]) *
-                                Adjust[i] * (SoilMap[y][x].Depth - VType[VegMap[y][x].Veg - 1].TotalDepth);
+                                Adjust[i] * (SoilMap[y][x].Depth - SoilMap[y][x].TotalThickness);
               DeltaTableDepth = (-1.0 * LayerContribWater / LayerStorageCap) *
-                                (SoilMap[y][x].Depth - VType[VegMap[y][x].Veg - 1].TotalDepth);
+                                (SoilMap[y][x].Depth - SoilMap[y][x].TotalThickness);
             }
             
             /* Find layer containing initial water table in downstream cell */
             j = 0;
             Depth = 0.0;
             while (j < SType[SoilMap[ny][nx].Soil - 1].NLayers && Depth < AdjTableDepthK) {
-              if (VType[VegMap[ny][nx].Veg - 1].RootDepth[j] < (SoilMap[ny][nx].Depth - Depth))
-                Depth += VType[VegMap[ny][nx].Veg - 1].RootDepth[j];
+              if (SoilMap[ny][nx].LayerThickness[j] < (SoilMap[ny][nx].Depth - Depth))
+                Depth += SoilMap[ny][nx].LayerThickness[j];
               else
                 Depth = SoilMap[ny][nx].Depth;
               j++;
@@ -453,22 +453,22 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
               
               if (j < SType[SoilMap[ny][nx].Soil - 1].NLayers) {
                 LayerStorageK = (SoilMap[ny][nx].Moist[j] - SoilMap[ny][nx].FCap[j]) *
-                                Network[ny][nx].Adjust[j] * VType[VegMap[ny][nx].Veg - 1].RootDepth[j];
+                                Network[ny][nx].Adjust[j] * SoilMap[ny][nx].LayerThickness[j];
                 LayerStorageCapK = (SoilMap[ny][nx].Porosity[j] - SoilMap[ny][nx].FCap[j]) *
-                                   Network[ny][nx].Adjust[j] * VType[VegMap[ny][nx].Veg - 1].RootDepth[j];
+                                   Network[ny][nx].Adjust[j] * SoilMap[ny][nx].LayerThickness[j];
                 if (LayerContribWaterK > (LayerStorageCapK - LayerStorageK))
                   LayerContribWaterK = LayerStorageCapK - LayerStorageK;
                 DeltaTableDepthK = (LayerContribWaterK / LayerStorageCapK) *
-                                   VType[VegMap[ny][nx].Veg - 1].RootDepth[j];
+                                   SoilMap[ny][nx].LayerThickness[j];
               } else { /* Water table in deep layer */
                 LayerStorageK = (SoilMap[ny][nx].Moist[j] - SoilMap[ny][nx].FCap[j]) *
-                                Network[ny][nx].Adjust[j] * (SoilMap[ny][nx].Depth - VType[VegMap[ny][nx].Veg - 1].TotalDepth);
+                                Network[ny][nx].Adjust[j] * (SoilMap[ny][nx].Depth - SoilMap[ny][nx].TotalThickness);
                 LayerStorageCapK = (SoilMap[ny][nx].Porosity[j] - SoilMap[ny][nx].FCap[j]) *
-                                   Network[ny][nx].Adjust[j] * (SoilMap[ny][nx].Depth - VType[VegMap[ny][nx].Veg - 1].TotalDepth);
+                                   Network[ny][nx].Adjust[j] * (SoilMap[ny][nx].Depth - SoilMap[ny][nx].TotalThickness);
                 if (LayerContribWaterK > (LayerStorageCapK - LayerStorageK))
                   LayerContribWaterK = LayerStorageCapK - LayerStorageK;
                 DeltaTableDepthK = (LayerContribWaterK / LayerStorageCapK) *
-                                   (SoilMap[ny][nx].Depth - VType[VegMap[ny][nx].Veg - 1].TotalDepth);
+                                   (SoilMap[ny][nx].Depth - SoilMap[ny][nx].TotalThickness);
               }
               
               LayerUseFrac = (AdjWaterLevelK - AdjWaterLevel) / (DeltaTableDepth - DeltaTableDepthK);
@@ -545,7 +545,7 @@ void RouteSubSurface(int Dt, MAPSIZE *Map, TOPOPIX **TopoMap,
 *******************************************************************************/
 
 void RouteSubSurfaceSpinup(int Dt, int DeepFluxSteps, MAPSIZE *Map, TOPOPIX **TopoMap,
-		     VEGTABLE *VType, VEGPIX **VegMap,
+		     VEGPIX **VegMap,
 		     NETSTRUCT **Network, SOILTABLE *SType,
 		     SOILPIX **SoilMap, OPTIONSTRUCT *Options,
 		     float **SubFlowGrad, unsigned char ***SubDir, unsigned int **SubTotalDir)
@@ -614,8 +614,8 @@ void RouteSubSurfaceSpinup(int Dt, int DeepFluxSteps, MAPSIZE *Map, TOPOPIX **To
       
       /* Determine TOTAL amount of water available for redistribution */
       TotalAvailableWater =
-      CalcAvailableWater(VType[VegMap[y][x].Veg - 1].NSoilLayers,
-                         SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
+      CalcAvailableWater(SType[SoilMap[y][x].Soil - 1].NLayers,
+                         SoilMap[y][x].Depth, SoilMap[y][x].LayerThickness,
                          SoilMap[y][x].Porosity, SoilMap[y][x].FCap, SoilMap[y][x].Moist,
                          SoilMap[y][x].TableDepth, Network[y][x].Adjust);
     } else {
@@ -661,13 +661,13 @@ void RouteSubSurfaceSpinup(int Dt, int DeepFluxSteps, MAPSIZE *Map, TOPOPIX **To
     SoilMap[y][x].SatFlow += Options->GW_SPINUP_RECHARGE;
     
     DistributeSatflow(Dt, Map->DX, Map->DX, SoilMap[y][x].SatFlow,
-                      SType[SoilMap[y][x].Soil - 1].NLayers, SoilMap[y][x].Depth, VType[VegMap[y][x].Veg - 1].RootDepth,
+                      SType[SoilMap[y][x].Soil - 1].NLayers, SoilMap[y][x].Depth, SoilMap[y][x].LayerThickness,
                       SoilMap[y][x].Porosity, SoilMap[y][x].FCap,
                       Network[y][x].Adjust, &(SoilMap[y][x].TableDepth),
                       &(SoilMap[y][x].IExcess), SoilMap[y][x].Moist);
     
     SoilMap[y][x].TableDepth = WaterTableDepth(SType[SoilMap[y][x].Soil - 1].NLayers, SoilMap[y][x].Depth,
-                                               VType[VegMap[y][x].Veg - 1].RootDepth, SoilMap[y][x].Porosity, SoilMap[y][x].FCap,
+                                               SoilMap[y][x].LayerThickness, SoilMap[y][x].Porosity, SoilMap[y][x].FCap,
                                                Network[y][x].Adjust, SoilMap[y][x].Moist);
       
   }

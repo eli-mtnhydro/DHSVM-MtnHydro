@@ -149,8 +149,7 @@ void channel_grid_free_map(ChannelMapPtr ** map)
 ChannelMapPtr **channel_grid_create_records(Channel *net, int N, int *Row, int *Column,
                                             int *Segment, float *Length, float *CutHeight,
                                             float *CutWidth, SOILTABLE *SType,
-                                            SOILPIX **SoilMap, VEGTABLE *VType,
-                                            VEGPIX **VegMap)
+                                            SOILPIX **SoilMap)
 {
   ChannelMapPtr **map;
   int i;
@@ -195,8 +194,8 @@ ChannelMapPtr **channel_grid_create_records(Channel *net, int N, int *Row, int *
        of soil layer containing bottom of channel cut */
     Depth = 0.0;
     for (iSoil = 0; iSoil < SType[SoilMap[row][col].Soil - 1].NLayers && Depth < cell->cut_height; iSoil++) {
-      if (VType[VegMap[row][col].Veg - 1].RootDepth[iSoil] < (SoilMap[row][col].Depth - Depth))
-        Depth += VType[VegMap[row][col].Veg - 1].RootDepth[iSoil];
+      if (SoilMap[row][col].LayerThickness[iSoil] < (SoilMap[row][col].Depth - Depth))
+        Depth += SoilMap[row][col].LayerThickness[iSoil];
       else
         Depth = SoilMap[row][col].Depth;
     }

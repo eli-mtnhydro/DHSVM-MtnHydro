@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   INPUTFILES InFiles;
   INPUTMAPS Raw;
   LAYER Soil;
-  LAYER Veg;
+  VEGTABLES Veg;			/* Overstory and understory tables */
   LISTPTR Input = NULL;
   MAPSIZE Map;
   METLOCATION *Stat = NULL;
@@ -74,7 +74,6 @@ int main(int argc, char **argv) {
   TOPOPIX **TopoMap = NULL;
   LAKETABLE *LType = NULL;
   VEGPIX **VegMap = NULL;
-  VEGTABLE *VType = NULL;
     
 /******************************************************************************/
 /* INITIALIZATION */
@@ -111,38 +110,37 @@ int main(int argc, char **argv) {
      data */
   CheckInputFiles(Input, &Options, OutputListNamesAny(&(Dump.List[OUT_POINT])));
   ReadInputMaps(Input, &Options, &Map, &Raw);
-  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &VType, &Veg, &LType, &Time);
-  ApplyTableParameters(&Options, Time.NDaySteps, SType, Soil.NTypes, VType, Veg.NTypes, LType,
-                       Map.NumLakes);
+  InitTables(Time.NDaySteps, Input, &Options, &Map, &SType, &Soil, &Veg, &LType, &Time);
+  ApplyTableParameters(&Options, Time.NDaySteps, SType, Soil.NTypes, &Veg, LType, Map.NumLakes);
   ReadChannelTables(Input, &ChannelTables);
   ReadPointTable(Input, &Dump);
   InitMetSources(Input, &Options, &Map, &Time, &NStats, &Stat);
 
   /* Vegetation updates checked; the latest before Start gives the
      vegetation maps */
-  InitVegUpdates(&Options, &Map, &Time, &Raw, &Veg, VType);
+  InitVegUpdates(&Options, &Map, &Time, &Raw, &Veg, &Dump);
 
   /* The input maps as given, then the parameters */
-  ValidateInputs(Input, &Options, &Map, &Raw, &Soil, SType, &Veg, VType, NStats, Stat);
+  ValidateInputs(Input, &Options, &Map, &Raw, &Soil, SType, &Veg, NStats, Stat);
   InitTopoMap(&Options, &Map, &Raw, &TopoMap, LType);
   InitSnowMap(&Map, &SnowMap, &Time);
-  ApplyParameters(&Options, &Map, &Raw, TopoMap, &Soil, SType, VType, &SoilMap, &VegMap,
+  ApplyParameters(&Options, &Map, &Raw, TopoMap, &Soil, SType, &Veg, &SoilMap, &VegMap,
                   SnowMap, Time.Dt);
   ValidateParameters(&Map, TopoMap, SoilMap);
-  PrintClassSummary(&Options, Veg, Soil, VType, SType, &Map, TopoMap, VegMap, SoilMap);
+  PrintClassSummary(&Options, &Veg, Soil, SType, &Map, TopoMap, VegMap, SoilMap);
 
   /* Channels bound to the cells, channel limit on the cover, storage
      adjustment */
   ValidateChannels(&Options, &Map, TopoMap, SoilMap, &ChannelTables, LType);
-  InitChannel(&Map, Time.Dt, &ChannelData, &ChannelTables, SType, SoilMap, VType, VegMap,
+  InitChannel(&Map, Time.Dt, &ChannelData, &ChannelTables, SType, SoilMap,
               LType, TopoMap, &MaxStreamID, &Options);
   InitNetwork(Map.NY, Map.NX, Map.DX, Map.DY, TopoMap, SoilMap,
-	      VegMap, VType, &Network, &ChannelData);
+	      VegMap, Map.SoilLayers, &Network, &ChannelData);
 
   /* Station weights, meteorological maps, outputs */
   InitMetMaps(&Map, &Options, &Raw,
 	      &PrismMap, &SnowPatternMap, &SnowPatternMapBase,
-	      &EvapMap, &PrecipMap, &RadiationMap, SoilMap, &Soil, VegMap, &Veg, TopoMap);
+	      &EvapMap, &PrecipMap, &RadiationMap, SoilMap, &Soil, VegMap, TopoMap);
   InitInterpolationWeights(&Map, &Options, TopoMap, &MetWeights, Stat, NStats);
   ValidateWeights(&Map, TopoMap, MetWeights, NStats);
 
@@ -162,10 +160,11 @@ int main(int argc, char **argv) {
   DeleteList(Input);
 
   InitModelState(&Time, &Map, &Options, PrecipMap, SnowMap, SoilMap,
-		 Soil, SType, VegMap, Veg, VType, Dump.InitStatePath,
+		 Soil, SType, VegMap, &Veg, Dump.InitStatePath,
 		 TopoMap, Network, &ChannelData, LType);
   InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase,
-	       &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
+	       &InFiles, &Veg, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap,
+	       SType, SoilMap);
   InitNewDay(Time.Current.JDay, &SolarGeo);
 
   /* What the outputs read */
@@ -174,7 +173,6 @@ int main(int argc, char **argv) {
   Model.Soil = SoilMap;
   Model.SType = SType;
   Model.Veg = VegMap;
-  Model.VType = VType;
   Model.Snow = SnowMap;
   Model.Precip = PrecipMap;
   Model.Evap = EvapMap;
@@ -192,14 +190,14 @@ int main(int argc, char **argv) {
 
   /* Basin storage and means at Start, the series values at Start, the Start
      snapshots and map layers */
-  InitTotals(&Map, TopoMap, VegMap, &Veg, &Dump, &Totals);
+  InitTotals(&Map, TopoMap, VegMap, &Dump, &Totals);
   Aggregate(&Model, &Totals);
   StartBalance(&Totals);
 #ifndef SNOW_ONLY
   StartNetworkStorage(&Model, Totals.Basin.NCells, &Totals);
 #endif
   HoldStartValues(&Model, &Totals, &Dump);
-  StoreSnapshots(0, &Map, &Dump, TopoMap, PrecipMap, SnowMap, VegMap, VType,
+  StoreSnapshots(0, &Map, &Dump, TopoMap, PrecipMap, SnowMap, VegMap,
                  SoilMap, &ChannelData, LType);
   WriteMapLayers(0, &Model, &Dump);
 
@@ -209,13 +207,14 @@ int main(int argc, char **argv) {
 
   while (Time.Step < Time.NSteps) {
 
-    ApplyVegUpdate(&Options, &Time, &Map, TopoMap, &Veg, VType, VegMap, SType, SoilMap,
+    ApplyVegUpdate(&Options, &Time, &Map, TopoMap, &Veg, VegMap, SType, SoilMap,
                    SnowMap, PrecipMap, &ChannelData);
     if (IsNewWaterYear(&(Time.Current)))
       InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
     if (IsNewMonth(&(Time.Current), Time.Dt))
       InitNewMonth(&Time, &Options, &Map, TopoMap, PrismMap, SnowPatternMap, SnowPatternMapBase,
-		   &InFiles, Veg.NTypes, VType, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap);
+		   &InFiles, &Veg, NStats, Stat, Dump.InitStatePath, &VegMap, SnowMap,
+		   SType, SoilMap);
     if (IsNewDay(Time.DayStep)) {
       InitNewDay(Time.Current.JDay, &SolarGeo);
       Message("%04d-%02d-%02d\n", Time.Current.Year, Time.Current.Month, Time.Current.Day);
@@ -261,15 +260,15 @@ int main(int argc, char **argv) {
     		  
     		  MassEnergyBalance(&Options, y, x, SolarGeo.SineSolarAltitude,
                           Map.DX, Map.DY, Time.Dt,
-                          Options.CanopyRadAtt,
                           Options.Infiltration, Soil.MaxLayers,
-                          Veg.MaxLayers, &LocalMet, &(Network[y][x]),
+                          MAXVEGLAYERS, &LocalMet, &(Network[y][x]),
                           &(PrecipMap[y][x]),
-                          &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]),
+                          OverstoryRow(&Veg, &(VegMap[y][x])),
+                          UnderstoryRow(&Veg, &(VegMap[y][x])), &(VegMap[y][x]),
                           &(SType[SoilMap[y][x].Soil - 1]), &(SoilMap[y][x]),
                           &(SnowMap[y][x]), &(RadiationMap[y][x]),
                           &(EvapMap[y][x]), &ChannelData,
-                          VType, VegMap, Network, SoilMap,
+                          VegMap, Network, SoilMap,
                           &(TopoMap[y][x]), TopoMap, &Map);
           
   		    PrecipMap[y][x].SumPrecip += PrecipMap[y][x].Precip;
@@ -281,14 +280,14 @@ int main(int argc, char **argv) {
     
 #ifndef SNOW_ONLY
     
-    RouteSubSurface(Time.Dt, &Map, TopoMap, VType, VegMap, Network,
+    RouteSubSurface(Time.Dt, &Map, TopoMap, VegMap, Network,
 		    SType, SoilMap, &ChannelData, &Time, &Options);
 
     RouteChannel(&ChannelData, &Time, &Map, TopoMap, SoilMap,
-		 &Options, Network, SType, VType, VegMap, EvapMap, LType);
+		 &Options, Network, SType, VegMap, EvapMap, LType);
 
     RouteSurface(&Map, &Time, TopoMap, SoilMap, &Options,
-      &Dump, VegMap, VType, LType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
+      &Dump, VegMap, &Veg, LType, SType, &ChannelData, LocalMet.Tair, LocalMet.Rh);
 
 #endif
 

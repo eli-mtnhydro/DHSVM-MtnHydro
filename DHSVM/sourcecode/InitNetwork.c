@@ -18,7 +18,7 @@
 
  *****************************************************************************/
 void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
-  SOILPIX **SoilMap, VEGPIX **VegMap, VEGTABLE *VType,
+  SOILPIX **SoilMap, VEGPIX **VegMap, int SoilLayers,
   NETSTRUCT ***Network, CHANNEL *ChannelData)
 {
   const char *Routine = "InitNetwork";
@@ -38,11 +38,11 @@ void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
     for (x = 0; x < NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
         if (!((*Network)[y][x].Adjust =
-          (float *)calloc((VType[VegMap[y][x].Veg - 1].NSoilLayers + 1), sizeof(float))))
+          (float *)calloc((SoilLayers + 1), sizeof(float))))
           ReportError((char *)Routine, 1);
 
         if (!((*Network)[y][x].PercArea =
-          (float *)calloc((VType[VegMap[y][x].Veg - 1].NSoilLayers + 1), sizeof(float))))
+          (float *)calloc((SoilLayers + 1), sizeof(float))))
           ReportError((char *)Routine, 1);
       }
     }
@@ -56,12 +56,11 @@ void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
       if (INBASIN(TopoMap[y][x].Mask)) {
         ChannelCut(y, x, ChannelData, &((*Network)[y][x]));
 
-        ChannelLimitVegFC(y, x, (DX*DY), ChannelData,
-          &(VType[VegMap[y][x].Veg - 1]), &(VegMap[y][x]));
+        ChannelLimitVegFC(y, x, (DX*DY), ChannelData, &(VegMap[y][x]));
 
-        AdjustStorage(VType[VegMap[y][x].Veg - 1].NSoilLayers,
+        AdjustStorage(SoilLayers,
           SoilMap[y][x].Depth,
-          VType[VegMap[y][x].Veg - 1].RootDepth,
+          SoilMap[y][x].LayerThickness,
           (*Network)[y][x].Area, DX, DY,
           (*Network)[y][x].BankHeight,
           (*Network)[y][x].PercArea,

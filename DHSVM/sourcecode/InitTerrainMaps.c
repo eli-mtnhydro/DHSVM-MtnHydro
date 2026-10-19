@@ -69,11 +69,18 @@ void ReadInputMaps(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map, INPUTMAPS
     ReadMap(Input, "Soil.ExponentialDecrease", NC_FLOAT, "1/m", MAP_ONE, Map);
   Raw->Porosity = ReadMap(Input, "Soil.Porosity", NC_FLOAT, "m3/m3", MAP_SOIL, Map);
   Raw->FieldCapacity = ReadMap(Input, "Soil.FieldCapacity", NC_FLOAT, "m3/m3", MAP_SOIL, Map);
-  Raw->VegClass = ReadMap(Input, "Veg.Class", NC_BYTE, "-", MAP_ONE, Map);
-  Raw->OverstoryCover = ReadMap(Input, "Veg.OverstoryCover", NC_FLOAT, "fraction", MAP_ONE, Map);
-  Raw->OverstoryLAI = ReadMap(Input, "Veg.OverstoryLAI", NC_FLOAT, "m2/m2", MAP_ONE, Map);
-  Raw->OverstoryHeight = ReadMap(Input, "Veg.OverstoryHeight", NC_FLOAT, "m", MAP_ONE, Map);
-  Raw->UnderstoryHeight = ReadMap(Input, "Veg.UnderstoryHeight", NC_FLOAT, "m", MAP_ONE, Map);
+  Raw->LayerThickness = ReadMap(Input, "Soil.LayerThickness", NC_FLOAT, "m", MAP_ROOT, Map);
+  Raw->Veg.OverstoryClass = ReadMap(Input, "Veg.OverstoryClass", NC_BYTE, "-", MAP_ONE, Map);
+  Raw->Veg.UnderstoryClass = ReadMap(Input, "Veg.UnderstoryClass", NC_BYTE, "-", MAP_ONE, Map);
+  Raw->Veg.OverstoryCover =
+    ReadMap(Input, "Veg.OverstoryCover", NC_FLOAT, "fraction", MAP_ONE, Map);
+  Raw->Veg.OverstoryLAI = ReadMap(Input, "Veg.OverstoryLAI", NC_FLOAT, "m2/m2", MAP_ONE, Map);
+  Raw->Veg.OverstoryHeight = ReadMap(Input, "Veg.OverstoryHeight", NC_FLOAT, "m", MAP_ONE, Map);
+  Raw->Veg.UnderstoryCover =
+    ReadMap(Input, "Veg.UnderstoryCover", NC_FLOAT, "fraction", MAP_ONE, Map);
+  Raw->Veg.UnderstoryLAI = ReadMap(Input, "Veg.UnderstoryLAI", NC_FLOAT, "m2/m2", MAP_ONE, Map);
+  Raw->Veg.UnderstoryHeight =
+    ReadMap(Input, "Veg.UnderstoryHeight", NC_FLOAT, "m", MAP_ONE, Map);
 
   Options->PrecipPattern.Ptr = NULL;
   if (Options->Prism) {

@@ -1,6 +1,6 @@
 /*
  * DESCRIPTION:  The output files of a run in the output directory:
- *               Basin.csv, Point_<Name>.csv, Class_<N>.csv, Streamflow.csv,
+ *               Basin.csv, Point_<Name>.csv, Class_<O>_<U>.csv, Streamflow.csv,
  *               Channels.csv, NetworkDynamics.csv (comma-separated, a names
  *               line, a units line, one row per time step labelled with the
  *               step's start; numbers %.9g, NA where a cell lacks a
@@ -77,7 +77,8 @@ void CreateOutputs(MAPSIZE *Map, TIMESTRUCT *Time, Channel *Streams, DUMPSTRUCT 
     }
   }
   for (i = 0; i < Dump->NClasses; i++) {
-    snprintf(Name, sizeof(Name), "Class_%d.csv", Dump->Classes[i].Class);
+    snprintf(Name, sizeof(Name), "Class_%d_%d.csv", Dump->Classes[i].Over,
+             Dump->Classes[i].Under);
     CreateSeries(&(Dump->Classes[i].File), Dump->Path, Name, "Time", "step start",
                  &(Dump->List[OUT_CLASS]));
     Dump->Classes[i].Held = HeldValues(Dump->List[OUT_CLASS].N);
@@ -353,7 +354,7 @@ void ExecDump(MAPSIZE *Map, DATE *Current, int StepsDone, MODELVIEW *Model, TOTA
   WriteChannelRows(Current, StepsDone - 1, Model, Dump, TRUE);
 #endif
   StoreSnapshots(StepsDone, Map, Dump, Model->Topo, PrecipMap, SnowMap, Model->Veg,
-                 Model->VType, Model->Soil, ChannelData, LType);
+                 Model->Soil, ChannelData, LType);
   WriteMapLayers(StepsDone, Model, Dump);
 }
 
@@ -364,14 +365,14 @@ void ExecDump(MAPSIZE *Map, DATE *Current, int StepsDone, MODELVIEW *Model, TOTA
 *****************************************************************************/
 void StoreSnapshots(int StepsDone, MAPSIZE *Map, DUMPSTRUCT *Dump,
   TOPOPIX **TopoMap, PRECIPPIX **PrecipMap, SNOWPIX **SnowMap, VEGPIX **VegMap,
-  VEGTABLE *VType, SOILPIX **SoilMap, CHANNEL *ChannelData, LAKETABLE *LType)
+  SOILPIX **SoilMap, CHANNEL *ChannelData, LAKETABLE *LType)
 {
   int i;
 
   for (i = 0; i < Dump->NStates; i++) {
     if (Dump->StateStep[i] == StepsDone)
       StoreModelState(Dump->Path, &(Dump->DState[i]), Map, TopoMap, PrecipMap,
-                      SnowMap, VegMap, VType, SoilMap, ChannelData, LType);
+                      SnowMap, VegMap, SoilMap, ChannelData, LType);
   }
 }
 

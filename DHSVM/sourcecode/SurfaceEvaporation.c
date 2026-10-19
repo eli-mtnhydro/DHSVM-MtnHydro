@@ -5,6 +5,7 @@
  Note this is adapted (by Eli) from SoilEvaporation.c originally by Bart Nijssen
  */
 
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "settings.h"
@@ -122,67 +123,87 @@ float ChannelSoilEvaporation(int Dt, float DXDY,
 
 /*****************************************************************************
  SoilEvaporation()
+
+ Evaporation from the soil of the whole cell, under and outside the
+ understory; *PotEvap returns the potential evaporation after the overlying
+ demand (m per time step). The desorption capacity of the step follows the
+ cumulative desorption S sqrt(t) of a soil that has delivered *DesorptionAcc
+ (per unit ground area) since it was last wetted: sqrt(E^2 + D^2) - E, with
+ D the capacity of a freshly wetted soil (Desorption()). The step's
+ evaporation per unit ground area is added to *DesorptionAcc.
  *****************************************************************************/
 float SoilEvaporation(int Dt,
                       float Temp, float Slope, float Gamma, float Lv,
                       float AirDens, float Vpd, float NetRad, float RaSoil,
                       float Evapotranspiration, float Porosity, float FCap, float Ks,
                       float Press, float m, float RootDepth,
-                      float *MoistContent, float Adjust)
+                      float *MoistContent, float Adjust, float *PotEvap,
+                      float *DesorptionAcc)
 {
   float DesorptionVolume;	/* Amount of water the soil can deliver to the atmosphere during a timestep (m) */
   float EPot;			/* Potential evaporation from soil during timestep (m) */
   float SoilEvap;		/* Amount of evaporation directly from the soil (m) */
+  float GroundEvap;		/* Evaporation per unit ground area (m) */
   float SoilMoisture;   /* Amount of water in surface soil layer (m) */
   float tmp;
-  
+  double Acc;
+
+  /* Eq.4 Wigmosta et al [1994] */
+
+  /* Calculate the density of pure water as a function of temperature.
+   Thiesen, Scheel-Diesselhorst Equation (in Handbook of hydrology, fig
+   11.1.1) */
+
+  EPot = (Slope * NetRad + AirDens * CP * Vpd / RaSoil) /
+    (WATER_DENSITY * Lv * (Slope + Gamma)) * Dt;
+
+  /* The potential evaporation rate accounts for the amount of moisture that
+   the atmosphere can absorb.  If we do not account for the amount of
+   evaporation from overlying evaporation, we can end up with the situation
+   that all vegetation layers and the soil layer transpire/evaporate at the
+   potential rate, resulting in an overprediction of the actual evaporation
+   rate.  Thus we subtract the amount of evaporation that has already
+   been calculated for overlying layers from the potential evaporation.
+   Another mechanism that could be used to account for this would be to
+   decrease the vapor pressure deficit while going down through the canopy
+   (not implemented here) */
+
+  /* Prior snow vapor deposition should not increase PET */
+  if (Evapotranspiration < 0.0)
+    Evapotranspiration = 0.0;
+
+  EPot -= Evapotranspiration;
+  if (EPot < 0.0)
+    EPot = 0.0;
+  *PotEvap = EPot;
+
   if (*MoistContent > FCap) {
-    
+
     DesorptionVolume = Desorption(Dt, *MoistContent, Porosity, Ks, Press, m);
-    
-    /* Eq.4 Wigmosta et al [1994] */
-    
-    /* Calculate the density of pure water as a function of temperature.
-     Thiesen, Scheel-Diesselhorst Equation (in Handbook of hydrology, fig
-     11.1.1) */
-    
-    EPot = (Slope * NetRad + AirDens * CP * Vpd / RaSoil) /
-      (WATER_DENSITY * Lv * (Slope + Gamma)) * Dt;
-    
-    /* The potential evaporation rate accounts for the amount of moisture that
-     the atmosphere can absorb.  If we do not account for the amount of
-     evaporation from overlying evaporation, we can end up with the situation
-     that all vegetation layers and the soil layer transpire/evaporate at the
-     potential rate, resulting in an overprediction of the actual evaporation
-     rate.  Thus we subtract the amount of evaporation that has already
-     been calculated for overlying layers from the potential evaporation.
-     Another mechanism that could be used to account for this would be to 
-     decrease the vapor pressure deficit while going down through the canopy
-     (not implemented here) */
-    
-    /* Prior snow vapor deposition should not increase PET */
-    if (Evapotranspiration < 0.0)
-      Evapotranspiration = 0.0;
-    
-    EPot -= Evapotranspiration;
-    if (EPot < 0.0)
-      EPot = 0.0;
-    
+
+    if (*DesorptionAcc > 0.0) {
+      Acc = *DesorptionAcc;
+      DesorptionVolume = sqrt(Acc * Acc + (double) DesorptionVolume * DesorptionVolume) - Acc;
+    }
+
     /* Eq.8 Wigmosta et al [1994] */
-    
+
     SoilEvap = MIN(EPot, DesorptionVolume);
+    GroundEvap = SoilEvap;
     SoilEvap *= Adjust;
     SoilMoisture = *MoistContent * RootDepth * Adjust;
-    
+
     tmp = FCap * RootDepth * Adjust;
     if (SoilEvap > SoilMoisture - tmp) {
       SoilEvap = SoilMoisture - tmp;
+      GroundEvap = (*MoistContent - FCap) * RootDepth;
       *MoistContent = FCap;
     }
     else {
       SoilMoisture -= SoilEvap;
       *MoistContent = SoilMoisture / (RootDepth * Adjust);
     }
+    *DesorptionAcc += GroundEvap;
   }
   else
     SoilEvap = 0.0;

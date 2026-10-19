@@ -42,8 +42,15 @@ Reference:
      float Ld           - Incoming longwave radiation (W/m2)
      float Tair         - Ambient air temperature (C)
      float Tcanopy      - Canopy temperature from the previous timestep (C)
-     int NAct           - Number of vegetation layers above the snow
-     VEGTABLE VType     - Information about number of veg layers
+     float FuR          - Fraction of the lower surface covered by the
+                          understory for the shortwave (0 without an
+                          understory or with the understory buried)
+     float Cu           - Fraction of the lower surface opaque to longwave
+                          by the understory at the air temperature (0
+                          without an understory or with the understory
+                          buried)
+     OVERTABLE *Over    - Overstory class of the cell (NULL if none)
+     UNDERTABLE *Under  - Understory class of the cell (NULL if none)
      SNOWPIX LocalSnow  - Information about snow conditions at current pixel
      PIXRAD *LocalRad   - Components of radiation balance for current pixel
 
@@ -57,92 +64,60 @@ Reference:
          soil temperature is the snow surface temperature
        - Canopy temperature is equal to the air temperature is there is no snow
          interception
+       - The understory is at the air temperature and transmits the
+         shortwave with its transmittance of the month; it is opaque to
+         longwave over the fraction Cu
        - There are at most two vegetation layers
 
  *****************************************************************************/
 void RadiationBalance(OPTIONSTRUCT *Options,
-  int CanopyRadAttOption, int OverStory, int Understory,
+  int OverStory, float FuR, float Cu,
   float SineSolarAltitude, float VIC_Rs, float Rs,
   float Rsb, float Rsd, float Ld,
   float Tair, float Tcanopy, float SoilAlbedo,
-  VEGTABLE *VType, SNOWPIX *LocalSnow, PIXRAD *LocalRad, VEGPIX *LocalVeg)
+  OVERTABLE *Over, UNDERTABLE *Under, SNOWPIX *LocalSnow, PIXRAD *LocalRad, VEGPIX *LocalVeg)
 {
   float F;			    /* Fraction of pixel covered by top canopy layer [0-1] */
-  float h;              /* Canopy height (m) */
   float Albedo[2];		/* Albedo of each layer */
-  float Tau = 0.0;			/* Transmittance for overstory vegetation layer */
-  float Taub, Taud;		/* Transmittance for overstory vegetation layer for
-                           direct and diffuse radiation, respectively */
+  float AlbedoG;		/* Albedo of the lower surface outside the understory (snow or soil) */
+  float AlbedoL;		/* Albedo of the lower surface */
+  float AlbedoU;		/* Albedo of the understory */
+  float Tau = 0.0;			/* Transmittance of the overstory for the beam */
+  float Taud;			/* Transmittance of the overstory for the diffuse */
   float Tsurf;			/* Surface temperature (C) */
 
   F = LocalVeg->Fract[0];
-  h = LocalVeg->Height[0];
 
-  if (CanopyRadAttOption == VARIABLE) {
-    F = VType->HemiFract[0];
-  }
-
-  /* Determine Albedo */
+  /* Determine Albedo: the lower surface is the understory over the
+     fraction FuR, the snow (or the soil without snow) over the rest */
+  AlbedoG = (LocalSnow->HasSnow == TRUE) ? LocalSnow->Albedo : SoilAlbedo;
+  AlbedoU = (FuR > 0.0) ? Under->Story.Albedo : NOT_APPLICABLE;
+  if (FuR > 0.0)
+    AlbedoL = FuR * AlbedoU + (1 - FuR) * AlbedoG;
+  else
+    AlbedoL = AlbedoG;
   Albedo[1] = NOT_APPLICABLE;
   if (OverStory == TRUE) {
-    Albedo[0] = VType->Albedo[0];                                                                              
-    /* With snow, understory canopy albedo is set equal to snow albedo */
-    if (LocalSnow->HasSnow == TRUE)
-      Albedo[1] = LocalSnow->Albedo;
-    else if (Understory == TRUE)
-      Albedo[1] = VType->Albedo[1];
-    else
-      Albedo[1] = SoilAlbedo;
+    Albedo[0] = Over->Story.Albedo;
+    Albedo[1] = AlbedoL;
   }
-  else if (LocalSnow->HasSnow == TRUE)
-    Albedo[0] = LocalSnow->Albedo;
-  else if (Understory == TRUE)
-    Albedo[0] = VType->Albedo[0];
   else
-    Albedo[0] = SoilAlbedo;
+    Albedo[0] = AlbedoL;
 
 
-  /* Improved radiation scheme taking into account solar position */
+  /* Beam transmittance of the overstory from the cell's LAI of the month
+     along the sun's path (Beer's law); diffuse transmittance of the cell
+     (SetCellMonth) */
+  Taud = NOT_APPLICABLE;
   if (OverStory == TRUE) {
-    if (Options->ImprovRadiation) {
-      if (SineSolarAltitude > 0. && Rs > 0.) {
-        Tau = exp(-VType->ExtnCoeff * h / SineSolarAltitude);
-      }
-      else
-        Tau = 0.;
-    }
-    else if (CanopyRadAttOption == FIXED) { /* conventional radiation scheme */
-      Tau = exp(-VType->Atten * LocalVeg->LAI[0]);
-    }
-    /* Nijssen's simplified radiation scheme as in Nijssen and Lettenmaier, 1999 */
-    else if (CanopyRadAttOption == VARIABLE) {
-      /* Calculate transmittance of overstory canopy for direct radiation:
-         1) LAI * ClumpingFactor = Effective LAI
-         2) Formulation is typically based on the cos of the solar zenith angle,
-         which is the sin of the solar altitude (SA = 90 - SZA) */
-      Taub = exp(-LocalVeg->LAI[0] / VType->ClumpingFactor *
-        (VType->LeafAngleA / SineSolarAltitude + VType->LeafAngleB));
-
-      /* transmittance for diffuse radiation of the cell (from LeafAngleA,
-         LeafAngleB and the cell's LAI of the month, InitNewMonth) */
-      Taud = LocalVeg->Taud;
-
-      /* cacluate the total canopy transimittance for shortwave radiation (adjusted to
-         scattering and multiple reflection */
-      if (Rs > 0.0) {
-        Tau = Taub * Rsb / Rs + Taud * Rsd / Rs;
-        /* adjust Tau to scaterring parameter */
-        Tau = pow(Tau, (VType->Scat));
-        /* adjust Tau to over- and under- story reflection */
-        Tau = Tau / (1 - Albedo[0] * Albedo[1]);
-      }
-      else
-        Tau = 0.;
-    }
+    if (SineSolarAltitude > 0. && Rs > 0.)
+      Tau = exp(-Over->ExtnCoeff * LocalVeg->LAI[0] / SineSolarAltitude);
+    else
+      Tau = 0.;
+    Taud = LocalVeg->Taud;
   }
-
-  ShortwaveBalance(Options, OverStory, F, Rs, Rsb, Rsd, Tau,
-    (CanopyRadAttOption == VARIABLE) ? LocalVeg->Taud : VType->Taud, Albedo, LocalRad);
+  ShortwaveBalance(OverStory, F, Rs, Rsb, Rsd, Tau, Taud, Albedo,
+    FuR, AlbedoU, AlbedoG, LocalVeg->TauU, LocalRad);
 
   if (LocalSnow->HasSnow == TRUE)
     Tsurf = LocalSnow->TSurf;
@@ -150,7 +125,7 @@ void RadiationBalance(OPTIONSTRUCT *Options,
     Tsurf = Tair;
 
   /* Calculate longwave radiation balance */
-  LongwaveBalance(Options, OverStory, F, LocalVeg->Vf, Ld, Tcanopy, Tsurf, LocalRad);
+  LongwaveBalance(OverStory, F, Ld, Tcanopy, Tsurf, Cu, Tair, LocalRad);
   
   LocalRad->PixelLongIn = Ld;
 
@@ -171,17 +146,26 @@ void RadiationBalance(OPTIONSTRUCT *Options,
     float F          - Fraction of pixel covered by top vegetation layer
     float Ld         - Downward (incoming) longwave radiation (W/m2)
     float Tcanopy    - Canopy temperature (C)
-    float Tsurf      - Surface temperature (C)
+    float Tsurf      - Surface temperature of the ground (soil or snow) (C)
+    float Cu         - Fraction of the lower surface opaque to longwave by
+                       the understory at the air temperature, 0 if none
+    float Tair       - Air temperature (C)
     PIXRAD &LocalRad - Components of radiation balance for current pixel
 
   Comments     : This function is used to update the longwave radiation
-                 balance when new surface temperatures are calculated
+                 balance when new surface temperatures are calculated.
+                 The understory absorbs Cu of the longwave reaching it
+                 from above and from the ground and emits Cu of its
+                 blackbody longwave up and down; the lower surface's
+                 LongOut is the upward longwave above the understory.
 ************************************************************************************************/
-void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
-  float F, float Vf, float Ld, float Tcanopy, float Tsurf,
+void LongwaveBalance(unsigned char OverStory,
+  float F, float Ld, float Tcanopy, float Tsurf, float Cu, float Tair,
   PIXRAD *LocalRad)
 {
   double Tmp;
+  float LongOutU = 0.0;		/* Blackbody longwave of the understory (W/m2) */
+  int Lower = (OverStory == TRUE) ? 1 : 0;
 
   /* calculate emitted longwave for each layer */
   if (OverStory == TRUE) {
@@ -196,26 +180,30 @@ void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
     LocalRad->LongOut[1] = 0.;
   }
 
+  /* lower surface: the ground's emission passing the understory, and the
+     understory's at the air temperature over Cu */
+  LocalRad->LongOutGround = LocalRad->LongOut[Lower];
+  if (Cu > 0.0) {
+    Tmp = Tair + 273.15;
+    LongOutU = STEFAN * (Tmp * Tmp * Tmp * Tmp);
+    LocalRad->LongOut[Lower] = Cu * LongOutU + (1 - Cu) * LocalRad->LongOutGround;
+  }
+
   /* Calculate the incoming longwave for each layer */
   if (OverStory == TRUE) {
-    /* In the improved radiation scheme, F is replaced by the canopy view
-    factor Vf that indicates the proportion of the sky view blocked by the
-    canopy. Here Vf is estimated by VfAdjust * F. IN the case of clear-cut,
-    F = Vf = 0. Details can be found in Thyer et al. (2004) and
-    Reifsnyder and Lull (1965) */
-    if (Options->ImprovRadiation == TRUE) {
-      LocalRad->LongIn[0] = (Ld + LocalRad->LongOut[1]) * Vf;
-      LocalRad->LongIn[1] = Ld * (1-Vf) + LocalRad->LongOut[0]*Vf;
-    }
-    else {
-      LocalRad->LongIn[0] = (Ld + LocalRad->LongOut[1]) * F;
-      LocalRad->LongIn[1] = Ld * (1-F) + LocalRad->LongOut[0] * F;
-    }
+    LocalRad->LongIn[0] = (Ld + LocalRad->LongOut[1]) * F;
+    LocalRad->LongIn[1] = Ld * (1-F) + LocalRad->LongOut[0] * F;
   }
   else {
     LocalRad->LongIn[0] = Ld;
     LocalRad->LongIn[1] = 0.;
   }
+
+  /* the ground receives the longwave passing the understory and the
+     understory's over Cu */
+  LocalRad->LongInGround = LocalRad->LongIn[Lower];
+  if (Cu > 0.0)
+    LocalRad->LongInGround = (1 - Cu) * LocalRad->LongIn[Lower] + Cu * LongOutU;
 
   /* Calculate the radiative components for the entire pixel.  Use the
      snow/soil surface temperature as an estimate for the pixel temperature.
@@ -243,46 +231,63 @@ void LongwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
                      - Flag to indicate presence of overstory
     float F          - Fraction of pixel covered by top vegetation layer
     float Rs         - Incoming shortwave radiation (W/m2)
-    float Tau        - Canopy transmittance coefficient for overstory
+    float Rsb, Rsd   - Beam and diffuse parts of Rs (W/m2)
+    float Tau        - Beam transmittance of the overstory
+    float Taud       - Diffuse transmittance of the overstory
     float *Albedo    - Albedo of each layer
+    float FuR        - Fraction of the lower surface covered by the understory
+    float AlbedoU    - Albedo of the understory
+    float AlbedoG    - Albedo of the ground (soil or snow)
+    float TauU       - Shortwave transmittance of the understory
     PIXRAD *LocalRad - Components of radiation balance for current pixel
 
   Comments     :
     This function needs to be called only once for each pixel for each
     timestep, since the shortwave radiation balance is independent of
-    the surface temperatures
+    the surface temperatures. The net shortwave of the lower surface is
+    split into the understory's part (NetShort of the lower layer) and the
+    ground's under and outside the understory (NetShortGround).
 *****************************************************************************/
-void ShortwaveBalance(OPTIONSTRUCT *Options, unsigned char OverStory,
+void ShortwaveBalance(unsigned char OverStory,
   float F, float Rs, float Rsb, float Rsd, float Tau, float Taud,
-  float *Albedo, PIXRAD *LocalRad)
+  float *Albedo, float FuR, float AlbedoU, float AlbedoG, float TauU,
+  PIXRAD *LocalRad)
 {
+  int Lower = (OverStory == TRUE) ? 1 : 0;
+  float NetShortL;		/* Net shortwave of the lower surface (W/m2) */
+  float ShortL;			/* Shortwave reaching the lower surface (W/m2) */
+
   /* Calculate the net shortwave for each layer */
   /* Overstory present, i.e. two layers */
   if (OverStory == TRUE) {
-	LocalRad->NetShort[0] = Rs * F * ((1-Albedo[0])-Tau*(1-Albedo[1]));
-    if (Options->ImprovRadiation == TRUE) {
-	  LocalRad->NetShort[1] =
-		(1-Albedo[1])*(Rs*(1-F) + F*(Rsb*Tau + Rsd*Taud));
-    }
-    else {      
-      LocalRad->NetShort[1] = Rs * (1-Albedo[1]) * ((1-F)+(Tau*F));
-    }
+    /* The beam is transmitted with Tau and the diffuse with Taud, the same
+       transmitted shortwave in both layers */
+    ShortL = Rs*(1-F) + F*(Rsb*Tau + Rsd*Taud);
+    LocalRad->NetShort[0] = F * ((1-Albedo[0])*Rs - (1-Albedo[1])*(Rsb*Tau + Rsd*Taud));
+    LocalRad->NetShort[1] =
+      (1-Albedo[1])*(Rs*(1-F) + F*(Rsb*Tau + Rsd*Taud));
   }
   else {
+    ShortL = Rs;
     LocalRad->NetShort[0] = Rs * (1-Albedo[0]);
     LocalRad->NetShort[1] = 0.;
   }
 
   /* Calculate the net shortwave for the entire pixel */
-  if (OverStory == TRUE) {
-    if (Options->ImprovRadiation == TRUE) {
-      LocalRad->PixelNetShort = Rs * (1-Albedo[0] - Albedo[0]*(1-Albedo[1]));
-    }
-    else {
-      LocalRad->PixelNetShort = Rs * (1-Albedo[0]*F - Albedo[1]*(1-F));
-    }
-  }
+  if (OverStory == TRUE)
+    LocalRad->PixelNetShort = LocalRad->NetShort[0] + LocalRad->NetShort[1];
   else
     LocalRad->PixelNetShort = LocalRad->NetShort[0];
-  
+
+  /* The understory absorbs over FuR what it does not transmit to the
+     ground; the ground (soil or snow) the rest of the lower surface's */
+  NetShortL = LocalRad->NetShort[Lower];
+  if (FuR == 0.0) {
+    LocalRad->NetShort[Lower] = 0.0;
+    LocalRad->NetShortGround = NetShortL;
+  }
+  else {
+    LocalRad->NetShort[Lower] = FuR * ShortL * ((1 - AlbedoU) - TauU * (1 - AlbedoG));
+    LocalRad->NetShortGround = NetShortL - LocalRad->NetShort[Lower];
+  }
 }

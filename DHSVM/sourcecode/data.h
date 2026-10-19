@@ -57,9 +57,13 @@ typedef struct {
   HELDVALUE *Held;		/* Its Instant columns at the next row's time */
 } POINTOUT;
 
+/* A combination of an overstory and an understory class with means: every
+   mask cell with these two classes */
 typedef struct {
-  int Class;			/* Vegetation class */
-  FILES File;			/* Class_<Class>.csv */
+  int Over;			/* Overstory class (0 = none) */
+  int Under;			/* Understory class (0 = none) */
+  int Present;			/* TRUE if a vegetation update gives the combination to a mask cell */
+  FILES File;			/* Class_<Over>_<Under>.csv */
   HELDVALUE *Held;		/* Its Instant columns at the next row's time */
 } CLASSOUT;
 
@@ -76,7 +80,7 @@ typedef struct {
   int *StateStep;			/* Number of time steps done at each snapshot */
   OUTLIST List[NOUTLISTS];		/* Basin, Point, Class, Channels and Maps lists */
   char ClassesText[BUFSIZE + 1];	/* [OUTPUT] Classes as read */
-  int NClasses;				/* Classes with a Class_<N>.csv */
+  int NClasses;				/* Class combinations with a Class_<O>_<U>.csv */
   CLASSOUT *Classes;
   int NPoints;				/* Points of the point table */
   POINTOUT *Points;
@@ -166,7 +170,7 @@ typedef struct {
   int OffsetY;					 /* Offset in y-direction compared to basemap */
   int NumCells;                  /* Number of cells within the basin */
   int NumLakes;                  /* Number of lakes within the basin */
-  int SoilLayers;                /* Number of root zone layers of every soil and vegetation class */
+  int SoilLayers;                /* Number of root zone layers */
   ITEM *OrderedCells;            /* Structure array to hold the ranked elevations; NumCells in size */
 } MAPSIZE;
 
@@ -228,7 +232,7 @@ typedef struct {
   char fileprefix[BUFSIZE + 1]; /* file path */
 } GRID;
 
-/* Vegetation updates: at each instant the five Veg.* maps of the cells are
+/* Vegetation updates: at each instant the eight Veg.* maps of the cells are
    replaced by the maps <Directory>Veg.<Variable>.<stamp>.map */
 typedef struct {
   int N;                        /* Updates in the config */
@@ -236,9 +240,20 @@ typedef struct {
   long long *Step;              /* Time steps from Start to each update (negative before Start) */
   char Directory[BUFSIZE + 1];  /* Directory of the update maps, ending in a separator */
   int Next;                     /* First update applied during the run */
-  unsigned char *BaseClass;     /* Veg.Class as given, every cell */
-  unsigned char *Present;       /* Per vegetation class: TRUE if an update gives it to a mask cell */
 } VEGUPDATES;
+
+/* The eight vegetation maps of the cells, as read (each array NY x NX, row
+   after row): the input maps or the maps of one vegetation update */
+typedef struct {
+  unsigned char *OverstoryClass;	/* Row of the overstory table, 0 = none */
+  unsigned char *UnderstoryClass;	/* Row of the understory table, 0 = none */
+  float *OverstoryCover;
+  float *OverstoryLAI;
+  float *OverstoryHeight;
+  float *UnderstoryCover;
+  float *UnderstoryLAI;			/* LAI per covered area */
+  float *UnderstoryHeight;
+} VEGMAPS;
 
 typedef struct {
   int FlowGradient;			/* Specifies whether the flow gradient is based
@@ -258,12 +273,10 @@ typedef struct {
   int SnowPattern;		  /* If TRUE, user supplied snow map will be used to redistribute precipitation */
   int MeltScale;        /* TRUE: the melt of every cell times its Snow.MeltScale value */
   int WindScale;        /* TRUE: the wind of every cell times its Met.WindScale value */
-  int CanopyRadAtt;			/* Radiation attenuation through the canopy, either FIXED (old method) or VARIABLE */
   int Shading;					/* if TRUE then terrain shading for solar is on */
   float MaxInterpDistance; /* Maximum station distance of the inverse distance interpolation (m) */
   float MaxInterpDist;  /* Maximum station distance of the inverse distance interpolation (cells) */
-  int Impervious;       /* TRUE if some vegetation class has an impervious fraction */
-  int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
+  int Impervious;       /* TRUE if some understory class has an impervious fraction */
   int GW_SPINUP;        /* Whether to spinup groundwater state prior to launching run */
   int GW_SPINUP_YRS;    /* Number of years in groundwater spinup */
   float GW_SPINUP_RECHARGE; /* Yearly groundwater recharge rate during spinup (m/yr) */
@@ -285,17 +298,14 @@ typedef struct {
   float *Elevation;
   unsigned char *Mask;
   unsigned char *SoilClass;
-  unsigned char *VegClass;
   unsigned char *LakeID;
   float *Depth;
   float *LateralConductivity;
   float *ExponentialDecrease;
   float *Porosity;		/* L + 1 layers */
   float *FieldCapacity;		/* L + 1 layers */
-  float *OverstoryCover;
-  float *OverstoryLAI;
-  float *OverstoryHeight;
-  float *UnderstoryHeight;
+  float *LayerThickness;	/* L layers */
+  VEGMAPS Veg;			/* The eight vegetation maps */
   float *SnowPattern;
   float *MeltScale;
   float *WindScale;
@@ -317,9 +327,15 @@ typedef struct {
  } PRECIPPIX;
 
 typedef struct {
-  float NetShort[2];        /* Shortwave radiation for vegetation surfaces and ground/snow surface W/m2 */
+  float NetShort[2];        /* Shortwave radiation for vegetation surfaces and ground/snow surface W/m2;
+                               the lower surface's entry holds only the understory's part */
+  float NetShortGround;     /* Net shortwave of the ground (soil or snow) under and outside the
+                               understory, per cell area W/m2 */
   float LongIn[2];		      /* Incoming longwave radiation for vegetation surfaces and ground/snow surface W/m2 */
-  float LongOut[2];		      /* Outgoing longwave radiation for vegetation surfaces and ground/snow surface W/m2 */
+  float LongOut[2];		      /* Outgoing longwave radiation for vegetation surfaces and ground/snow surface W/m2;
+                               the lower surface's entry is the upward longwave above the understory */
+  float LongInGround;       /* Incoming longwave at the ground (soil or snow) W/m2 */
+  float LongOutGround;      /* Longwave emitted by the ground (soil or snow) W/m2 */
   float PixelNetShort;	    /* Net shortwave for the entire pixel W/m2 */
   float NetRadiation[2];    /* Net radiation received by the entire pixel W/m2 */
   float PixelLongIn;	      /* Incoming longwave for entire pixel W/m2 */
@@ -458,6 +474,8 @@ typedef struct {
   float Ra;				/* Soil surface aerodynamic resistance (s/m) */
   float InfiltAcc;               /* Accumulated water in the top layer (m) */
   float MoistInit;               /* Initial moisture content when ponding begins (0-1) */
+  float DesorptionAcc;           /* Soil evaporation per unit ground area since the top layer
+                                    was last wetted (m) */
   float startRunoff;             /* Surface water flux from the previous (sub) time step. Used for kinematic wave routing */
   float DetentionStorage;        /* amount of water kept in detention storage when impervious fraction > 0 */
   float DetentionIn;			 /* detention storage change in current time step */
@@ -468,6 +486,8 @@ typedef struct {
   float *KsVert;         /* Soil Vertical Conductivity - each layer */
   float *Porosity;       /* Soil Porosity - each layer */
   float *FCap;			     /* Soil Field Capacity - each layer */
+  float *LayerThickness; /* Thickness of each root zone layer (m) */
+  float TotalThickness;  /* Sum of LayerThickness from 0.0 in layer order (m) */
 } SOILPIX;
 
 typedef struct {
@@ -531,8 +551,17 @@ typedef struct {
   float WindScale;   /* Multiplier on the station wind (Met.WindScale map, else 1) */
 } TOPOPIX;
 
+/* The vegetation of a cell. The canopy arrays hold the layers present in
+   position order, overstory first (CanopyIndex()) */
 typedef struct {
-  int Veg;			            /* Vegetation type */
+  int OverClass;			    /* Row of the overstory table, 0 = none */
+  int UnderClass;			    /* Row of the understory table, 0 = none */
+  unsigned char OverStory;	    /* TRUE if the cell has an overstory layer (OverClass > 0) */
+  unsigned char UnderStory;	    /* TRUE if the cell has an understory layer (UnderClass > 0
+                                   and understory cover > 0) */
+  int NVegLayers;		        /* Vegetation layers of the cell (0-2) */
+  float UnderstoryCover;	    /* Understory cover from its map (0-1) before the channel limit
+                                   of Fract, 0 without an understory layer */
   float Tcanopy;		        /* Canopy temperature (C) */
   float MoistureFlux;		    /* Amount of water transported from the pixel
                                    to the atmosphere (m/timestep) */
@@ -543,63 +572,62 @@ typedef struct {
   float *Height;                /* Height of each vegetation layer (m), from the height maps */
   float **LAIMonthly;                  /* LAI of all months*/ 
   float *MaxInt;                  /* Max Interception*/   
-  float Vf;                       /* spatial - Canopy view factor (0 - 1); Vf = VfAdjust*Fract */
-  float Taud;                     /* Transmittance of the overstory for diffuse radiation in the month
-                                     (Canopy Radiation Attenuation VARIABLE) */
+  float Taud;                     /* Transmittance of the overstory for diffuse radiation in the month */
+  float TauU;                     /* Shortwave transmittance of the understory in the month
+                                     (1 without an understory layer) */
   float U[2];                     /* Wind profile of the cell for a reference wind of 1 m/s (CalcAerodynamic) */
   float USnow;                    /* Wind 2 m above the snow surface, same normalization */
   float Ra[2];                    /* Aerodynamic resistances in the absence of snow, same normalization */
   float RaSnow;                   /* Aerodynamic resistance above the snow surface, same normalization */
 } VEGPIX;
 
+/* The parameters of one story (overstory or understory) of a vegetation
+   table row */
 typedef struct {
-  char Desc[BUFSIZE + 1];	/* Vegetation type */
-  int Index;
-  int NVegLayers;		/* Number of vegetation layers */
-  int NSoilLayers;		/* Number of soil layers */
-  unsigned char OverStory;	        /* TRUE if there is an overstory */
-  unsigned char UnderStory;	/* TRUE if there is an understory */
-  float *HemiFract;		/* used to calculated longwave radiation balance */
-  float **LAIMonthly;	/* Monthly LAI (one-sided) of the understory; the overstory LAI is a map */
-  float LAIFraction[12];	/* Overstory LAI of each month as a fraction of the overstory LAI map */
-  float *RsMax;			/* Maximum stomatal resistance */
-  float *RsMin;			/* Minimum stomatal resistance */
-  float *MoistThres;	/* Soil moisture threshold above which soil 
-						moisture does not restrict transpiration */
-  float *VpdThres;		/* Vapor pressure deficit threshold above which
-						stomatal closure occurs (Pa) */
-  float **RootFract;	/* Fraction of roots in each soil layer */
-  float *RootDepth;		/* Depth of root zones */
-  float Atten;			/* Canopy attenuation for radiation, only used
-						when the "canopy radiation attenuation" 
-						option is set to fixed */
-  float TotalDepth;		/* total depth of all root zones */
-  float ClumpingFactor;	/* To convert LAI of overstory to Effective LAI
-					    for canopy attenuation of shortwave radiation 
-						taken after Chen and Black, 1991 */
-  float Taud;			/* Transmission of diffuse radiation through the canopy: DiffuseAttenuation
-						   (FIXED attenuation); with VARIABLE attenuation each cell has its own */
-  float LeafAngleA;		/* parameter describing the Leaf Angle Distribution */
-  float LeafAngleB;		/* parameter describing the leaf Angle Distribution */
-  float Scat;			/* scattering parameter (between 0.7 and 0.85) */
-  float *Rpc;			/* fraction of radiaton that is photosynthetically active (PAR) */
-  float *Albedo;		/* Albedo for each vegetation layer */
-  float **AlbedoMonthly;
-  float Cn;				/* Canopy attenuation coefficient for wind profile */
-  float MaxSnowInt;		/* Maximum snow interception capacity for the overstory */
+  float RsMax;			/* Maximum stomatal resistance (s/m) */
+  float RsMin;			/* Minimum stomatal resistance (s/m) */
+  float MoistThres;		/* Soil moisture threshold above which soil
+				   moisture does not restrict transpiration */
+  float VpdThres;		/* Vapor pressure deficit threshold above which
+				   stomatal closure occurs (Pa) */
+  float Rpc;			/* fraction of radiaton that is photosynthetically active (PAR) */
+  float *RootFract;		/* Fraction of roots in each root zone layer */
+  float AlbedoMonthly[12];	/* Albedo of each month */
+  float Albedo;			/* Albedo of the current month */
+  float LAIFraction[12];	/* LAI of each month as a fraction of the story's LAI map */
+} STORYTABLE;
+
+/* One row of the overstory table */
+typedef struct {
+  char Desc[BUFSIZE + 1];	/* Name */
+  STORYTABLE Story;		/* Stomatal, root, albedo and LAI parameters */
+  float ExtnCoeff;		/* Shortwave extinction coefficient per unit LAI (LightExtinction) */
+  float Cn;			/* Canopy attenuation coefficient for wind profile */
+  float MaxSnowInt;		/* Maximum snow interception capacity */
   float MDRatio;		/* Ratio of Mass Release to Meltwater drip from int snow */
   float SnowIntEff;		/* Efficiency of snow interception process */
-  float ImpervFrac;		/* fraction of pixel that is impervious */
-  float DetentionFrac;  /* fraction of flow on impervious area goes to flood detention storage */ 
-  float DetentionDecay; /* Decay coefficient of linear reservoir storage for impervious surface detention facility.  */
   float Trunk;			/* Fraction of overstory height that identifies the top of the trunk space */
-  float VfAdjust;       /* Canopy view adjustment factor */
-  float ExtnCoeff;            /* Light extinction coefficient varied by month */
-  float MonthlyExtnCoeff[12]; /* Monthly light extinction (or attenuation coeff); unit: m^-1; 
-                             used in improved radiation scheme */
-} VEGTABLE;
+} OVERTABLE;
 
-/* Means over mask cells (the basin, or the cells of one vegetation class) */
+/* One row of the understory table */
+typedef struct {
+  char Desc[BUFSIZE + 1];	/* Name */
+  STORYTABLE Story;		/* Stomatal, root, albedo and LAI parameters */
+  float RadAtten;		/* Shortwave attenuation coefficient of the understory per unit LAI */
+  float ImpervFrac;		/* fraction of pixel that is impervious */
+  float DetentionFrac;		/* fraction of flow on impervious area goes to flood detention storage */
+  float DetentionDecay;		/* Decay coefficient of linear reservoir storage for impervious surface detention facility */
+} UNDERTABLE;
+
+/* The overstory and understory tables (class = row number) */
+typedef struct {
+  int NOver;			/* Rows of the overstory table */
+  OVERTABLE *Over;
+  int NUnder;			/* Rows of the understory table */
+  UNDERTABLE *Under;
+} VEGTABLES;
+
+/* Means over mask cells (the basin, or the cells of one class combination) */
 typedef struct {
   int NCells;			/* Mask cells averaged over */
   int NSnow;			/* Of these, cells with snow at the end of the step */
@@ -612,9 +640,10 @@ typedef struct {
    sums of the run */
 typedef struct {
   AGGREGATE Basin;
-  int NClasses;			/* Vegetation classes with means */
+  int NClasses;			/* Class combinations with means */
   AGGREGATE *Class;
-  int *ClassIndex;		/* Index into Class of each vegetation class, -1 if none */
+  int *ClassOver;		/* Overstory class of each combination */
+  int *ClassUnder;		/* Understory class of each combination */
   int NSaturated;		/* Mask cells with the water table above 90% of the soil depth */
   float SaturatedFraction;
   float Storage;		/* Water in the basin at the end of the step (m) */
@@ -649,7 +678,6 @@ typedef struct {
   SOILPIX **Soil;
   SOILTABLE *SType;
   VEGPIX **Veg;
-  VEGTABLE *VType;
   SNOWPIX **Snow;
   PRECIPPIX **Precip;
   EVAPPIX **Evap;

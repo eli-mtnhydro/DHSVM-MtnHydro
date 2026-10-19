@@ -19,12 +19,12 @@ void InitMetMaps(MAPSIZE *Map, OPTIONSTRUCT *Options, INPUTMAPS *Raw,
   float ***PrismMap, float ***SnowPatternMap, float ***SnowPatternMapBase,
   EVAPPIX ***EvapMap, PRECIPPIX ***PrecipMap, PIXRAD ***RadMap,
   SOILPIX **SoilMap, LAYER *Soil, VEGPIX **VegMap,
-  LAYER *Veg, TOPOPIX **TopoMap)
+  TOPOPIX **TopoMap)
 {
   Message("Initializing meteorological maps\n");
 
-  InitEvapMap(Map, EvapMap, SoilMap, Soil, VegMap, Veg, TopoMap);
-  InitPrecipMap(Map, PrecipMap, VegMap, Veg, TopoMap);
+  InitEvapMap(Map, EvapMap, SoilMap, Soil, VegMap, TopoMap);
+  InitPrecipMap(Map, PrecipMap, VegMap, TopoMap);
 
   /* Monthly precipitation pattern: the map is open (ReadInputMaps()), the
      month's layer is read by InitNewMonth() */
@@ -42,7 +42,7 @@ void InitMetMaps(MAPSIZE *Map, OPTIONSTRUCT *Options, INPUTMAPS *Raw,
   InitEvapMap()
 *****************************************************************************/
 void InitEvapMap(MAPSIZE *Map, EVAPPIX ***EvapMap, SOILPIX **SoilMap,
-  LAYER *Soil, VEGPIX **VegMap, LAYER *Veg,
+  LAYER *Soil, VEGPIX **VegMap,
   TOPOPIX **TopoMap)
 {
   const char *Routine = "InitEvapMap";
@@ -66,7 +66,7 @@ void InitEvapMap(MAPSIZE *Map, EVAPPIX ***EvapMap, SOILPIX **SoilMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        NVeg = Veg->MaxLayers;	/* room for any class (vegetation updates) */
+        NVeg = MAXVEGLAYERS;	/* room for both canopies (vegetation updates) */
         NSoil = Soil->NLayers[(SoilMap[y][x].Soil - 1)];
         
         if (!((*EvapMap)[y][x].EPot =
@@ -98,7 +98,7 @@ void InitEvapMap(MAPSIZE *Map, EVAPPIX ***EvapMap, SOILPIX **SoilMap,
   InitPrecipMap()
 *****************************************************************************/
 void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
-  LAYER * Veg, TOPOPIX ** TopoMap)
+  TOPOPIX ** TopoMap)
 {
   const char *Routine = "InitPrecipMap";
   int x;			/* counter */
@@ -119,7 +119,7 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        NVeg = Veg->MaxLayers;	/* room for any class (vegetation updates) */
+        NVeg = MAXVEGLAYERS;	/* room for both canopies (vegetation updates) */
         if (!((*PrecipMap)[y][x].IntRain =
           (float *)calloc(NVeg, sizeof(float))))
           ReportError((char *)Routine, 1);
@@ -130,7 +130,7 @@ void InitPrecipMap(MAPSIZE * Map, PRECIPPIX *** PrecipMap, VEGPIX ** VegMap,
   for (y = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
-        NVeg = Veg->MaxLayers;	/* room for any class (vegetation updates) */
+        NVeg = MAXVEGLAYERS;	/* room for both canopies (vegetation updates) */
         if (!((*PrecipMap)[y][x].IntSnow =
           (float *)calloc(NVeg, sizeof(float))))
           ReportError((char *)Routine, 1);

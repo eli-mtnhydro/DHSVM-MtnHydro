@@ -1,15 +1,14 @@
 /*
  * DESCRIPTION:  Vegetation updates: at each [INPUTS] Vegetation Update <n>
- *               instant the five vegetation maps of every mask cell are
+ *               instant the eight vegetation maps of every mask cell are
  *               replaced by <Vegetation Update Directory>/<Name>.<stamp>.map
- *               (Veg.Class, Veg.OverstoryCover, Veg.OverstoryLAI,
- *               Veg.OverstoryHeight, Veg.UnderstoryHeight), before the time
+ *               (Veg.OverstoryClass, Veg.UnderstoryClass, Veg.OverstoryCover,
+ *               Veg.OverstoryLAI, Veg.OverstoryHeight, Veg.UnderstoryCover,
+ *               Veg.UnderstoryLAI, Veg.UnderstoryHeight), before the time
  *               step starting then. The latest update before Start gives
- *               the vegetation at Start. A cell's class keeps the root
- *               depths of its class in Veg.Class, so its soil layers stay.
- *               The water of a canopy the new class lacks, and the
- *               detention storage of a class without impervious fraction,
- *               becomes surface water of the cell.
+ *               the vegetation at Start. The water of a canopy the cell
+ *               loses, and the detention storage of a cell without
+ *               impervious fraction, becomes surface water of the cell.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,15 +23,6 @@
 #include "sizeofnt.h"
 #include "mapio.h"
 #include "DHSVMChannel.h"
-
-/* The maps of one update */
-typedef struct {
-  unsigned char *Class;
-  float *Cover;
-  float *LAI;
-  float *OverstoryHeight;
-  float *UnderstoryHeight;
-} VEGMAPS;
 
 /*****************************************************************************
   InitVegUpdateTimes()
@@ -58,8 +48,6 @@ void InitVegUpdateTimes(LISTPTR Input, OPTIONSTRUCT *Options, TIMESTRUCT *Time)
   U->Next = 0;
   U->Time = NULL;
   U->Step = NULL;
-  U->BaseClass = NULL;
-  U->Present = NULL;
   if (n > 0 && IsEmptyStr(U->Directory))
     ReportErrorCode(103, "[INPUTS] Vegetation Update 1 needs Vegetation Update Directory");
   if (n == 0 && !IsEmptyStr(U->Directory))
@@ -104,60 +92,85 @@ static void ReadUpdateMap(VEGUPDATES *U, int k, const char *Name, int NumberType
 /*****************************************************************************
   ReadVegUpdate()
 
-  Reads and checks the five maps of update k (the checks of the input
-  vegetation maps, and the root depths of the classes in Veg.Class) and
-  marks the classes they give to mask cells
+  Reads and checks the eight maps of update k (the checks of the input
+  vegetation maps)
 *****************************************************************************/
-static void ReadVegUpdate(VEGUPDATES *U, int k, MAPSIZE *Map, unsigned char *Mask, LAYER *Veg,
-                          VEGTABLE *VType, VEGMAPS *V)
+static void ReadVegUpdate(VEGUPDATES *U, int k, MAPSIZE *Map, unsigned char *Mask,
+                          VEGTABLES *Veg, VEGMAPS *V)
 {
   size_t NCells = (size_t) Map->NY * Map->NX;
   char Suffix[NAMESIZE + 2];
-  size_t i;
 
-  if (!(V->Class = (unsigned char *) calloc(NCells, sizeof(unsigned char))) ||
-      !(V->Cover = (float *) calloc(NCells, sizeof(float))) ||
-      !(V->LAI = (float *) calloc(NCells, sizeof(float))) ||
+  if (!(V->OverstoryClass = (unsigned char *) calloc(NCells, sizeof(unsigned char))) ||
+      !(V->UnderstoryClass = (unsigned char *) calloc(NCells, sizeof(unsigned char))) ||
+      !(V->OverstoryCover = (float *) calloc(NCells, sizeof(float))) ||
+      !(V->OverstoryLAI = (float *) calloc(NCells, sizeof(float))) ||
       !(V->OverstoryHeight = (float *) calloc(NCells, sizeof(float))) ||
+      !(V->UnderstoryCover = (float *) calloc(NCells, sizeof(float))) ||
+      !(V->UnderstoryLAI = (float *) calloc(NCells, sizeof(float))) ||
       !(V->UnderstoryHeight = (float *) calloc(NCells, sizeof(float))))
     ReportError("ReadVegUpdate", 1);
-  ReadUpdateMap(U, k, "Veg.Class", NC_BYTE, "-", Map, V->Class);
-  ReadUpdateMap(U, k, "Veg.OverstoryCover", NC_FLOAT, "fraction", Map, V->Cover);
-  ReadUpdateMap(U, k, "Veg.OverstoryLAI", NC_FLOAT, "m2/m2", Map, V->LAI);
+  ReadUpdateMap(U, k, "Veg.OverstoryClass", NC_BYTE, "-", Map, V->OverstoryClass);
+  ReadUpdateMap(U, k, "Veg.UnderstoryClass", NC_BYTE, "-", Map, V->UnderstoryClass);
+  ReadUpdateMap(U, k, "Veg.OverstoryCover", NC_FLOAT, "fraction", Map, V->OverstoryCover);
+  ReadUpdateMap(U, k, "Veg.OverstoryLAI", NC_FLOAT, "m2/m2", Map, V->OverstoryLAI);
   ReadUpdateMap(U, k, "Veg.OverstoryHeight", NC_FLOAT, "m", Map, V->OverstoryHeight);
+  ReadUpdateMap(U, k, "Veg.UnderstoryCover", NC_FLOAT, "fraction", Map, V->UnderstoryCover);
+  ReadUpdateMap(U, k, "Veg.UnderstoryLAI", NC_FLOAT, "m2/m2", Map, V->UnderstoryLAI);
   ReadUpdateMap(U, k, "Veg.UnderstoryHeight", NC_FLOAT, "m", Map, V->UnderstoryHeight);
 
   Suffix[0] = '.';
   SPrintIsoStamp(&(U->Time[k]), Suffix + 1);
-  ValidateVegMaps(Map, Mask, V->Class, V->Cover, V->LAI, V->OverstoryHeight,
-                  V->UnderstoryHeight, U->BaseClass, Veg, VType, Suffix);
-
-  for (i = 0; i < NCells; i++)
-    if (Mask[i] == 1)
-      U->Present[V->Class[i] - 1] = TRUE;
+  ValidateVegMaps(Map, Mask, V, Veg, Suffix);
 }
 
-static void FreeVegUpdate(VEGMAPS *V)
+/*****************************************************************************
+  FreeVegMaps()
+
+  Frees the eight vegetation maps of V
+*****************************************************************************/
+void FreeVegMaps(VEGMAPS *V)
 {
-  free(V->Class);
-  free(V->Cover);
-  free(V->LAI);
+  free(V->OverstoryClass);
+  free(V->UnderstoryClass);
+  free(V->OverstoryCover);
+  free(V->OverstoryLAI);
   free(V->OverstoryHeight);
+  free(V->UnderstoryCover);
+  free(V->UnderstoryLAI);
   free(V->UnderstoryHeight);
+  memset(V, 0, sizeof(VEGMAPS));
+}
+
+/* Marks the class combinations of [OUTPUT] Classes that the update maps V
+   give to a mask cell */
+static void MarkClasses(VEGMAPS *V, MAPSIZE *Map, unsigned char *Mask, DUMPSTRUCT *Dump)
+{
+  size_t NCells = (size_t) Map->NY * Map->NX;
+  size_t i;
+  int j;
+
+  for (j = 0; j < Dump->NClasses; j++) {
+    for (i = 0; i < NCells && !Dump->Classes[j].Present; i++) {
+      if (Mask[i] == 1 && V->OverstoryClass[i] == Dump->Classes[j].Over &&
+          V->UnderstoryClass[i] == Dump->Classes[j].Under)
+        Dump->Classes[j].Present = TRUE;
+    }
+  }
 }
 
 /*****************************************************************************
   InitVegUpdates()
 
   Reads and checks every update before End (so that a bad map stops the run
-  before it starts); the latest one before Start replaces the vegetation
-  maps as read, which then give the vegetation at Start
+  before it starts) and marks the class combinations of [OUTPUT] Classes
+  they give to mask cells; the latest one before Start replaces the
+  vegetation maps as read, which then give the vegetation at Start
 *****************************************************************************/
 void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUTMAPS *Raw,
-                    LAYER *Veg, VEGTABLE *VType)
+                    VEGTABLES *Veg, DUMPSTRUCT *Dump)
 {
   VEGUPDATES *U = &(Options->VegUpdates);
-  size_t NCells = (size_t) Map->NY * Map->NX;
   char Stamp[NAMESIZE + 1];
   VEGMAPS V;
   int Latest = -1;
@@ -168,14 +181,9 @@ void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUT
 
   Message("\nChecking the vegetation updates\n");
 
-  if (!(U->BaseClass = (unsigned char *) malloc(NCells * sizeof(unsigned char))) ||
-      !(U->Present = (unsigned char *) calloc(Veg->NTypes, sizeof(unsigned char))))
-    ReportError("InitVegUpdates", 1);
-  memcpy(U->BaseClass, Raw->VegClass, NCells * sizeof(unsigned char));
-
-  /* Classes in Veg.Class are checked first: the root depth check reads them */
-  ValidateVegMaps(Map, Raw->Mask, Raw->VegClass, Raw->OverstoryCover, Raw->OverstoryLAI,
-                  Raw->OverstoryHeight, Raw->UnderstoryHeight, NULL, Veg, VType, "");
+  /* The vegetation maps as given are checked even when an update replaces
+     them */
+  ValidateVegMaps(Map, Raw->Mask, &(Raw->Veg), Veg, "");
 
   U->Next = U->N;
   for (k = 0; k < U->N && U->Step[k] < Time->NSteps; k++) {
@@ -183,22 +191,15 @@ void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUT
       Latest = k;
     else if (U->Next == U->N)
       U->Next = k;
-    ReadVegUpdate(U, k, Map, Raw->Mask, Veg, VType, &V);
-    FreeVegUpdate(&V);
+    ReadVegUpdate(U, k, Map, Raw->Mask, Veg, &V);
+    MarkClasses(&V, Map, Raw->Mask, Dump);
+    FreeVegMaps(&V);
   }
 
   if (Latest >= 0) {
-    ReadVegUpdate(U, Latest, Map, Raw->Mask, Veg, VType, &V);
-    free(Raw->VegClass);
-    free(Raw->OverstoryCover);
-    free(Raw->OverstoryLAI);
-    free(Raw->OverstoryHeight);
-    free(Raw->UnderstoryHeight);
-    Raw->VegClass = V.Class;
-    Raw->OverstoryCover = V.Cover;
-    Raw->OverstoryLAI = V.LAI;
-    Raw->OverstoryHeight = V.OverstoryHeight;
-    Raw->UnderstoryHeight = V.UnderstoryHeight;
+    ReadVegUpdate(U, Latest, Map, Raw->Mask, Veg, &V);
+    FreeVegMaps(&(Raw->Veg));
+    Raw->Veg = V;
     SPrintIsoStamp(&(U->Time[Latest]), Stamp);
     Message("Vegetation at Start from the update of %s\n", Stamp);
   }
@@ -211,10 +212,10 @@ void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUT
   cell from the update's maps (rows 6 and 7, the channel limit on the
   understory cover, the albedo decay rates of the snow, the LAI of the
   month and the ground albedo under the snow); intercepted water moves with
-  its canopy, a canopy the new class lacks leaves its water on the ground
+  its canopy, a canopy the cell loses leaves its water on the ground
 *****************************************************************************/
 void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOPIX **TopoMap,
-                    LAYER *Veg, VEGTABLE *VType, VEGPIX **VegMap, SOILTABLE *SType,
+                    VEGTABLES *Veg, VEGPIX **VegMap, SOILTABLE *SType,
                     SOILPIX **SoilMap, SNOWPIX **SnowMap, PRECIPPIX **PrecipMap,
                     CHANNEL *ChannelData)
 {
@@ -222,7 +223,6 @@ void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOP
   unsigned char *Mask;
   char Stamp[NAMESIZE + 1];
   VEGMAPS V;
-  VEGTABLE *Old, *New;
   PRECIPPIX *Precip;
   VEGPIX *Cell;
   float Rain[2], Snow[2];
@@ -240,7 +240,7 @@ void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOP
   for (y = 0, i = 0; y < Map->NY; y++)
     for (x = 0; x < Map->NX; x++, i++)
       Mask[i] = INBASIN(TopoMap[y][x].Mask) ? 1 : 0;
-  ReadVegUpdate(U, U->Next, Map, Mask, Veg, VType, &V);
+  ReadVegUpdate(U, U->Next, Map, Mask, Veg, &V);
 
   for (y = 0, i = 0; y < Map->NY; y++) {
     for (x = 0; x < Map->NX; x++, i++) {
@@ -248,28 +248,35 @@ void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOP
         continue;
       Cell = &(VegMap[y][x]);
       Precip = &(PrecipMap[y][x]);
-      Old = &(VType[Cell->Veg - 1]);
-      New = &(VType[V.Class[i] - 1]);
 
-      /* Intercepted water by canopy (overstory, understory) */
+      /* Intercepted water by canopy (overstory, understory) of the old
+         vegetation */
       for (c = 0; c < 2; c++) {
-        j = CanopyIndex(Old, c);
+        j = CanopyIndex(Cell, c);
         Rain[c] = (j >= 0) ? Precip->IntRain[j] : 0.0;
         Snow[c] = (j >= 0) ? Precip->IntSnow[j] : 0.0;
       }
+
+      /* The cell's new vegetation */
+      SetCellVegetation(Options, Veg, Cell, &V, i, y, x);
+      ChannelLimitVegFC(y, x, (Map->DX * Map->DY), ChannelData, Cell);
+      SetCellMonth(Options, Veg, Cell, Time->Current.Month);
+
+      /* The water of a canopy the cell lost becomes surface water; the
+         water of the others moves to their new positions */
       Surface = 0.0;
-      if (New->OverStory != TRUE) {
+      if (Cell->OverStory != TRUE) {
         Surface += Rain[0] + Snow[0] + Precip->TempIntStorage;
         Precip->TempIntStorage = 0.0;
       }
-      if (New->UnderStory != TRUE)
+      if (Cell->UnderStory != TRUE)
         Surface += Rain[1] + Snow[1];
-      for (j = 0; j < Veg->MaxLayers; j++) {
+      for (j = 0; j < MAXVEGLAYERS; j++) {
         Precip->IntRain[j] = 0.0;
         Precip->IntSnow[j] = 0.0;
       }
       for (c = 0; c < 2; c++) {
-        j = CanopyIndex(New, c);
+        j = CanopyIndex(Cell, c);
         if (j >= 0) {
           Precip->IntRain[j] = Rain[c];
           Precip->IntSnow[j] = Snow[c];
@@ -277,36 +284,26 @@ void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOP
       }
 
       /* Detention storage only drains from an impervious fraction */
-      if (!(New->ImpervFrac > 0.0)) {
+      if (!(ImperviousFraction(Veg, Cell) > 0.0)) {
         Surface += SoilMap[y][x].DetentionStorage;
         SoilMap[y][x].DetentionStorage = 0.0;
       }
       SoilMap[y][x].IExcess += Surface;
 
-      /* The cell's vegetation */
-      Cell->Veg = V.Class[i];
-      SetCellVegetation(Options, New, Cell, V.Cover[i], V.LAI[i], V.OverstoryHeight[i],
-                        V.UnderstoryHeight[i], y, x);
-      ChannelLimitVegFC(y, x, (Map->DX * Map->DY), ChannelData, New, Cell);
-      SetCellMonth(Options, New, Cell, Time->Current.Month);
-
       /* Albedo decay rates of the snow (the forest offset on overstory
          cells) and the ground albedo under the snow, as at Start */
       SnowMap[y][x].LamdaAcc = ALB_ACC_LAMBDA;
       SnowMap[y][x].LamdaMelt = ALB_MELT_LAMBDA;
-      if (New->OverStory == TRUE) {
+      if (Cell->OverStory == TRUE) {
         SnowMap[y][x].LamdaAcc += (LAMBDA_FOREST_OFFSET * Cell->Fract[0]);
         SnowMap[y][x].LamdaMelt += (LAMBDA_FOREST_OFFSET * Cell->Fract[0]);
       }
-      if (New->UnderStory == TRUE)
-        SnowMap[y][x].AlbedoGround =
-          New->AlbedoMonthly[(New->OverStory == TRUE) ? 1 : 0][Time->Current.Month - 1];
-      else
-        SnowMap[y][x].AlbedoGround = SType[SoilMap[y][x].Soil - 1].Albedo;
+      SnowMap[y][x].AlbedoGround = GroundAlbedo(Veg, Cell,
+        SType[SoilMap[y][x].Soil - 1].Albedo, Time->Current.Month);
     }
   }
 
-  FreeVegUpdate(&V);
+  FreeVegMaps(&V);
   free(Mask);
   U->Next++;
 }
