@@ -3,6 +3,9 @@
 #define DATA_H
 
 #include "settings.h"
+#include "photosynthesis.h"
+#include "planthydraulics.h"
+#include "roothydraulics.h"
 #include "Calendar.h"
 #include "channel.h"
 
@@ -200,7 +203,8 @@ typedef struct {
   int CressRadius;
   int CressStations;
   int ImprovRadiation;  /* if TRUE then improved radiation scheme is on */
-  int PhotoET;          /* if TRUE then more sophisticated photosynthesis-based ET is used */
+  int StomScheme;       /* JARVIS | MEDLYN | PROFITMAX | PROFITMAX2 | SOX  */
+  int Hydraulics;       /* HYD_NONE | HYD_KRSSUF                           */
   int CanopyGapping;    /* if TRUE canopy gapping is on */
   int SnowSlide;        /* if TRUE snow sliding option is on */
   int PrecipSepr;       /* if TRUE use separate input of rain and snow */
@@ -390,6 +394,9 @@ typedef struct {
   float *KhDry;				/* Thermal conductivity for dry soil (W/(m*K)) */
   float *KhSol;				/* Effective solids thermal conductivity (W/(M*K)) */
   float *Ch;				/* Heat capacity for soil medium */
+  float *KsRhizo;		/* Matrix-scale saturated conductivity for the perirhizal
+						   (rhizosphere) stage, m/s per layer; <=0 = use the
+						   model's KsVert (RHIZOSPHERE CONDUCTIVITY key) */
   float G_Infilt;                /* Mean capillary drive for dynamic maximum infiltration rate (m)   */
 } SOILTABLE;
 
@@ -496,6 +503,34 @@ typedef struct {
   float Tcanopy;		        /* Canopy temperature (C) */
   float PhotoAcclim;        /* Photosynthetic state of temperature acclimation (C) */
   float PhotoDormancy;      /* Relative dormancy caused by PhotoAcclim */
+  /* ---- Plant hydraulic diagnostics, PER CANOPY LAYER --------------------
+     Indexed [0] = overstory, [1] = understory, matching Rc[] below.  These
+     were scalars before, which meant each canopy layer overwrote the one
+     above it and only the understory ever reached the output.
+
+     MPa throughout for potentials, m/s for fluxes, so they sit in the same
+     units as the rest of VEGPIX.  Sign convention: potentials are negative. */
+  float Tleaf[2];          /* leaf temperature from the energy balance (C)   */
+  float VpdLeaf[2];        /* leaf-to-air VPD (kPa)                          */
+  float PsiSoil[2];        /* SUF-weighted effective soil potential (MPa)
+                              -- what the plant actually experiences, not a
+                              layer-thickness mean (Vanderborght 2021 Eqn 7) */
+  float PsiRoot[2];        /* root collar water potential (MPa)              */
+  float PsiLeaf[2];        /* canopy / leaf water potential (MPa)            */
+  float PLC[2];            /* percent loss of xylem conductivity (%)         */
+  float SafetyMargin[2];   /* PsiLeaf - P50 (MPa).  Positive = operating
+                              safer than the 50% loss point.  This is the
+                              currency the thinning and drought literature
+                              uses (Choat et al. 2012), and the variable the
+                              disturbance question turns on.                 */
+  float HydStress[2];      /* hydraulic stress factor beta in [0,1]; the
+                              CLM5-PHS attenuation, K(PsiLeaf)/K(0)          */
+  float Escheme[2];        /* transpiration the scheme predicts (m/s)        */
+  float Ecrit[2];          /* transpiration at hydraulic failure (m/s)       */
+  float Tsupply[2];        /* supply-limited transpiration (m/s); <0 = none  */
+  float AnCanopy[2];       /* net assimilation (umol/m2 ground/s)            */
+  int   SupplyLimited[2];  /* 1 when the root Dirichlet switch fired         */
+  float Rc[2];             /* canopy resistance actually used (s/m)          */
   float MoistureFlux;		    /* Amount of water transported from the pixel
                                    to the atmosphere (m/timestep) */
   float MeltEnergy;			    /* Energy used to melt snow and change of cold content
@@ -533,6 +568,24 @@ typedef struct {
   float *Vcmax25;			/* Maximum rate of carboxylation by the Rubisco enzyme */
   float *G1;			/* Slope of stomatal conductance with respect to VPD */
   float *G0;			/* Intercept of minimum stomatal conductance (night/drought) */
+  float *P50;     /* Xylem pressure at which 50% of conductivity loss is reached */
+  float *KxMax;     /* Max xylem hydraulic conductance per LEAF area (mmol/m2/s/MPa) */
+  float *Gmax;     /* Maximum stomatal conductance to H2O (mol/m2 leaf/s); cap */
+  float *WeibullB;  /* Weibull b, derived from P50 */
+  float *VulnShape; /* Weibull c, or sigmoidal a (Eller 2020 Eqn 2)         */
+  int   *VulnForm;  /* HYD_WEIBULL | HYD_SIGMOIDAL                          */
+  float *Krs;       /* root system conductance per LEAF area (mmol/m2/s/MPa); <=0 derives */
+  float *Kcomp;     /* compensatory conductance (Couvreur 2012); <0 = Krs   */
+  float *PsiCollarMin; /* MPa, Dirichlet switch (Leitner 2025 sec. 2.3)     */
+  float *LeafWidth;    /* m, characteristic leaf dimension (energy balance) */
+  float *JmaxRatio;    /* Jmax25/Vcmax25; <=0 -> PHOTO_JMAXRATIO             */
+  float *Rd25Ratio;    /* Rd25/Vcmax25;   <=0 -> PHOTO_RD25RATIO             */
+  float *CiCaTarget;   /* Ci/Ca at reference conditions for the kmax
+                          coordination; <=0 -> HYD_CICA_TARGET               */
+  float *RootLengthIndex; /* m fine root per m2 ground, per veg layer;
+                             0 = perirhizal (rhizosphere) stage off        */
+  float *RootRadius;   /* m, fine root radius for the perirhizal stage      */
+  HYDXYLEM *Xylem;  /* Kirchhoff cumulant, built ONCE per class at startup  */
   float *MoistThres;	/* Soil moisture threshold above which soil 
 						moisture does not restrict transpiration */
   float *VpdThres;		/* Vapor pressure deficit threshold above which
@@ -552,6 +605,10 @@ typedef struct {
   float LeafAngleA;		/* parameter describing the Leaf Angle Distribution */
   float LeafAngleB;		/* parameter describing the leaf Angle Distribution */
   float Scat;			/* scattering parameter (between 0.7 and 0.85) */
+  /* WARNING: Rpc is the Jarvis LIGHT-response constant, in W/m2 (Wigmosta
+     et al. 1994 eq. 16).  It is NOT a hydraulic resistance.  Eller's r_p
+     (plant hydraulic resistance, m2 s MPa mol-1) is a different quantity
+     entirely and is DERIVED, never configured -- see StomRpMin(). */
   float *Rpc;			/* reference light level for original multiplicative stomatal resistance */
   float *Albedo;		/* Albedo for each vegetation layer */
   float **AlbedoMonthly;
@@ -609,6 +666,10 @@ typedef struct {
   float ChannelInfiltration;
   unsigned long Saturated;
   float CumulativeErr;
+  int NVegPix[2];        /* pixels with leaf area in each canopy layer, so
+                            intensive diagnostics (water potentials, PLC)
+                            average over vegetated pixels rather than over
+                            the whole basin.  Diagnostic only.               */
 } AGGREGATED;
 
 #endif

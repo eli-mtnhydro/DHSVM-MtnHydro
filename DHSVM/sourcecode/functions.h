@@ -196,6 +196,12 @@ void InitStateDump(LISTPTR Input, int NStates, DATE **DState);
 void InitStations(LISTPTR Input, MAPSIZE *Map, int NDaySteps,
 		  OPTIONSTRUCT *Options, int *NStats, METLOCATION **Stat);
 
+/* Atmospheric CO2 by year ([CONSTANTS] ATMOSPHERIC CO2 < 0); InitConstants.c */
+int   AtmosCO2ByYear(void);
+void  AtmosCO2ReadFile(const char *Path);
+float AtmosCO2ForYear(int Year);
+void  AtmosCO2Update(int Year);
+
 void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options, 
   MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLE **VType, LAYER *Veg,
   LAKETABLE **LType, TIMESTRUCT *Time);
@@ -331,12 +337,12 @@ void CalcCanopyGapAerodynamic(CanopyGapStruct **Gap, int NVegLayers,
 void CalcCanopyGapET(CanopyGapStruct **Gap, int MaxSoilLayer, VEGTABLE *VType,
   VEGPIX *LocalVeg, SOILTABLE *SType, SOILPIX *LocalSoil, PIXMET *LocalMet,
   EVAPPIX *LocalEvap, NETSTRUCT *LocalNetwork, int Dt, float UpperRa,
-  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData, int PhotoET);
+  float LowerRa, float DX, float DY, int x, int y, CHANNEL *ChannelData, OPTIONSTRUCT *Options);
 
 void CalcGapSurroudingET(int Dt, CanopyGapStruct **Gap,
   SOILTABLE *SType, VEGTABLE *VType, PIXRAD *LocalRad, PIXMET *LocalMet,
   SOILPIX *LocalSoil, NETSTRUCT *LocalNetwork, float UpperRa, float LowerRa,
-  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData, int PhotoET);
+  VEGPIX *LocalVeg, float DX, float DY, int x, int y, CHANNEL *ChannelData, OPTIONSTRUCT *Options);
 
 void CanopyGapInterception(OPTIONSTRUCT *Options, CanopyGapStruct **Gap,
   int HeatFluxOption, int y, int x, int Dt, int NVegLActual,

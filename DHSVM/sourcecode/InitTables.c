@@ -12,6 +12,90 @@
 #include "constants.h"
 #include "fileio.h"
 #include "getinit.h"
+#include "planthydraulics.h"
+#include "roothydraulics.h"
+#include "stomatalscheme.h"
+#include "photosynthesis.h"
+
+/*******************************************************************************
+  PrintRhizosphereSummary()
+
+  One line per vegetation class/layer with a root length index, per soil
+  type: the perirhizal geometry and the bulk soil potential at which the
+  rhizosphere starts to disconnect (B K(h) = a_root k_r).  Uses the class's
+  peak monthly LAI and the layer holding most of its roots.  Startup
+  diagnostic only.
+*******************************************************************************/
+static void PrintRhizosphereSummary(OPTIONSTRUCT *Options, SOILTABLE *SType,
+                                    int NSoil, VEGTABLE *VType, int NVeg)
+{
+  int i, j, k, m, imax;
+  float LaiMax, Ltot, Rld, Aroot, Aprhiz, Rho, B, KrsGround, Kr, Hae, Ks,
+        Lambda, Psi, d;
+
+  for (i = 0; i < NVeg; i++) {
+    for (j = 0; j < VType[i].NVegLayers; j++) {
+      if (VType[i].RootLengthIndex[j] <= 0.0f) {
+        printf("Veg %d layer %d: perirhizal stage OFF (no ROOT LENGTH INDEX)\n",
+               i + 1, j);
+        continue;
+      }
+      LaiMax = 0.0f;
+      for (m = 0; m < 12; m++)
+        if (VType[i].LAIMonthly[j][m] > LaiMax) LaiMax = VType[i].LAIMonthly[j][m];
+      if (j == 0 && VType[i].OverStory) LaiMax *= VEG_LAI_ADJ;   /* as InitTerrainMaps applies it */
+      if (LaiMax <= 0.0f) LaiMax = 1.0f;
+
+      imax = 0;
+      for (k = 1; k < VType[i].NSoilLayers; k++)
+        if (VType[i].RootFract[j][k] > VType[i].RootFract[j][imax]) imax = k;
+
+      Ltot  = VType[i].RootLengthIndex[j];
+      Aroot = VType[i].RootRadius[j];
+      d = VType[i].RootDepth[imax]; if (d < 0.01f) d = 0.01f;
+      Rld    = Ltot * VType[i].RootFract[j][imax] / d;
+      Aprhiz = RootPerirhizalRadius(Rld, Aroot);
+      Rho    = Aprhiz / Aroot;
+      B      = RootGeometryFactor(Rho);
+      KrsGround = VType[i].Krs[j] * LaiMax;
+      Kr     = RootRadialFromKrs(KrsGround, Aroot, Ltot);
+
+      printf("Veg %d layer %d perirhizal: root length %.1f km/m2, radius %.2f mm, "
+             "root surface index %.2f m2/m2, k_r=%.2e 1/s (from Krs x peak LAI %.2f), "
+             "layer %d RLD=%.0f m/m3, rho=%.1f, B=%.2f\n",
+             i + 1, j, Ltot / 1000.0f, Aroot * 1000.0f,
+             (float)(2.0 * 3.14159265 * Aroot * Ltot), Kr, LaiMax, imax,
+             Rld, Rho, B);
+
+      for (k = 0; k < NSoil; k++) {
+        if (imax >= SType[k].NLayers) continue;
+        Ks     = SType[k].Ks[imax];
+        /* Mirror InitTerrainMaps: with VERTICAL KSAT SOURCE = ANISOTROPY the
+           layer's vertical Ks is the depth-averaged lateral conductivity
+           over the layer divided by the anisotropy, not the table value. */
+        if (Options->UseKsatAnisotropy) {
+          float Top = 0.0f, Bot, Tr;
+          for (m = 0; m < imax; m++) Top += VType[i].RootDepth[m];
+          Bot = Top + d;
+          Tr = CalcTransmissivity(Bot, Top, SType[k].KsLat, SType[k].KsLatExp,
+                                  SType[k].DepthThresh);
+          Ks = Tr / d / SType[k].KsAnisotropy;
+        }
+        if (SType[k].KsRhizo != NULL && SType[k].KsRhizo[imax] > 0.0f)
+          Ks = SType[k].KsRhizo[imax];
+        Lambda = SType[k].PoreDist[imax];
+        Hae    = SType[k].Press[imax];          /* m of head, positive     */
+        Psi    = RootDisconnectPotential(Aroot * Kr, B, Ks, Hae, Lambda);
+        printf("   soil type %d (%s): %s=%.2e m/s lambda=%.2f air entry=%.2f m -> "
+               "rhizosphere carries half the soil-to-root resistance at psi_soil ~ %.2f MPa\n",
+               k + 1, SType[k].Desc,
+               (SType[k].KsRhizo != NULL && SType[k].KsRhizo[imax] > 0.0f)
+                 ? "Ks(rhizosphere key)" : "KsVert(model)",
+               Ks, Lambda, Hae, Psi);
+      }
+    }
+  }
+}
 
 /*******************************************************************************/
 /*				  InitTables()                                 */
@@ -28,6 +112,9 @@ void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options,
 
   if ((Veg->NTypes = InitVegTable(VType, Input, Options, Veg)) == 0)
     ReportError("Input Options File", 8);
+
+  if (Options->Hydraulics == HYD_KRSSUF)
+    PrintRhizosphereSummary(Options, *SType, Soil->NTypes, *VType, Veg->NTypes);
   
   if (Options->LakeDynamics) {
     if ((Map->NumLakes = InitLakeTable(LType, Input, Options)) == 0)
@@ -64,7 +151,7 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
   int i;			/* counter */
   int j;			/* counter */
   int NSoils;			/* Number of soil types */
-  char KeyName[thermal_capacity + 1][BUFSIZE + 1];
+  char KeyName[soil_last_key + 1][BUFSIZE + 1];
   char *KeyStr[] = {
     "SOIL DESCRIPTION",
     "LATERAL CONDUCTIVITY",
@@ -85,10 +172,13 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
     "BULK DENSITY",
     "VERTICAL CONDUCTIVITY",
     "THERMAL CONDUCTIVITY",
-    "THERMAL CAPACITY"
+    "THERMAL CAPACITY",
+    "RHIZOSPHERE CONDUCTIVITY"   /* optional, m/s per layer; matrix Ks for
+                                    the perirhizal stage.  Absent or <=0 =
+                                    the model KsVert                       */
   };
   char SectionName[] = "SOILS";
-  char VarStr[thermal_capacity + 1][BUFSIZE + 1];
+  char VarStr[soil_last_key + 1][BUFSIZE + 1];
 
 
   /* Get the number of different soil types */
@@ -113,7 +203,7 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
   for (i = 0; i < NSoils; i++) {
 
     /* Read the key-entry pairs from the input file */
-    for (j = 0; j <= thermal_capacity; j++) {
+    for (j = 0; j <= soil_last_key; j++) {
       sprintf(KeyName[j], "%s %d", KeyStr[j], i + 1);
       GetInitString(SectionName, KeyName[j], "", VarStr[j],
         (unsigned long)BUFSIZE, Input);
@@ -226,6 +316,19 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE ** SType,
 
     if (!CopyFloat((*SType)[i].Ch, VarStr[thermal_capacity], (*SType)[i].NLayers))
       ReportError(KeyName[thermal_capacity], 51);
+
+    /* Rhizosphere (matrix) conductivity, optional.  DHSVM's lateral and
+       vertical Ks are effective hillslope-drainage values (macropores,
+       pipes); flow through the last millimetres of soil to a root at
+       -0.5 MPa is matrix flow, two to three orders slower.  The perirhizal
+       stage needs the latter. */
+    if (!((*SType)[i].KsRhizo = (float *)calloc((*SType)[i].NLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+    if (IsEmptyStr(VarStr[rhizosphere_ks])) {
+      for (j = 0; j < (*SType)[i].NLayers; j++) (*SType)[i].KsRhizo[j] = -1.0f;
+    }
+    else if (!CopyFloat((*SType)[i].KsRhizo, VarStr[rhizosphere_ks], (*SType)[i].NLayers))
+      ReportError(KeyName[rhizosphere_ks], 51);
   }
 
   for (i = 0; i < NSoils; i++)
@@ -258,6 +361,49 @@ Modifies     : VegTable and Veg
 
 Comments     :
 ********************************************************************************/
+/*****************************************************************************
+  Optional per-class keys.  An absent key (empty string from GetInitString)
+  fills the layers with Default; a present key must supply one value per
+  vegetation layer, exactly like the required keys.
+*****************************************************************************/
+static void ReadOptionalFloats(float *Dest, char *Str, char *Key, int N,
+                               float Default)
+{
+  int k;
+
+  if (IsEmptyStr(Str)) {
+    for (k = 0; k < N; k++) Dest[k] = Default;
+    return;
+  }
+  if (!CopyFloat(Dest, Str, N))
+    ReportError(Key, 51);
+}
+
+/* XYLEM CURVE: one token per layer, WEIBULL (default) or SIGMOIDAL. */
+static void ReadOptionalCurveForm(int *Dest, char *Str, char *Key, int N)
+{
+  char Buf[BUFSIZE + 1];
+  char *Tok;
+  int k = 0;
+
+  for (k = 0; k < N; k++) Dest[k] = HYD_WEIBULL;
+  if (IsEmptyStr(Str)) return;
+
+  strncpy(Buf, Str, BUFSIZE);
+  Buf[BUFSIZE] = '\0';
+  Tok = strtok(Buf, " \t,");
+  for (k = 0; k < N; k++) {
+    if (Tok == NULL) ReportError(Key, 51);
+    if      (strncmp(Tok, "SIG", 3) == 0 || strncmp(Tok, "sig", 3) == 0)
+      Dest[k] = HYD_SIGMOIDAL;
+    else if (strncmp(Tok, "WEI", 3) == 0 || strncmp(Tok, "wei", 3) == 0)
+      Dest[k] = HYD_WEIBULL;
+    else
+      ReportError(Key, 51);
+    Tok = strtok(NULL, " \t,");
+  }
+}
+
 int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *Veg)
 {
   const char *Routine = "InitVegTable";
@@ -269,7 +415,7 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
 
   int NVegs;		/* Number of vegetation types */
 
-  char KeyName[understory_monalb + 1][BUFSIZE + 1];
+  char KeyName[veg_last_key + 1][BUFSIZE + 1];
   char *KeyStr[] = {
     "VEGETATION DESCRIPTION",
     "OVERSTORY PRESENT",
@@ -296,6 +442,7 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
     "MAXIMUM CARBOXYLATION",
     "STOMATAL SLOPE",
     "STOMATAL INTERCEPT",
+    "XYLEM PRESSURE",
     "MOISTURE THRESHOLD",
     "VAPOR PRESSURE DEFICIT",
     "RPC",
@@ -308,10 +455,25 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
     "OVERSTORY MONTHLY LAI",
     "UNDERSTORY MONTHLY LAI",
     "OVERSTORY MONTHLY ALB",
-    "UNDERSTORY MONTHLY ALB"
+    "UNDERSTORY MONTHLY ALB",
+    /* optional physiology / hydraulics keys; absent = derived default */
+    "XYLEM SHAPE",                 /* Weibull c or sigmoidal a per layer   */
+    "XYLEM CURVE",                 /* WEIBULL | SIGMOIDAL per layer        */
+    "XYLEM CONDUCTANCE",           /* KxMax, mmol/m2 leaf/s/MPa; <=0 derive*/
+    "ROOT CONDUCTANCE",            /* Krs, mmol/m2 leaf/s/MPa; <=0 derive  */
+    "ROOT COMPENSATION CONDUCTANCE",/* Kcomp; <0 = Krs, 0 = off            */
+    "COLLAR PRESSURE MINIMUM",     /* MPa; >=0 -> 1.5 x P50                */
+    "MAXIMUM STOMATAL CONDUCTANCE",/* mol/m2 leaf/s; <=0 -> 1/RsMin        */
+    "LEAF WIDTH",                  /* m                                    */
+    "JMAX VCMAX RATIO",            /* Jmax25/Vcmax25                       */
+    "CICA TARGET",                 /* Ci/Ca for the kmax coordination      */
+    "RD VCMAX RATIO",              /* Rd25/Vcmax25                         */
+    "ROOT LENGTH INDEX",           /* km fine root / m2 ground; 0 = no
+                                      perirhizal stage                     */
+    "FINE ROOT RADIUS"             /* m                                    */
   };
   char SectionName[] = "VEGETATION";
-  char VarStr[understory_monalb + 1][BUFSIZE + 1];
+  char VarStr[veg_last_key + 1][BUFSIZE + 1];
   float maxLAI;
 
   /* Get the number of different vegetation types */
@@ -336,7 +498,7 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
   for (i = 0; i < NVegs; i++) {
 
     /* Read the key-entry pairs from the input file */
-    for (j = 0; j <= understory_monalb; j++) {
+    for (j = 0; j <= veg_last_key; j++) {
       sprintf(KeyName[j], "%s %d", KeyStr[j], i + 1);
       GetInitString(SectionName, KeyName[j], "", VarStr[j],
         (unsigned long)BUFSIZE, Input);
@@ -423,6 +585,42 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
       ReportError((char *)Routine, 1);
 
     if (!((*VType)[i].G0 = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+
+    if (!((*VType)[i].P50 = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+
+    if (!((*VType)[i].KxMax = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+    
+    if (!((*VType)[i].Gmax = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError((char *)Routine, 1);
+
+    if (!((*VType)[i].VulnShape = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].VulnForm = (int *)calloc((*VType)[i].NVegLayers, sizeof(int))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].Krs = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].Kcomp = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].PsiCollarMin = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].Xylem = (HYDXYLEM *)calloc((*VType)[i].NVegLayers, sizeof(HYDXYLEM))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].LeafWidth = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].JmaxRatio = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].Rd25Ratio = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].CiCaTarget = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].RootLengthIndex = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].RootRadius = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
+      ReportError("InitVegTable", 1);
+    if (!((*VType)[i].WeibullB = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
       ReportError((char *)Routine, 1);
 
     if (!((*VType)[i].MoistThres = (float *)calloc((*VType)[i].NVegLayers, sizeof(float))))
@@ -580,11 +778,7 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
       (*VType)[i].NVegLayers))
       ReportError(KeyName[min_resistance], 51);
 
-    if (Options->PhotoET == TRUE) {
-      if (!CopyFloat((*VType)[i].Vcmax25, VarStr[max_carboxylation],
-                     (*VType)[i].NVegLayers))
-        ReportError(KeyName[max_carboxylation], 51);
-      
+    if (Options->StomScheme != JARVIS) {
       if (!CopyFloat((*VType)[i].G1, VarStr[stomatal_slope],
                      (*VType)[i].NVegLayers))
         ReportError(KeyName[stomatal_slope], 51);
@@ -592,6 +786,251 @@ int InitVegTable(VEGTABLE **VType, LISTPTR Input, OPTIONSTRUCT *Options, LAYER *
       if (!CopyFloat((*VType)[i].G0, VarStr[stomatal_intercept],
                      (*VType)[i].NVegLayers))
         ReportError(KeyName[stomatal_intercept], 51);
+    }
+    
+    if (Options->Hydraulics == HYD_KRSSUF) {
+      if (!CopyFloat((*VType)[i].P50, VarStr[xylem_p50],
+                     (*VType)[i].NVegLayers))
+        ReportError(KeyName[xylem_p50], 51);
+    }
+    
+    if (Options->StomScheme != JARVIS) {
+      if (!CopyFloat((*VType)[i].Vcmax25, VarStr[max_carboxylation],
+                     (*VType)[i].NVegLayers))
+        ReportError(KeyName[max_carboxylation], 51);
+    }
+
+    if (Options->StomScheme != JARVIS) {
+      for (j = 0; j < (*VType)[i].NVegLayers; j++)
+        if ((*VType)[i].Vcmax25[j] <= 0.0)
+          ReportError("InitVegTable: Vcmax25 must be > 0", 51);
+    }
+    if (Options->Hydraulics == HYD_KRSSUF) {
+      for (j = 0; j < (*VType)[i].NVegLayers; j++)
+        if ((*VType)[i].P50[j] >= 0.0)
+          ReportError("InitVegTable: P50 must be negative (MPa)", 51);
+    }
+
+    /* ---- optional per-class physiology keys (Phase-VI refactor) --------
+       Every key below may be omitted; the value then falls back to the
+       documented default or derivation.  Photosynthetic traits are read for
+       every scheme but Jarvis, hydraulic traits only with KRSSUF. */
+    if (Options->StomScheme != JARVIS) {
+      int n = (*VType)[i].NVegLayers;
+
+      ReadOptionalFloats((*VType)[i].LeafWidth, VarStr[leaf_width],
+                         KeyName[leaf_width], n, (float)PHOTO_LEAF_WIDTH);
+      ReadOptionalFloats((*VType)[i].JmaxRatio, VarStr[jmax_vcmax_ratio],
+                         KeyName[jmax_vcmax_ratio], n, (float)PHOTO_JMAXRATIO);
+      ReadOptionalFloats((*VType)[i].Rd25Ratio, VarStr[rd_vcmax_ratio],
+                         KeyName[rd_vcmax_ratio], n, (float)PHOTO_RD25RATIO);
+      ReadOptionalFloats((*VType)[i].Gmax, VarStr[max_stomatal_conductance],
+                         KeyName[max_stomatal_conductance], n, -1.0f);
+
+      for (j = 0; j < n; j++) {
+        if ((*VType)[i].LeafWidth[j] <= 0.0f)
+          ReportError("InitVegTable: LEAF WIDTH must be > 0 (m)", 51);
+        if ((*VType)[i].JmaxRatio[j] <= 0.0f)
+          (*VType)[i].JmaxRatio[j] = (float)PHOTO_JMAXRATIO;
+        if ((*VType)[i].Rd25Ratio[j] <= 0.0f)
+          (*VType)[i].Rd25Ratio[j] = (float)PHOTO_RD25RATIO;
+
+        /* Cap on stomatal conductance.  Default: the class's minimum stomatal
+           resistance, which DHSVM already reads for Jarvis, converted from
+           s/m to mol H2O/m2 leaf/s at 20 degC and standard pressure.  It is
+           the same physiological quantity (gsmax = 1/RsMin). */
+        if ((*VType)[i].Gmax[j] <= 0.0f) {
+          float RsMin = (*VType)[i].RsMin[j];
+          (*VType)[i].Gmax[j] = (RsMin > 0.0f)
+            ? (1.0f / RsMin) / PhotoMolarToVelocity(20.0f, (float)PHOTO_P0)
+            : 0.0f;
+        }
+      }
+    }
+
+    if (Options->Hydraulics == HYD_KRSSUF) {
+      int n = (*VType)[i].NVegLayers;
+
+      ReadOptionalFloats((*VType)[i].VulnShape, VarStr[xylem_shape],
+                         KeyName[xylem_shape], n, -1.0f);
+      ReadOptionalCurveForm((*VType)[i].VulnForm, VarStr[xylem_curve],
+                            KeyName[xylem_curve], n);
+      ReadOptionalFloats((*VType)[i].KxMax, VarStr[xylem_conductance],
+                         KeyName[xylem_conductance], n, -1.0f);
+      ReadOptionalFloats((*VType)[i].Krs, VarStr[root_conductance],
+                         KeyName[root_conductance], n, -1.0f);
+      ReadOptionalFloats((*VType)[i].Kcomp, VarStr[root_compensation],
+                         KeyName[root_compensation], n, -1.0f);
+      ReadOptionalFloats((*VType)[i].PsiCollarMin, VarStr[collar_pressure_min],
+                         KeyName[collar_pressure_min], n, 0.0f);
+      ReadOptionalFloats((*VType)[i].CiCaTarget, VarStr[cica_target],
+                         KeyName[cica_target], n, (float)HYD_CICA_TARGET);
+
+      /* Perirhizal (rhizosphere) stage, Leitner et al. 2025 / Vanderborght
+         et al. 2021: on for a layer when its root length index is > 0.
+         The config gives km of fine root per m2 ground (Jackson et al. 1997
+         report values of order 3-8 km/m2 for temperate and boreal forests);
+         stored in m/m2. */
+      ReadOptionalFloats((*VType)[i].RootLengthIndex, VarStr[root_length_index],
+                         KeyName[root_length_index], n, 0.0f);
+      ReadOptionalFloats((*VType)[i].RootRadius, VarStr[fine_root_radius],
+                         KeyName[fine_root_radius], n, (float)ROOT_RADIUS_DEFAULT);
+      for (j = 0; j < n; j++) {
+        if ((*VType)[i].RootLengthIndex[j] < 0.0f)
+          (*VType)[i].RootLengthIndex[j] = 0.0f;
+        (*VType)[i].RootLengthIndex[j] *= 1000.0f;          /* km -> m   */
+        if ((*VType)[i].RootRadius[j] <= 0.0f)
+          (*VType)[i].RootRadius[j] = (float)ROOT_RADIUS_DEFAULT;
+      }
+    }
+    
+    /* Derive the hydraulic traits once per vegetation class.
+
+       Two things are frozen here rather than recomputed per pixel per
+       timestep.  HydKmaxFromVcmax() runs a bisection that builds a supply
+       curve and solves the optimization at every step; and the Kirchhoff
+       cumulant (Sperry & Love 2015) is a 512-point integral of the
+       vulnerability curve.  Both depend only on traits, not on soil state,
+       so both belong here.  That is a large part of why the hydraulic
+       schemes are affordable at 3 m and hourly.
+
+       Computed at standard pressure: kmax varies under 5% from sea level to
+       3000 m, well inside the uncertainty in P50 itself.  This freezes only
+       the COORDINATION; the elevation dependence of CO2 diffusion, the
+       mol-to-m/s conversion and the mole-fraction kinetics all still use the
+       live LocalMet->Press. */
+    if (Options->Hydraulics == HYD_KRSSUF) {
+      HYDCURVE Curve;
+
+      for (j = 0; j < (*VType)[i].NVegLayers; j++) {
+
+        PHOTOTRAIT Ptrait;
+        int KxConfigured;
+
+        /* Vulnerability curve.  Weibull is the default so the Sperry et al.
+           (2017) benchmarks keep reproducing; the sigmoidal form of Eller
+           (2020) Eqn 2 / CLM5-PHS is selected per class by XYLEM CURVE.
+           Shape defaults to c = 3 (Weibull) or a = 3 (sigmoidal). */
+        if ((*VType)[i].VulnShape[j] <= 0.0)
+          (*VType)[i].VulnShape[j] = (float)HYD_WEIBULL_C_DEFAULT;
+
+        if ((*VType)[i].VulnForm[j] == HYD_SIGMOIDAL)
+          HydCurveSigmoidal(&Curve, (*VType)[i].P50[j],
+                            (*VType)[i].VulnShape[j]);
+        else
+          HydCurveWeibullFromP50(&Curve, (*VType)[i].P50[j],
+                                 (*VType)[i].VulnShape[j]);
+
+        (*VType)[i].WeibullB[j] = Curve.P1;
+
+        PhotoTraitDefaults(&Ptrait, (*VType)[i].Vcmax25[j]);
+        Ptrait.JmaxRatio = (*VType)[i].JmaxRatio[j];
+        Ptrait.Rd25Ratio = (*VType)[i].Rd25Ratio[j];
+        Ptrait.LeafWidth = (*VType)[i].LeafWidth[j];
+
+        /* KxMax (per m2 leaf): configured (XYLEM CONDUCTANCE), or derived
+           from the Ci/Ca coordination at the class's CICA TARGET (default
+           0.70, Sperry et al. 2017).  Sensitivity testing shows this is the
+           dominant control on transpiration magnitude (-30%/+52% for
+           0.60/0.80) -- see docs/provenance.md sec. 3.  Treat it as a
+           calibration target, and prefer a measured value where one exists. */
+        KxConfigured = ((*VType)[i].KxMax[j] > 0.0);
+        if ((*VType)[i].KxMax[j] <= 0.0) {
+          (*VType)[i].KxMax[j] =
+            StomKmaxFromVcmax(&Ptrait, (*VType)[i].P50[j],
+                              (*VType)[i].VulnShape[j], (*VType)[i].VulnForm[j],
+                              (*VType)[i].CiCaTarget[j], (*VType)[i].Height[j],
+                              ATMOS_CO2, (float)PHOTO_P0);
+
+          /* Refuse rather than run.  The previous derivation could silently
+             return its bracket bound, which produced a plant roughly four
+             orders of magnitude too resistant and a canopy that never opened
+             -- and looked like a plausible drought response. */
+          if ((*VType)[i].KxMax[j] <= 0.0)
+            ReportError("InitVegTable: no Ci/Ca coordination point for this "
+                        "Vcmax25/P50 pair; specify KxMax explicitly", 51);
+        }
+
+        /* Krs (per m2 leaf): configured (ROOT CONDUCTANCE), or the
+           ROOT_KRS_FRAC fallback -- roots carry half the soil-to-canopy
+           resistance (Sperry et al. 2017), so Krs = KxMax.  Still the
+           least-constrained number in the scheme (open item 5). */
+        if ((*VType)[i].Krs[j] <= 0.0)
+          (*VType)[i].Krs[j] = RootKrsFromXylem((*VType)[i].KxMax[j]);
+
+        /* Couvreur et al. (2012): Kcomp ~ Krs for many root systems, which is
+           the default when ROOT COMPENSATION CONDUCTANCE is absent or
+           negative.  An explicit 0 disables compensation and reduces the
+           scheme EXACTLY to prescribed-root-fraction uptake.  (Before the
+           refactor the unset value was 0, so compensation was silently
+           off.) */
+        if ((*VType)[i].Kcomp[j] < 0.0)
+          (*VType)[i].Kcomp[j] = (*VType)[i].Krs[j];
+
+        /* Dirichlet switch (Leitner et al. 2025 sec. 2.3).  1.5 x P50 is a
+           placeholder, not a measurement. */
+        if ((*VType)[i].PsiCollarMin[j] >= 0.0)
+          (*VType)[i].PsiCollarMin[j] = 1.5f * (*VType)[i].P50[j];
+
+        HydBuildCumulant(&(*VType)[i].Xylem[j], &Curve,
+                         (*VType)[i].KxMax[j]);
+        /* Hydrostatic drop over the canopy height, shared by every scheme. */
+        HydSetCanopyHeight(&(*VType)[i].Xylem[j], (*VType)[i].Height[j]);
+
+        /* Plausibility check against Eller et al. (2020) Fig. 1, which uses
+           r_p,min of 1-2 mmol-1 m2 s MPa.  A total soil-plant conductance
+           outside 0.02-50 mmol m-2 s-1 MPa-1 means something is wrong with
+           the traits, and the symptom (a canopy that never opens, or one
+           that never closes) is easy to mistake for physics. */
+        {
+          float KrsL  = (*VType)[i].Krs[j];
+          float Ktot  = 1.0f / (1.0f / KrsL + 1.0f / (*VType)[i].KxMax[j]);
+          if (Ktot < 0.02f || Ktot > 50.0f)
+            printf("WARNING: veg class %d layer %d has soil-plant "
+                   "conductance %.4g mmol/m2/s/MPa, outside the plausible "
+                   "0.02-50 range (Eller et al. 2020 Fig. 1).  "
+                   "KxMax=%.4g Krs=%.4g\n",
+                   i, j, Ktot, (*VType)[i].KxMax[j], KrsL);
+
+          /* One line per class and layer so a run's derived traits are on
+             record with its output. */
+          printf("Veg %d layer %d hydraulics: %s P50=%.2f shape=%.2f Pcrit=%.2f "
+                 "MPa | KxMax=%.3f Krs=%.3f Kcomp=%.3f mmol/m2leaf/s/MPa | "
+                 "Kplant=%.3f | PsiCollarMin=%.2f | gsmax=%.3f mol/m2/s | "
+                 "Jmax:Vcmax=%.2f Rd:Vcmax=%.3f leaf width=%.3f m | "
+                 "rho g h=%.3f MPa\n",
+                 i + 1, j,
+                 ((*VType)[i].VulnForm[j] == HYD_SIGMOIDAL) ? "sigmoidal" : "Weibull",
+                 (*VType)[i].P50[j], (*VType)[i].VulnShape[j],
+                 (*VType)[i].Xylem[j].Pcrit, (*VType)[i].KxMax[j], KrsL,
+                 (*VType)[i].Kcomp[j], Ktot, (*VType)[i].PsiCollarMin[j],
+                 (*VType)[i].Gmax[j], (*VType)[i].JmaxRatio[j],
+                 (*VType)[i].Rd25Ratio[j], (*VType)[i].LeafWidth[j],
+                 (*VType)[i].Xylem[j].Pgrav);
+
+          /* Where the class sits at the Sperry reference state (PAR 2000,
+             25 degC, D 1 kPa, wet soil), whether KxMax was derived (then
+             Ci/Ca equals the target) or configured (then this is the Ci/Ca
+             the configured kmax implies). */
+          {
+            STOMSOLUTION Ref;
+            float EcritRef;
+            StomReferencePoint(&Ptrait, &(*VType)[i].Xylem[j], KrsL,
+                               ATMOS_CO2, (float)PHOTO_P0, &Ref, &EcritRef);
+            if (!Ref.Failed)
+              printf("Veg %d layer %d reference state (%s KxMax): "
+                     "gs(H2O)=%.3f gs(CO2)=%.3f mol/m2/s  E=%.2f mmol/m2 leaf/s  Ecrit=%.2f  "
+                     "E/Ecrit=%.2f  Ci/Ca=%.3f  psi_leaf=%.2f MPa  An=%.1f umol/m2/s\n",
+                     i + 1, j, KxConfigured ? "configured" : "derived",
+                     Ref.Gw, Ref.Gs, Ref.E, EcritRef,
+                     (EcritRef > 0.0f) ? Ref.E / EcritRef : 0.0f,
+                     Ref.Ci / ATMOS_CO2, Ref.PsiLeaf, Ref.An);
+            else
+              printf("Veg %d layer %d reference state: ProfitMax found no "
+                     "solution at the reference conditions\n", i + 1, j);
+          }
+        }
+      }
     }
 
     if (!CopyFloat((*VType)[i].MoistThres, VarStr[moisture_threshold],

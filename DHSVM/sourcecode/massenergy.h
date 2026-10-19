@@ -6,6 +6,9 @@
 #include <stdarg.h>
 #include "DHSVMChannel.h"
 #include "photosynthesis.h"
+#include "planthydraulics.h"
+#include "roothydraulics.h"
+#include "stomatalscheme.h"
 
 void AggregateRadiation(int MaxVegLayers, int NVegL, PIXRAD * Rad,
 			PIXRAD * TotalRad);
@@ -14,9 +17,10 @@ float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 		       float VpdThres, float MoistThres, float WP,
 		       float TSoil, float SoilMoisture, float Vpd, float Rp);
 
-float CanopyResistancePhoto(float Lai, float Vcmax25, float G1, float G0,
-                            float Dormancy, float Beta, int Layer, float RsMax, float Rp, PIXMET *Met);
 
+
+
+  
 float Desorption(int Dt, float Moisture, float Porosity, float Ks, 
 			   float Press, float m);
 
@@ -24,7 +28,7 @@ void EvapoTranspiration(int Layer, int impvRad, int Dt, PIXMET *Met,
               float NetRad, float Rp, VEGTABLE *VType, SOILTABLE *SType,
               float MoistureFlux, float *Moist, float *Temp, float *Int,
               float *EPot, float *EInt, float **ESoil, float *EAct,
-              float *ETot, float *Adjust, float Ra, VEGPIX *LocalVeg, int PhotoET);
+              float *ETot, float *Adjust, float Ra, VEGPIX *LocalVeg, SOILPIX *LocalSoil, OPTIONSTRUCT *Options);
 
 void InitLocalRad(int HeatFluxOption, float Rs, float Ld, float Tair, 
                float Tcanopy, float Tsoil, VEGTABLE *VType, 
@@ -85,5 +89,49 @@ float StabilityCorrection(float Z, float d, float Tsurf, float Tair,
 			  float Wind, float Z0);
 
 float SurfaceEnergyBalance(float TSurf, va_list ap);
+
+/* -------------------------------------------------------------------------
+   The single seam between DHSVM and the physiology modules.  Everything the
+   hydraulic schemes report comes back through here; unit conversion happens
+   in CanopyResistance.c and nowhere else.
+   ------------------------------------------------------------------------- */
+typedef struct {
+  float Rc;                        /* canopy resistance (s/m)              */
+  float An;                        /* umol/m2 ground/s                     */
+  float Escheme;                   /* m/s, what the scheme predicts        */
+  float Ecrit;                     /* m/s, hydraulic failure threshold     */
+  float Tsupply;                   /* m/s; < 0 means no supply limit       */
+  float PsiLeaf, PsiRoot, Heff;    /* MPa                                  */
+  float Tleaf;                     /* degC                                 */
+  float VpdLeaf;                   /* kPa                                  */
+  float Beta;                      /* empirical factor; 1 with hydraulics  */
+  float PLC;                       /* percent loss of conductivity (%)     */
+  float SafetyMargin;              /* PsiLeaf - P50 (MPa)                  */
+  float Efrac[ROOT_MAXLAYERS];     /* per-layer uptake weights, sum to 1   */
+  int   NLayers;
+  int   EConsistent;               /* 1: the scheme solved its own leaf
+                                      energy balance and Escheme is the
+                                      transpiration Penman-Monteith must
+                                      reproduce (ProfitMax, ProfitMax2, SOX);
+                                      0: Rc is the state (Medlyn paths)   */
+} CANOPYHYD;
+
+/* Root-fraction-weighted soil water potential (MPa).  Defined for EVERY
+   scheme, including Jarvis: it describes the soil, not the stomata. */
+float CanopyRootZonePotential(int Layer, VEGTABLE *VType, SOILTABLE *SType,
+                              SOILPIX *LocalSoil, float *Moist);
+
+float CanopyResistanceScheme(int StomScheme, int Hydraulics,
+  float Lai, int Layer, float Rp, float NetRad,
+  PIXMET *Met, VEGTABLE *VType, SOILTABLE *SType, SOILPIX *LocalSoil,
+  float *Moist, float Dormancy, CANOPYHYD *Out);
+
+/* The canopy resistance that makes DHSVM's Penman-Monteith expression return
+   a prescribed transpiration Eflux (m/s) given the layer potential rate EPot
+   (m/s): the inverse of the factor (Slope+Gamma)/(Slope+Gamma(1+Rc/Ra)).
+   Bounded by [RcMin, RcMax].  This is the leaf-basis -> air-basis conversion
+   of docs/provenance.md departure #1. */
+float CanopyResistanceFromFlux(float Eflux, float EPot, float Slope,
+                               float Gamma, float Ra, float RcMin, float RcMax);
 
 #endif

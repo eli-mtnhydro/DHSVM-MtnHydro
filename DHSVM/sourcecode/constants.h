@@ -62,6 +62,7 @@ extern float SOIL_POROSITY_ADJ; /* Calibration param - multiplicative */
 extern float SOIL_FIELDCAP_ADJ; /* Calibration param - multiplicative */
 extern float VEG_LAI_ADJ; /* Calibration param - multiplicative */
 extern float VEG_FC_ADJ; /* Calibration param - multiplicative */
+extern float ATMOS_CO2; /* Atmospheric CO2 mole fraction (umol/mol), [CONSTANTS] ATMOSPHERIC CO2 */
 extern float Z0_GROUND;					/* Roughness length for bare soil (m) */
 extern float Z0_SNOW;					/* Roughness length for snow (m) */
 extern float Zref;						/* Reference height (m) */

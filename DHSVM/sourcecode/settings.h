@@ -89,6 +89,22 @@ enum CanopyType {
   Forest
 };
 
+enum StomatalSchemeType {
+  JARVIS = 0,      /* Wigmosta et al. 1994, multiplicative                 */
+  MEDLYN,          /* Medlyn et al. 2011                                   */
+  PROFITMAX,       /* Sperry et al. 2017                                   */
+  PROFITMAX2,      /* Wang et al. 2020                                     */
+  SOX              /* Eller et al. 2018 / 2020                             */
+};
+
+/* Plant hydraulics.  Orthogonal to the scheme above; valid combinations are
+   enforced in InitConstants.c.  PROFITMAX2 must be parsed BEFORE PROFITMAX:
+   strncmp on "PROFITMAX" with length 9 matches both. */
+enum PlantHydraulicsType {
+  HYD_NONE = 0,    /* empirical beta from soil moisture                    */
+  HYD_KRSSUF       /* Couvreur 2012 / Vanderborght 2021 macroscopic roots  */
+};
+
 enum KEYS {
 /* Options *//* list order must match order in InitConstants.c */
   extent = 0, gradient, routing_neighbors, routing_mfd,
@@ -98,7 +114,7 @@ enum KEYS {
   temp_lapse, cressman_radius, cressman_stations,
   prism_data_path, prism_data_ext, snowpattern_data_path,
   shading_data_path, shading_data_ext, skyview_data_path, 
-  improv_radiation, photoet, gapping, snowslide, sepr, 
+  improv_radiation, stomatal_scheme, plant_hydraulics, gapping, snowslide, sepr, 
   snowstats, dynaveg, streamdata, streamtime, gw_spinup, gw_spinup_yrs, gw_spinup_recharge,
   /* Area */
   coordinate_system, extreme_north, extreme_west, center_latitude,
@@ -114,6 +130,7 @@ enum KEYS {
   temp_lapse_rate, max_swe, snowslide_parameter1, snowslide_parameter2,
   gapwind_adj, snowpattern_weight, temperature_offset, lapse_bias, lapse_elev,
   soil_depth_adj, soil_ksat_adj, soil_expdec_adj, soil_porosity_adj, soil_fieldcap_adj, veg_lai_adj, veg_fc_adj,
+  atmos_co2, atmos_co2_file,
   /* Constants that can vary spatially */
   rain_threshold = 0,
   snow_threshold,
@@ -130,15 +147,21 @@ enum KEYS {
   soil_description = 0, lateral_ks, exponent, depth_thresh, anisotropy, max_infiltration, capillary_drive, deepflux,
   soil_albedo, manning, number_of_layers, porosity, pore_size, bubbling_pressure, field_capacity,
   wilting_point, bulk_density, vertical_ks, solids_thermal, thermal_capacity,
+  rhizosphere_ks, soil_last_key = rhizosphere_ks,
   /* Vegetation information */
   veg_description = 0, overstory, understory, fraction, hemifraction, trunk_space,
   aerodynamic_att, beam_attn, diff_attn, clumping_factor, leaf_angle_a, leaf_angle_b,
   scat, snow_int_cap, mass_drip_ratio, snow_int_eff, imperv_frac, detention_frac, 
   detention_decay, height, max_resistance, min_resistance,
-  max_carboxylation, stomatal_slope, stomatal_intercept,
+  max_carboxylation, stomatal_slope, stomatal_intercept, xylem_p50,
   moisture_threshold, vpd, rpc,
   number_of_root_zones, root_zone_depth, overstory_fraction, understory_fraction, 
   monextn, vf_adj, overstory_monlai, understory_monlai, overstory_monalb, understory_monalb, 
+  /* optional physiology / hydraulics keys (defaults when absent) */
+  xylem_shape, xylem_curve, xylem_conductance, root_conductance, root_compensation,
+  collar_pressure_min, max_stomatal_conductance, leaf_width, jmax_vcmax_ratio,
+  cica_target, rd_vcmax_ratio, root_length_index, fine_root_radius,
+  veg_last_key = fine_root_radius,
   /* terrain information */
   demfile = 0, maskfile, lakefile, 
   lake_name = 0, lake_outlet, lake_scale, lake_exponent,
