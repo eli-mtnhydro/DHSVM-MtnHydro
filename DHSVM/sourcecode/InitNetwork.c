@@ -49,14 +49,11 @@ void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
   }
   
   /* Read the channel Network information, and calculate the storage
-     adjustment factors; also limit overstory/understory fractional cover
-     to 1 - channelfrac */
+     adjustment factors */
   for (y = 0; y < NY; y++) {
     for (x = 0; x < NX; x++) {
       if (INBASIN(TopoMap[y][x].Mask)) {
         ChannelCut(y, x, ChannelData, &((*Network)[y][x]));
-
-        ChannelLimitVegFC(y, x, (DX*DY), ChannelData, &(VegMap[y][x]));
 
         AdjustStorage(SoilLayers,
           SoilMap[y][x].Depth,

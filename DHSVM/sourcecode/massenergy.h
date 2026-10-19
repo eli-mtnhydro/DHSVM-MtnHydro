@@ -5,10 +5,33 @@
 #include "data.h"
 #include <stdarg.h>
 #include "DHSVMChannel.h"
+#include "photosynthesis.h"
+
+/* The stomatal scheme of a vegetation layer's transpiration: what MEDLYN
+   needs beside the meteorology and the story's parameters, and what both
+   schemes report */
+typedef struct {
+  int Scheme;			/* JARVIS or MEDLYN */
+  PHOTOKIN Kin;			/* Kinetics of the cell and step (MEDLYN) */
+  float Ca;			/* Atmospheric CO2 (umol/mol) (MEDLYN) */
+  float Acclim;			/* Cold-acclimation factor (MEDLYN) */
+  int TwoLeaf;			/* TRUE: sunlit and shaded leaves (MEDLYN overstory) */
+  float SinAlt;			/* Sine of the solar altitude (TwoLeaf) */
+  float VisBeam;		/* Incident visible beam above the canopy (W/m2) (TwoLeaf) */
+  float VisDiffuse;		/* Incident visible diffuse above the canopy (W/m2) (TwoLeaf) */
+  float Rc;			/* Out: canopy resistance (s/m) */
+  float An;			/* Out: net assimilation per covered area (umol/m2/s) (MEDLYN) */
+  float Beta;			/* Out: soil moisture factor */
+} CANOPYSCHEME;
 
 float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 		       float VpdThres, float MoistThres, float WP,
 		       float TSoil, float SoilMoisture, float Vpd, float Rp);
+
+void CanopyResistanceLayers(int Layer, PIXMET *Met, float Rp, STORYTABLE *Story,
+                            SOILTABLE *SType, float *Moist, float *SoilTemp,
+                            VEGPIX *LocalVeg, CANOPYSCHEME *Canopy, float *Rc,
+                            float *Share);
 
 float Desorption(int Dt, float Moisture, float Porosity, float Ks, 
 			   float Press, float m);
@@ -18,7 +41,7 @@ void EvapoTranspiration(int Layer, int Dt, PIXMET *Met,
               float MoistureFlux, float *Moist, float *Temp, float *Int,
               float *EPot, float *EInt, float **ESoil, float *EAct,
               float *ETot, float *Adjust, float *LayerThickness, float Ra,
-              VEGPIX *LocalVeg);
+              VEGPIX *LocalVeg, CANOPYSCHEME *Canopy);
 
 void InterceptionStorage(int NAct, float *MaxInt, float *Fract, float *Int,
                float *Precip);
@@ -63,7 +86,7 @@ float SoilEvaporation(int Dt,
                       float Temp, float Slope, float Gamma, float Lv,
                       float AirDens, float Vpd, float NetRad, float RaSoil,
                       float Evapotranspiration, float Porosity, float FCap, float Ks,
-                      float Press, float m, float RootDepth,
+                      float Press, float m, float WP, float RootDepth,
                       float *MoistContent, float Adjust, float *PotEvap,
                       float *DesorptionAcc);
 

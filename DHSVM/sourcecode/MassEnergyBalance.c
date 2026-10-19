@@ -15,6 +15,7 @@
 #include "constants.h"
 #include "soilmoisture.h"
 #include "Calendar.h"
+#include "photosynthesis.h"
 
  /*****************************************************************************
    Function name: MassEnergyBalance()
@@ -76,6 +77,7 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   float LongOutU;           /* Longwave emitted by the understory (W/m2) */
   float SoilEvap;           /* Evaporation from the soil (m) */
   float SoilEPot;           /* Potential evaporation of the soil (m) */
+  CANOPYSCHEME Canopy;      /* The stomatal scheme of the vegetation layers */
 
   /* Used in snow surface energy balance */
   float OldSnowTSurf;       /* Effective surface temperature at the end of the last timestep (C) */
@@ -91,6 +93,9 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     LocalNetwork->Adjust, &(LocalSoil->TableDepth),
     &(LocalSoil->IExcess), LocalSoil->Moist);
   
+  /* Temperature memories of the canopy photosynthesis */
+  PhotoTemperatureMemory(LocalMet->Tair, (float) Dt, &(LocalVeg->TAcclim), &(LocalVeg->TGrowth));
+
   /* The understory covers the fraction Fu of the cell and is buried when the
      snow water equivalent exceeds SNOW_DENSITY times its height. The lower
      surface at the start of the step (with the step's snowfall): the
@@ -272,20 +277,41 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
 #endif
 
 #ifndef NO_ET
+  /* The stomatal scheme: under MEDLYN the kinetics of the cell and step
+     (only the dark respiration without shortwave), the CO2 of the year and
+     the cold acclimation */
+  Canopy.Scheme = Options->StomatalScheme;
+  Canopy.TwoLeaf = FALSE;
+  if (Canopy.Scheme == MEDLYN && LocalVeg->NVegLayers > 0) {
+    PhotoKinetics(LocalMet->Tair, LocalVeg->TGrowth, LocalMet->Press, LocalMet->Sin > 0.0,
+                  &(Canopy.Kin));
+    Canopy.Ca = ATMOS_CO2;
+    Canopy.Acclim = PhotoAcclimation(LocalVeg->TAcclim);
+  }
+
   /* calculate the amount of evapotranspiration from each vegetation layer
      above the ground/soil surface.  Also calculate the total amount of
-     evapotranspiration from the vegetation */
+     evapotranspiration from the vegetation. JARVIS: the visible radiation
+     incident at the top of the layer; MEDLYN: the incident beam and diffuse
+     visible radiation for the sunlit and shaded leaves */
   if (LocalVeg->OverStory == TRUE) {
-    Rp = VISFRACT * LocalRad->NetShort[0];
+    Rp = VISFRACT * LocalMet->Sin;
     NetRadiation = LocalRad->NetShort[0] +
       LocalRad->LongIn[0] - 2 * LocalVeg->Fract[0] * LocalRad->LongOut[0];
     LocalRad->NetRadiation[0] = NetRadiation;
+    Canopy.TwoLeaf = TRUE;
+    Canopy.SinAlt = SineSolarAltitude;
+    Canopy.VisBeam = VISFRACT * LocalMet->SinBeam;
+    Canopy.VisDiffuse = VISFRACT * LocalMet->SinDiffuse;
     EvapoTranspiration(0, Dt, LocalMet, NetRadiation,
       Rp, &(Over->Story), SType, LocalVeg->MoistureFlux, LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[0]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
       LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LocalSoil->LayerThickness,
-      UpperRa, LocalVeg);
+      UpperRa, LocalVeg, &Canopy);
     LocalVeg->MoistureFlux += LocalEvap->EAct[0] + LocalEvap->EInt[0];
+    LocalEvap->Rc[0] = Canopy.Rc;
+    LocalEvap->An[0] = Canopy.An;
+    LocalEvap->Beta[0] = Canopy.Beta;
   }				/* end if(LocalVeg->OverStory == TRUE) */
 
   /* The net shortwave of the whole lower surface, and the net radiation of
@@ -296,10 +322,10 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   /* Understory above the snow at the end of the step. Net radiation from
      its part of the shortwave, the longwave it absorbs from above and from
      the ground, and its emission at the air temperature up and down over
-     its opaque fraction (of its limited fraction Fract on channel cells);
-     if it was buried at the start of the step, its opaque fraction's share of
+     its opaque fraction; if it was buried at the start of the step, its opaque fraction's share of
      the whole lower surface's shortwave and incoming longwave (the ground
-     takes the rest). The visible radiation per covered area; the demand
+     takes the rest). The visible radiation: JARVIS the incident at the top
+     of the understory, MEDLYN the absorbed per covered area; the demand
      above it per covered area */
   if (LocalVeg->UnderStory == TRUE && LocalSnow->Swq <= BurySwe) {
     Tmp = LocalMet->Tair + 273.15;
@@ -323,14 +349,20 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
       NetRadGround = (1 - CuE) * (NetShortL + LocalRad->LongIn[Lower]) + CuE * LongOutU -
         LocalRad->LongOutGround;
     }
+    if (Canopy.Scheme == JARVIS)
+      Rp = VISFRACT * LocalRad->ShortInLower;
     LocalRad->NetRadiation[Lower] = NetRadiation;
+    Canopy.TwoLeaf = FALSE;
     EvapoTranspiration(Lower, Dt, LocalMet, NetRadiation,
       Rp, &(Under->Story), SType, LocalVeg->MoistureFlux * LocalVeg->Fract[Lower],
       LocalSoil->Moist, LocalSoil->Temp,
       &(LocalPrecip->IntRain[Lower]), LocalEvap->EPot, LocalEvap->EInt, LocalEvap->ESoil,
       LocalEvap->EAct, &(LocalEvap->ETot), LocalNetwork->Adjust, LocalSoil->LayerThickness,
-      LowerRa, LocalVeg);
+      LowerRa, LocalVeg, &Canopy);
     LocalVeg->MoistureFlux += LocalEvap->EAct[Lower] + LocalEvap->EInt[Lower];
+    LocalEvap->Rc[Lower] = Canopy.Rc;
+    LocalEvap->An[Lower] = Canopy.An;
+    LocalEvap->Beta[Lower] = Canopy.Beta;
   }
   else if (LocalVeg->UnderStory == TRUE) {
     int k;
@@ -340,6 +372,9 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
     LocalEvap->EAct[Lower] = 0.;
     LocalEvap->EInt[Lower] = 0.;
     LocalRad->NetRadiation[Lower] = 0.;
+    LocalEvap->Rc[Lower] = NA;
+    LocalEvap->An[Lower] = 0.;
+    LocalEvap->Beta[Lower] = NA;
   }
 
   /* Calculate open water evaporation from surface ponding if present, with
@@ -370,7 +405,8 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
                       LocalMet->Lv, LocalMet->AirDens, LocalMet->Vpd, NetRadGround, LowerRa,
                       (LocalVeg->MoistureFlux + LocalEvap->EvapSoil),
                       LocalSoil->Porosity[0], LocalSoil->FCap[0], LocalSoil->KsVert[0],
-                      SType->Press[0], SType->PoreDist[0], LocalSoil->LayerThickness[0],
+                      SType->Press[0], SType->PoreDist[0], SType->WP[0],
+                      LocalSoil->LayerThickness[0],
                       &(LocalSoil->Moist[0]), LocalNetwork->Adjust[0], &SoilEPot,
                       &(LocalSoil->DesorptionAcc));
     LocalEvap->EvapSoil += SoilEvap;

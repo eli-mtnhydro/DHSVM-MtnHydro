@@ -319,35 +319,3 @@ void ChannelCut(int y, int x, CHANNEL * ChannelData, NETSTRUCT * Network)
   Network->BankHeight = bank_height;
 }
 
-/* -------------------------------------------------------------
- ChannelLimitVegFC
- adjusts fractional cover (FC) if necessary
- so that FC does not exceed 1 - channel area / cell area
- ------------------------------------------------------------- */
-void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
-                       VEGPIX *LocalVeg)
-{
-  float cut_area = 0.0;
-  float FCmax = 0.0;
-  int Lower;
-
-  /* Only understory FC is limited, while overstory FC can be > FCmax
-   since riparian forest canopies may overhang the stream channel */
-  
-  if (channel_grid_has_channel(ChannelData->stream_map, x, y) &&
-      LocalVeg->UnderStory == TRUE) {
-    
-    cut_area = channel_grid_cell_width(ChannelData->stream_map, x, y) * 
-      channel_grid_cell_length(ChannelData->stream_map, x, y);
-    
-    FCmax = 1. - cut_area / DXDY;
-    if (FCmax > 1.)
-      FCmax = 1.;
-    if (FCmax < 0.01) /* Require minimum of 1 percent FC if understory is present */
-      FCmax = 0.01;
-    
-    Lower = CanopyIndex(LocalVeg, 1);
-    if (LocalVeg->Fract[Lower] > FCmax)
-      LocalVeg->Fract[Lower] = FCmax;
-  }
-}

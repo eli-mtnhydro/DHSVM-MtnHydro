@@ -107,6 +107,10 @@ typedef struct {
   float **ESoil;		/* Transpiration for each vegetation layer from each soil zone */
   float EvapSoil;		/* Evaporation from the upper soil layer */
   float EvapChannel; /* Evaporation from the stream channel */
+  float Rc[MAXVEGLAYERS];	/* Canopy resistance of each vegetation layer (s/m), NA if none */
+  float An[MAXVEGLAYERS];	/* Net assimilation of each vegetation layer per cell area
+				   (umol/m2/s) (MEDLYN) */
+  float Beta[MAXVEGLAYERS];	/* Soil moisture factor of each vegetation layer, NA if none */
 } EVAPPIX;
 
 typedef struct {
@@ -268,6 +272,7 @@ typedef struct {
   int UseInterflow;		  /* If TRUE, unsaturated lateral flow is simulated */
   int UseKsatAnisotropy;/* Vertical Ksat from lateral Ksat and anisotropy (TRUE) or default table (FALSE) */
   int Infiltration;     /* Specifies static or dynamic maximum infiltration rate */
+  int StomatalScheme;   /* Canopy conductance: JARVIS or MEDLYN */
   int Prism;					  /* Precipitation Pattern: if TRUE, the monthly precipitation pattern map and the
                            station normals are used to interpolate precipitation */
   int SnowPattern;		  /* If TRUE, user supplied snow map will be used to redistribute precipitation */
@@ -331,6 +336,8 @@ typedef struct {
                                the lower surface's entry holds only the understory's part */
   float NetShortGround;     /* Net shortwave of the ground (soil or snow) under and outside the
                                understory, per cell area W/m2 */
+  float ShortInLower;       /* Shortwave reaching the lower surface (the top of the understory),
+                               per cell area W/m2 */
   float LongIn[2];		      /* Incoming longwave radiation for vegetation surfaces and ground/snow surface W/m2 */
   float LongOut[2];		      /* Outgoing longwave radiation for vegetation surfaces and ground/snow surface W/m2;
                                the lower surface's entry is the upward longwave above the understory */
@@ -560,9 +567,11 @@ typedef struct {
   unsigned char UnderStory;	    /* TRUE if the cell has an understory layer (UnderClass > 0
                                    and understory cover > 0) */
   int NVegLayers;		        /* Vegetation layers of the cell (0-2) */
-  float UnderstoryCover;	    /* Understory cover from its map (0-1) before the channel limit
-                                   of Fract, 0 without an understory layer */
+  float UnderstoryCover;	    /* Understory cover from its map (0-1), 0 without an understory
+                                   layer */
   float Tcanopy;		        /* Canopy temperature (C) */
+  float TAcclim;		        /* Cold-acclimation temperature of the photosynthesis (C) */
+  float TGrowth;		        /* Growth temperature: the 10-day mean air temperature (C) */
   float MoistureFlux;		    /* Amount of water transported from the pixel
                                    to the atmosphere (m/timestep) */
   float MeltEnergy;			    /* Energy used to melt snow and change of cold content
@@ -584,13 +593,17 @@ typedef struct {
 /* The parameters of one story (overstory or understory) of a vegetation
    table row */
 typedef struct {
-  float RsMax;			/* Maximum stomatal resistance (s/m) */
-  float RsMin;			/* Minimum stomatal resistance (s/m) */
+  float RsMax;			/* Maximum stomatal resistance (s/m), JARVIS */
+  float RsMin;			/* Minimum stomatal resistance (s/m), JARVIS */
   float MoistThres;		/* Soil moisture threshold above which soil
 				   moisture does not restrict transpiration */
   float VpdThres;		/* Vapor pressure deficit threshold above which
-				   stomatal closure occurs (Pa) */
-  float Rpc;			/* fraction of radiaton that is photosynthetically active (PAR) */
+				   stomatal closure occurs (Pa), JARVIS */
+  float Rpc;			/* Visible radiation of half the maximum light factor (W/m2), JARVIS */
+  float Vcmax25;		/* Maximum carboxylation rate at 25 C at the top of the
+				   canopy (umol/m2/s), MEDLYN */
+  float G1;			/* Stomatal slope (kPa^0.5), MEDLYN */
+  float G0;			/* Stomatal intercept (mol/m2/s), MEDLYN */
   float *RootFract;		/* Fraction of roots in each root zone layer */
   float AlbedoMonthly[12];	/* Albedo of each month */
   float Albedo;			/* Albedo of the current month */

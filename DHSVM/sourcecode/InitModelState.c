@@ -13,6 +13,7 @@
 #include "channel_grid.h"
 #include "Calendar.h"
 #include "mapio.h"
+#include "photosynthesis.h"
 
  /*****************************************************************************
    Function name: InitModelState()
@@ -22,7 +23,9 @@
                   (StoreModelState(), ReadModelState())
 
    Comments :
-     Cold start: no interception, snow only where the initial snow water
+     Cold start: no interception, the canopy temperature memories unset (the
+     first step sets them to its air temperature), snow only where the
+     initial snow water
      equivalent map has some (its liquid water at capacity), every soil
      layer at its porosity with the
      water table at the surface and no soil evaporation accumulated since a
@@ -219,6 +222,8 @@ static void ColdStartCells(MAPSIZE *Map, OPTIONSTRUCT *Options,
         }
         PrecipMap[y][x].TempIntStorage = 0.0;
         VegMap[y][x].Tcanopy = 0.0;
+        VegMap[y][x].TAcclim = (float) PHOTO_UNSET;
+        VegMap[y][x].TGrowth = (float) PHOTO_UNSET;
 
         /* Snow */
         SnowMap[y][x].Swq = (SWE != NULL) ? SWE[y * Map->NX + x] : 0.0;

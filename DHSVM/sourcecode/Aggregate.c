@@ -20,6 +20,7 @@
 #include "constants.h"
 #include "output.h"
 #include "registry.h"
+#include "photosynthesis.h"
 
 static int Base[NVALUECODES];	/* First slot of a value code with means, -1 if none */
 static int IsSnowMean[NVALUECODES];	/* TRUE: mean over the cells with snow */
@@ -223,6 +224,7 @@ static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, in
     ADD(V_EVAP_POTENTIAL, c, Evap->EPot[Index[c]]);
     ADD(V_EVAP_ACTUAL, c, Evap->EAct[Index[c]]);
     ADD(V_EVAP_INTERCEPTION, c, Evap->EInt[Index[c]]);
+    ADD(V_CANOPY_ASSIMILATION, c, Evap->An[Index[c]]);
     for (i = 0; i < L; i++)
       ADD(V_EVAP_TRANSPIRATION, c * L + i, Evap->ESoil[Index[c]][i]);
   }
@@ -236,6 +238,8 @@ static void AddCell(AGGREGATE **Target, int NTarget, MODELVIEW *Model, int y, in
   }
   ADD(V_CANOPY_TEMPORARYSTORAGE, 0, Precip->TempIntStorage);
   ADD(V_CANOPY_SNOWVAPOR, 0, Snow->CanopyVaporMassFlux);
+  Term = PhotoAcclimation(Veg->TAcclim);
+  ADD(V_CANOPY_ACCLIMATION, 0, Term);
 
   /* Evapotranspiration */
   ADD(V_EVAP_TOTAL, 0, Evap->ETot);

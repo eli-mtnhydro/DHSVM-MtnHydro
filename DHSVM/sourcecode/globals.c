@@ -24,7 +24,10 @@ float SOIL_FIELDCAP_ADJ; /* Field Capacity Scale */
 float VEG_LAI_ADJ; /* Overstory LAI Scale */
 float VEG_FC_ADJ; /* Overstory Cover Scale */
 float SOIL_DEEPFLUX_ADJ; /* Deep Flux Offset (m/yr), added to the deep flux of every soil class */
-float VEG_RSMIN_ADJ; /* Min Stomatal Resistance Scale */
+float VEG_RSMIN_ADJ; /* Min Stomatal Resistance Scale (JARVIS) */
+float VEG_MOIST_ADJ; /* Moisture Threshold Scale */
+float VEG_G1_ADJ; /* Stomatal Slope Scale (MEDLYN) */
+float ATMOS_CO2; /* Atmospheric CO2 of the step (umol/mol), MEDLYN */
 float VEG_SNOWINT_ADJ; /* Snow Interception Efficiency Scale */
 float LAKE_OUTFLOW_ADJ; /* Lake Outflow Rate Scale */
 float LAKE_EXPONENT_ADJ; /* Lake Outflow Exponent Scale */

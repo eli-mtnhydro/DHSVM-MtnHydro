@@ -273,6 +273,8 @@ void ShortwaveBalance(unsigned char OverStory,
     LocalRad->NetShort[1] = 0.;
   }
 
+  LocalRad->ShortInLower = ShortL;
+
   /* Calculate the net shortwave for the entire pixel */
   if (OverStory == TRUE)
     LocalRad->PixelNetShort = LocalRad->NetShort[0] + LocalRad->NetShort[1];

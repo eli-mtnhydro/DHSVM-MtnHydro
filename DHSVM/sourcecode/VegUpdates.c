@@ -209,8 +209,7 @@ void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUT
   ApplyVegUpdate()
 
   At the start of a time step with an update: the vegetation of every mask
-  cell from the update's maps (rows 6 and 7, the channel limit on the
-  understory cover, the albedo decay rates of the snow, the LAI of the
+  cell from the update's maps (rows 6 and 7, the albedo decay rates of the snow, the LAI of the
   month and the ground albedo under the snow); intercepted water moves with
   its canopy, a canopy the cell loses leaves its water on the ground
 *****************************************************************************/
@@ -259,7 +258,6 @@ void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOP
 
       /* The cell's new vegetation */
       SetCellVegetation(Options, Veg, Cell, &V, i, y, x);
-      ChannelLimitVegFC(y, x, (Map->DX * Map->DY), ChannelData, Cell);
       SetCellMonth(Options, Veg, Cell, Time->Current.Month);
 
       /* The water of a canopy the cell lost becomes surface water; the

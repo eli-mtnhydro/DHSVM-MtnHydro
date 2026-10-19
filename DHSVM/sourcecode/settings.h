@@ -46,6 +46,10 @@ typedef unsigned int unint;
 #define STATIC 1
 #define DYNAMIC 2
 
+/* Options for the stomatal conductance */
+#define JARVIS 1
+#define MEDLYN 2
+
 #define TINY       1e-20
 #define DEBUG      FALSE
 

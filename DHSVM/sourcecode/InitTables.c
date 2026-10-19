@@ -20,6 +20,11 @@ static int InitOverstoryTable(OVERTABLE **OType, const char *Path, OPTIONSTRUCT 
                               int SoilLayers);
 static int InitUnderstoryTable(UNDERTABLE **UType, const char *Path, OPTIONSTRUCT *Options,
                                int SoilLayers);
+static void InitCO2Table(const char *Path, TIMESTRUCT *Time);
+
+/* Atmospheric CO2 of the years of the run (MEDLYN) */
+static int CO2FirstYear = 0;
+static float *CO2OfYear = NULL;
 
 /*******************************************************************************/
 /*				  InitTables()                                 */
@@ -48,6 +53,11 @@ void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options,
   else {
     GetConfigValue(Input, "INPUTS", "Lake Table", Path);
     Map->NumLakes = 0;
+  }
+
+  if (Options->StomatalScheme == MEDLYN) {
+    RequireConfigValue(Input, "INPUTS", "CO2 File", Path);
+    InitCO2Table(Path, Time);
   }
 
   InitSatVaporTable();
@@ -181,26 +191,52 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE **SType, const char *Path,
   return NSoils;
 }
 
-/* Columns of the story parameters of a vegetation table */
+/* Columns of the story parameters of a vegetation table (-1 for those the
+   stomatal scheme does not read) */
 typedef struct {
   int LAIFraction[12];
   int *RootFract;
   int Albedo[12];
   int RsMax, RsMin, Moist, Vpd, Rpc;
+  int Vcmax25, G1, G0;
 } STORYCOLUMNS;
 
-static void StoryColumns(TABLE *T, int SoilLayers, STORYCOLUMNS *C)
+static void StoryColumns(TABLE *T, int SoilLayers, int Scheme, STORYCOLUMNS *C)
 {
   if (!(C->RootFract = calloc(SoilLayers, sizeof(int))))
     ReportError("StoryColumns", 1);
   TableLayerColumns(T, "LAIFraction", MAP_MONTH, SoilLayers, "fraction", TRUE, C->LAIFraction);
   TableLayerColumns(T, "RootFraction", MAP_ONE, SoilLayers, "fraction", TRUE, C->RootFract);
   TableLayerColumns(T, "Albedo", MAP_MONTH, SoilLayers, "fraction", TRUE, C->Albedo);
-  C->RsMax = TableColumn(T, "MaxResistance", "s/m", TRUE);
-  C->RsMin = TableColumn(T, "MinResistance", "s/m", TRUE);
+  C->RsMax = C->RsMin = C->Vpd = C->Rpc = C->Vcmax25 = C->G1 = C->G0 = -1;
+  if (Scheme == JARVIS) {
+    C->RsMax = TableColumn(T, "MaxResistance", "s/m", TRUE);
+    C->RsMin = TableColumn(T, "MinResistance", "s/m", TRUE);
+  }
   C->Moist = TableColumn(T, "MoistureThreshold", "m3/m3", TRUE);
-  C->Vpd = TableColumn(T, "VpdThreshold", "Pa", TRUE);
-  C->Rpc = TableColumn(T, "Rpc", "W/m2", TRUE);
+  if (Scheme == JARVIS) {
+    C->Vpd = TableColumn(T, "VpdThreshold", "Pa", TRUE);
+    C->Rpc = TableColumn(T, "Rpc", "W/m2", TRUE);
+    TableKnown(T, "Vcmax25");
+    TableKnown(T, "StomatalSlope");
+    TableKnown(T, "StomatalIntercept");
+  }
+  else {
+    C->Vcmax25 = TableColumn(T, "Vcmax25", "umol/m2/s", TRUE);
+    C->G1 = TableColumn(T, "StomatalSlope", "kPa^0.5", TRUE);
+    C->G0 = TableColumn(T, "StomatalIntercept", "mol/m2/s", TRUE);
+    TableKnown(T, "MaxResistance");
+    TableKnown(T, "MinResistance");
+    TableKnown(T, "VpdThreshold");
+    TableKnown(T, "Rpc");
+  }
+}
+
+/* A story value of row i, NOT_APPLICABLE where the stomatal scheme does not
+   read the column */
+static float StoryValue(TABLE *T, int i, int Column)
+{
+  return (Column >= 0) ? TableFloat(T, i, Column) : NOT_APPLICABLE;
 }
 
 /* The story parameters of row i */
@@ -211,11 +247,14 @@ static void ReadStory(TABLE *T, int i, STORYCOLUMNS *C, int SoilLayers, STORYTAB
   TableFloats(T, i, C->LAIFraction, 12, Story->LAIFraction);
   TableFloats(T, i, C->RootFract, SoilLayers, Story->RootFract);
   TableFloats(T, i, C->Albedo, 12, Story->AlbedoMonthly);
-  Story->RsMax = TableFloat(T, i, C->RsMax);
-  Story->RsMin = TableFloat(T, i, C->RsMin);
+  Story->RsMax = StoryValue(T, i, C->RsMax);
+  Story->RsMin = StoryValue(T, i, C->RsMin);
   Story->MoistThres = TableFloat(T, i, C->Moist);
-  Story->VpdThres = TableFloat(T, i, C->Vpd);
-  Story->Rpc = TableFloat(T, i, C->Rpc);
+  Story->VpdThres = StoryValue(T, i, C->Vpd);
+  Story->Rpc = StoryValue(T, i, C->Rpc);
+  Story->Vcmax25 = StoryValue(T, i, C->Vcmax25);
+  Story->G1 = StoryValue(T, i, C->G1);
+  Story->G0 = StoryValue(T, i, C->G0);
 }
 
 /* The name of row i */
@@ -257,7 +296,7 @@ static int InitOverstoryTable(OVERTABLE **OType, const char *Path, OPTIONSTRUCT 
   CMaxSnowInt = TableColumn(&T, "MaxSnowInterception", "m", TRUE);
   CDrip = TableColumn(&T, "MassReleaseDripRatio", "-", TRUE);
   CSnowEff = TableColumn(&T, "SnowInterceptionEff", "fraction", TRUE);
-  StoryColumns(&T, SoilLayers, &CStory);
+  StoryColumns(&T, SoilLayers, Options->StomatalScheme, &CStory);
   CExtn = TableColumn(&T, "LightExtinction", "-", TRUE);
   TableWarnUnknown(&T);
 
@@ -309,7 +348,7 @@ static int InitUnderstoryTable(UNDERTABLE **UType, const char *Path, OPTIONSTRUC
   NRows = T.NRows;
 
   CName = TableColumn(&T, "Name", "-", TRUE);
-  StoryColumns(&T, SoilLayers, &CStory);
+  StoryColumns(&T, SoilLayers, Options->StomatalScheme, &CStory);
   CAtten = TableColumn(&T, "RadiationAttenuation", "-", TRUE);
   CImperv = TableColumn(&T, "ImperviousFraction", "fraction", TRUE);
 
@@ -396,4 +435,60 @@ int InitLakeTable(LAKETABLE **LType, const char *Path, OPTIONSTRUCT *Options)
 
   FreeTable(&T);
   return NumLakes;
+}
+
+/********************************************************************************
+InitCO2Table()
+
+The CO2 file (MEDLYN): the atmospheric CO2 (umol/mol) of calendar years,
+columns Year and CO2. Every year from Start to the last time step needs one
+row; other years are not read.
+********************************************************************************/
+static void InitCO2Table(const char *Path, TIMESTRUCT *Time)
+{
+  TABLE T;
+  int CYear, CCO2;
+  int Last, NYears;
+  int *Found;
+  int i, y;
+
+  ReadTable(Path, &T);
+  CYear = TableColumn(&T, "Year", "-", TRUE);
+  CCO2 = TableColumn(&T, "CO2", "umol/mol", TRUE);
+  TableWarnUnknown(&T);
+
+  /* The year of the last time step: End's, or the one before at its start */
+  Last = Time->End.Year;
+  if (Time->End.Month == 1 && Time->End.Day == 1 && Time->End.Hour == 0 && Time->End.Min == 0)
+    Last--;
+  CO2FirstYear = Time->Start.Year;
+  NYears = Last - CO2FirstYear + 1;
+  if (!(CO2OfYear = (float *) calloc(NYears, sizeof(float))) ||
+      !(Found = (int *) calloc(NYears, sizeof(int))))
+    ReportError("InitCO2Table", 1);
+
+  for (i = 0; i < T.NRows; i++) {
+    y = TableInt(&T, i, CYear) - CO2FirstYear;
+    if (y < 0 || y >= NYears)
+      continue;
+    if (Found[y])
+      ReportErrorCode(106, "%s: line %d: a second row for year %d", Path, i + 3,
+                      y + CO2FirstYear);
+    CO2OfYear[y] = TableFloat(&T, i, CCO2);
+    Found[y] = TRUE;
+  }
+  for (y = 0; y < NYears; y++) {
+    if (!Found[y])
+      ReportErrorCode(106, "%s: no row for year %d (the run's time steps are in %d-%d)", Path,
+                      y + CO2FirstYear, CO2FirstYear, Last);
+  }
+
+  free(Found);
+  FreeTable(&T);
+}
+
+/* The atmospheric CO2 of a year of the run (umol/mol) */
+float YearCO2(int Year)
+{
+  return CO2OfYear[Year - CO2FirstYear];
 }

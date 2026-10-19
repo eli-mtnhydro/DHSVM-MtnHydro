@@ -5,6 +5,7 @@
 #include "settings.h"
 #include "massenergy.h"
 #include "constants.h"
+#include "photosynthesis.h"
 
  /*****************************************************************************
    CanopyResistance()
@@ -57,4 +58,67 @@ float CanopyResistance(float LAI, float RsMin, float RsMax, float Rpc,
 
   return Resistance;
 
+}
+
+/*****************************************************************************
+  CanopyResistanceLayers()
+
+  The canopy resistance associated with each soil layer Rc (s/m) and each
+  layer's share of the transpiration of vegetation layer Layer, and what the
+  scheme reports (Canopy: the canopy resistance, the net assimilation per
+  covered area, the soil moisture factor).
+  JARVIS: Rc of each layer from its moisture (Wigmosta et al. 1994), the
+  shares the root fractions; the reported resistance is their root-weighted
+  harmonic mean.
+  MEDLYN: one Rc from the canopy conductance to water vapour of the
+  photosynthesis (sunlit and shaded leaves of the overstory, one big leaf of
+  the understory absorbing Rp) with the soil moisture factor, the shares
+  root fraction x layer factor.
+*****************************************************************************/
+void CanopyResistanceLayers(int Layer, PIXMET *Met, float Rp, STORYTABLE *Story,
+                            SOILTABLE *SType, float *Moist, float *SoilTemp,
+                            VEGPIX *LocalVeg, CANOPYSCHEME *Canopy, float *Rc,
+                            float *Share)
+{
+  PHOTOSTOMATA Stomata;
+  double Gw;			/* Canopy conductance to water vapour (mol/m2/s) */
+  double An;			/* Canopy net assimilation (umol/m2/s) */
+  double Vcmax25;		/* Top of the canopy, acclimated (umol/m2/s) */
+  float Lai = LocalVeg->LAI[Layer];
+  float Sum;
+  int i;
+
+  if (Canopy->Scheme == JARVIS) {
+    Sum = 0.0;
+    for (i = 0; i < SType->NLayers; i++) {
+      Rc[i] = CanopyResistance(Lai, Story->RsMin, Story->RsMax, Story->Rpc,
+        Story->VpdThres, Story->MoistThres, SType->WP[i], SoilTemp[i], Moist[i],
+        Met->Vpd, Rp);
+      Sum += Story->RootFract[i] / Rc[i];
+    }
+    Canopy->Rc = 1.0 / Sum;
+    Canopy->An = 0.0;
+    Canopy->Beta = PhotoMoistureStress(SType->NLayers, Story->RootFract, Moist, SType->WP,
+                                       Story->MoistThres, Share);
+    for (i = 0; i < SType->NLayers; i++)
+      Share[i] = Story->RootFract[i];
+    return;
+  }
+
+  Canopy->Beta = PhotoMoistureStress(SType->NLayers, Story->RootFract, Moist, SType->WP,
+                                     Story->MoistThres, Share);
+  PhotoStomata(Canopy->Ca, 0.001 * Met->Vpd, Canopy->Beta, Story->G1, Story->G0, &Stomata);
+  Vcmax25 = Story->Vcmax25 * Canopy->Acclim;
+  if (Canopy->TwoLeaf)
+    Gw = PhotoTwoLeafCanopy(&(Canopy->Kin), &Stomata, Vcmax25, Lai, Canopy->SinAlt,
+                            Canopy->VisBeam, Canopy->VisDiffuse, &An);
+  else
+    Gw = PhotoBigLeafCanopy(&(Canopy->Kin), &Stomata, Vcmax25, Lai, Rp, &An);
+
+  /* mol/m2/s to m/s */
+  Gw *= PhotoMolarVolume(Met->Tair, Met->Press);
+  Canopy->Rc = (Gw > 1.0 / DHSVM_HUGE) ? 1.0 / Gw : DHSVM_HUGE;
+  Canopy->An = An;
+  for (i = 0; i < SType->NLayers; i++)
+    Rc[i] = Canopy->Rc;
 }

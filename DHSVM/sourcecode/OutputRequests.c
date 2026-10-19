@@ -49,6 +49,9 @@ static const char *Unavailable(int Var, OPTIONSTRUCT *Options)
     return "Infiltration = DYNAMIC";
   if (strncmp(Name, "Lake.", 5) == 0 && !Options->LakeDynamics)
     return "Lake Dynamics = TRUE";
+  if ((strcmp(Name, "Canopy.Assimilation") == 0 || strcmp(Name, "Canopy.Acclimation") == 0) &&
+      Options->StomatalScheme != MEDLYN)
+    return "Stomatal Scheme = MEDLYN";
   return NULL;
 }
 

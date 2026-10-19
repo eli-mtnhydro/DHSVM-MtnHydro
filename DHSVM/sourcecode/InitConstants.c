@@ -327,6 +327,7 @@ static void InitOptions(LISTPTR Input, OPTIONSTRUCT *Options)
   const char *Routing[] = { "CONVENTIONAL", "KINEMATIC" };
   const char *Ksat[] = { "ANISOTROPY", "TABLE" };
   const char *Infiltration[] = { "STATIC", "DYNAMIC" };
+  const char *Stomatal[] = { "JARVIS", "MEDLYN" };
   char Value[BUFSIZE + 1];
 
   /* Subsurface flow gradient: land surface (TOPOGRAPHY) or water table */
@@ -376,6 +377,11 @@ static void InitOptions(LISTPTR Input, OPTIONSTRUCT *Options)
   /* Terrain shading of the beam radiation */
   RequireConfigValue(Input, "OPTIONS", "Shading", Value);
   Options->Shading = ConfigBool("OPTIONS", "Shading", Value);
+
+  /* Canopy conductance: the resistance factors of Jarvis or the
+     photosynthesis and stomata of Medlyn */
+  Options->StomatalScheme =
+    (ConfigChoice(Input, "OPTIONS", "Stomatal Scheme", Stomatal, 2) == 0) ? JARVIS : MEDLYN;
 }
 
 /*****************************************************************************
@@ -430,6 +436,12 @@ static void InitInputKeys(LISTPTR Input, OPTIONSTRUCT *Options)
     GetConfigValue(Input, "INPUTS", "Lake.ID", Value);
     GetConfigValue(Input, "INPUTS", "Lake Table", Value);
   }
+
+  /* Atmospheric CO2 of each year */
+  if (Options->StomatalScheme == MEDLYN)
+    RequireConfigValue(Input, "INPUTS", "CO2 File", Value);
+  else
+    GetConfigValue(Input, "INPUTS", "CO2 File", Value);
 
   /* Initial snow water equivalent: optional, used only at a cold start */
   Options->InitialSWEPath[0] = '\0';
@@ -506,8 +518,11 @@ static void InitParameters(LISTPTR Input, OPTIONSTRUCT *Options, MAPSIZE *Map)
 
   /* Class and lake tables */
   SOIL_DEEPFLUX_ADJ = Parameter(Input, "Deep Flux Offset");
-  VEG_RSMIN_ADJ = Parameter(Input, "Min Stomatal Resistance Scale");
+  VEG_RSMIN_ADJ = OptionalParameter(Input, "Min Stomatal Resistance Scale",
+                                    Options->StomatalScheme == JARVIS);
   VEG_SNOWINT_ADJ = Parameter(Input, "Snow Interception Efficiency Scale");
+  VEG_MOIST_ADJ = Parameter(Input, "Moisture Threshold Scale");
+  VEG_G1_ADJ = OptionalParameter(Input, "Stomatal Slope Scale", Options->StomatalScheme == MEDLYN);
   LAKE_OUTFLOW_ADJ = OptionalParameter(Input, "Lake Outflow Rate Scale", Options->LakeDynamics);
   LAKE_EXPONENT_ADJ = OptionalParameter(Input, "Lake Outflow Exponent Scale", Options->LakeDynamics);
 
@@ -572,6 +587,7 @@ void PrintRunSettings(OPTIONSTRUCT *Options)
   Message("Precipitation inputs are rescaled by a factor of %.3f\n",PRECIP_MULTIPLIER);
   if (Options->WindScale)
     Message("Wind speed scaled by the Met.WindScale map\n");
+  Message("Stomatal scheme %s\n", (Options->StomatalScheme == MEDLYN) ? "MEDLYN" : "JARVIS");
 }
 
 /*****************************************************************************

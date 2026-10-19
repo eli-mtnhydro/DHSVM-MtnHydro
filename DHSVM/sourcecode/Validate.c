@@ -93,7 +93,7 @@ void CheckInputFiles(LISTPTR Input, OPTIONSTRUCT *Options, int PointTable)
     "Understory Table", "Channel Class Table", "Channel Segment Table", "Channel Cell Table",
     "Station Table"
   };
-  const char *Used[10];
+  const char *Used[12];
   char Path[BUFSIZE + 1];
   FILE *File;
   int n = 0;
@@ -115,6 +115,8 @@ void CheckInputFiles(LISTPTR Input, OPTIONSTRUCT *Options, int PointTable)
     Used[n++] = "Lake.ID";
     Used[n++] = "Lake Table";
   }
+  if (Options->StomatalScheme == MEDLYN)
+    Used[n++] = "CO2 File";
   if (PointTable && GetConfigValue(Input, "INPUTS", "Point Table", Path) && !IsEmptyStr(Path))
     Used[n++] = "Point Table";
 

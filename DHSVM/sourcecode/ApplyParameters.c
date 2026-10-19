@@ -6,13 +6,17 @@
  *                 T1 DeepFlux = (soil table DeepFlux + offset) / (365 x steps
  *                   per day), every soil class
  *                 T2 RsMin = MinResistance x scale, every row of the
- *                   overstory and the understory table
+ *                   overstory and the understory table (JARVIS)
  *                 T3 SnowIntEff = min(overstory table SnowInterceptionEff
  *                   x scale, 1), every overstory class
  *                 T4 PowLawScale = lake table OutflowScale x scale, every
  *                   lake (Lake Dynamics)
  *                 T5 PowLawExponent = lake table OutflowExponent x scale,
  *                   every lake (Lake Dynamics)
+ *                 T6 MoistThres = MoistureThreshold x scale, every row of
+ *                   the overstory and the understory table
+ *                 T7 G1 = StomatalSlope x scale, every row of the overstory
+ *                   and the understory table (MEDLYN)
  *                 1 Depth = max(Soil.Depth + offset, sum of
  *                   Soil.LayerThickness + 0.01)
  *                 2 KsLat = Soil.LateralConductivity x scale
@@ -54,11 +58,13 @@ static void ApplySnowParameters(MAPSIZE *Map, INPUTMAPS *Raw, TOPOPIX **TopoMap,
 /*****************************************************************************
   ApplyTableParameters()
 
-  Rows T1-T5, on the class and lake tables as read, before the maps: the
+  Rows T1-T7, on the class and lake tables as read, before the maps: the
   deep flux offset of every soil class (m/yr, then m per time step), the
-  minimum stomatal resistance of every overstory and understory class, the
-  snow interception efficiency of every overstory class (at most 1), the
-  outflow scale and exponent of every lake
+  minimum stomatal resistance of every overstory and understory class
+  (JARVIS), the snow interception efficiency of every overstory class (at
+  most 1), the outflow scale and exponent of every lake, the soil moisture
+  threshold and the stomatal slope (MEDLYN) of every overstory and
+  understory class
 *****************************************************************************/
 void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType, int NSoils,
   VEGTABLES *Veg, LAKETABLE *LType, int NLakes)
@@ -73,7 +79,8 @@ void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType
 
   for (i = 0; i < Veg->NOver; i++) {
     /* T2 Min Stomatal Resistance Scale (the maximum unchanged) */
-    Veg->Over[i].Story.RsMin *= VEG_RSMIN_ADJ;
+    if (Options->StomatalScheme == JARVIS)
+      Veg->Over[i].Story.RsMin *= VEG_RSMIN_ADJ;
 
     /* T3 Snow Interception Efficiency Scale: at most 1 */
     Veg->Over[i].SnowIntEff *= VEG_SNOWINT_ADJ;
@@ -82,7 +89,8 @@ void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType
   }
   for (i = 0; i < Veg->NUnder; i++) {
     /* T2 Min Stomatal Resistance Scale (the maximum unchanged) */
-    Veg->Under[i].Story.RsMin *= VEG_RSMIN_ADJ;
+    if (Options->StomatalScheme == JARVIS)
+      Veg->Under[i].Story.RsMin *= VEG_RSMIN_ADJ;
   }
 
   /* T4 Lake Outflow Rate Scale, T5 Lake Outflow Exponent Scale */
@@ -91,6 +99,18 @@ void ApplyTableParameters(OPTIONSTRUCT *Options, int NDaySteps, SOILTABLE *SType
       LType[i].PowLawScale *= LAKE_OUTFLOW_ADJ;
       LType[i].PowLawExponent *= LAKE_EXPONENT_ADJ;
     }
+  }
+
+  /* T6 Moisture Threshold Scale, T7 Stomatal Slope Scale */
+  for (i = 0; i < Veg->NOver; i++) {
+    Veg->Over[i].Story.MoistThres *= VEG_MOIST_ADJ;
+    if (Options->StomatalScheme == MEDLYN)
+      Veg->Over[i].Story.G1 *= VEG_G1_ADJ;
+  }
+  for (i = 0; i < Veg->NUnder; i++) {
+    Veg->Under[i].Story.MoistThres *= VEG_MOIST_ADJ;
+    if (Options->StomatalScheme == MEDLYN)
+      Veg->Under[i].Story.G1 *= VEG_G1_ADJ;
   }
 }
 

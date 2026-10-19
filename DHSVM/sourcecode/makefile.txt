@@ -19,7 +19,7 @@ InitTables.o InitTerrainMaps.o \
 InterceptionStorage.o IsStationLocation.o LapseT.o LookupTable.o  \
 MainDHSVM.o MakeLocalMetData.o MapIO.o MassBalance.o MassEnergyBalance.o \
 OutputMaps.o OutputRequests.o OutputValues.o \
-MassRelease.o RadiationBalance.o      \
+MassRelease.o Photosynthesis.o RadiationBalance.o      \
 ReadMetRecord.o Registry.o ReportError.o \
 RootBrent.o Round.o RouteSubSurface.o RouteSurface.o   \
 SatVaporPressure.o SensibleHeatFlux.o SeparateRadiation.o Shading.o SizeOfNT.o \
@@ -34,7 +34,7 @@ SRCS = $(OBJS:%.o=%.c)
 HDRS = Calendar.h DHSVMChannel.h DHSVMerror.h brent.h channel.h     \
 channel_grid.h constants.h data.h errorhandler.h    \
 fileio.h functions.h getinit.h lookuptable.h massenergy.h \
-mapio.h output.h rad.h registry.h settings.h sizeofnt.h slopeaspect.h snow.h \
+mapio.h output.h photosynthesis.h rad.h registry.h settings.h sizeofnt.h slopeaspect.h snow.h \
 soilmoisture.h tables.h
 
 OTHER = makefile
@@ -72,7 +72,7 @@ ApplyParameters.o: ApplyParameters.c settings.h data.h Calendar.h \
  channel_grid.h constants.h
 Aggregate.o: Aggregate.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h functions.h DHSVMChannel.h getinit.h channel_grid.h \
- constants.h output.h registry.h
+ constants.h output.h registry.h photosynthesis.h
 CalcAerodynamic.o: CalcAerodynamic.c DHSVMerror.h settings.h constants.h \
  functions.h data.h Calendar.h channel.h DHSVMChannel.h getinit.h \
  channel_grid.h
@@ -96,7 +96,8 @@ CalcWeights.o: CalcWeights.c constants.h settings.h data.h Calendar.h \
 Calendar.o: Calendar.c settings.h functions.h data.h Calendar.h channel.h \
  DHSVMChannel.h getinit.h channel_grid.h DHSVMerror.h
 CanopyResistance.o: CanopyResistance.c settings.h massenergy.h data.h \
- Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h constants.h
+ Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h constants.h \
+ photosynthesis.h
 ChannelState.o: ChannelState.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h
@@ -106,13 +107,14 @@ DHSVMChannel.o: DHSVMChannel.c constants.h getinit.h DHSVMChannel.h \
  settings.h data.h Calendar.h channel.h channel_grid.h DHSVMerror.h \
  functions.h errorhandler.h fileio.h tables.h
 Desorption.o: Desorption.c settings.h massenergy.h data.h Calendar.h \
- channel.h DHSVMChannel.h getinit.h channel_grid.h constants.h
+ channel.h DHSVMChannel.h getinit.h channel_grid.h constants.h \
+ photosynthesis.h
 EvalExponentIntegral.o: EvalExponentIntegral.c DHSVMerror.h settings.h \
  data.h Calendar.h channel.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h
 EvapoTranspiration.o: EvapoTranspiration.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h massenergy.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h functions.h
+ channel_grid.h constants.h functions.h photosynthesis.h
 ExecDump.o: ExecDump.c settings.h data.h Calendar.h channel.h fileio.h \
  DHSVMerror.h functions.h DHSVMChannel.h getinit.h channel_grid.h \
  constants.h output.h registry.h
@@ -142,7 +144,7 @@ InitMetSources.o: InitMetSources.c settings.h data.h Calendar.h channel.h \
  channel_grid.h constants.h mapio.h tables.h
 InitModelState.o: InitModelState.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h sizeofnt.h soilmoisture.h mapio.h
+ channel_grid.h constants.h sizeofnt.h soilmoisture.h mapio.h photosynthesis.h
 InitNetwork.o: InitNetwork.c constants.h settings.h data.h Calendar.h \
  channel.h DHSVMerror.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h soilmoisture.h
@@ -160,7 +162,7 @@ InitTerrainMaps.o: InitTerrainMaps.c settings.h data.h Calendar.h \
  channel_grid.h constants.h sizeofnt.h slopeaspect.h mapio.h
 InterceptionStorage.o: InterceptionStorage.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h massenergy.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h
+ channel_grid.h constants.h photosynthesis.h
 IsStationLocation.o: IsStationLocation.c settings.h data.h Calendar.h \
  channel.h functions.h DHSVMChannel.h getinit.h channel_grid.h
 LapseT.o: LapseT.c settings.h data.h Calendar.h channel.h functions.h \
@@ -179,7 +181,7 @@ MassBalance.o: MassBalance.c settings.h data.h Calendar.h channel.h \
  constants.h output.h
 MassEnergyBalance.o: MassEnergyBalance.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h functions.h DHSVMChannel.h getinit.h \
- channel_grid.h massenergy.h snow.h constants.h soilmoisture.h
+ channel_grid.h massenergy.h snow.h constants.h soilmoisture.h photosynthesis.h
 OutputMaps.o: OutputMaps.c settings.h data.h Calendar.h channel.h \
  fileio.h DHSVMerror.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h mapio.h output.h registry.h
@@ -188,12 +190,14 @@ OutputRequests.o: OutputRequests.c settings.h data.h Calendar.h channel.h \
  constants.h output.h registry.h
 OutputValues.o: OutputValues.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h functions.h DHSVMChannel.h getinit.h channel_grid.h \
- constants.h output.h registry.h
+ constants.h output.h registry.h photosynthesis.h
 MassRelease.o: MassRelease.c constants.h settings.h massenergy.h data.h \
- Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h snow.h
+ Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h snow.h \
+ photosynthesis.h
+Photosynthesis.o: Photosynthesis.c photosynthesis.h
 RadiationBalance.o: RadiationBalance.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h massenergy.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h
+ channel_grid.h constants.h photosynthesis.h
 ReadMetRecord.o: ReadMetRecord.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h tables.h
@@ -202,7 +206,7 @@ ReportError.o: ReportError.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h
 RootBrent.o: RootBrent.c settings.h brent.h massenergy.h data.h \
  Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h functions.h \
- DHSVMerror.h
+ DHSVMerror.h photosynthesis.h
 Round.o: Round.c functions.h data.h settings.h Calendar.h channel.h \
  DHSVMChannel.h getinit.h channel_grid.h DHSVMerror.h
 RouteSubSurface.o: RouteSubSurface.c settings.h data.h Calendar.h \
@@ -214,7 +218,7 @@ RouteSurface.o: RouteSurface.c settings.h data.h Calendar.h channel.h \
 SatVaporPressure.o: SatVaporPressure.c lookuptable.h
 SensibleHeatFlux.o: SensibleHeatFlux.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h massenergy.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h functions.h
+ channel_grid.h constants.h functions.h photosynthesis.h
 SeparateRadiation.o: SeparateRadiation.c settings.h rad.h
 Shading.o: Shading.c settings.h data.h Calendar.h channel.h DHSVMerror.h \
  functions.h DHSVMChannel.h getinit.h channel_grid.h constants.h mapio.h
@@ -224,22 +228,22 @@ SlopeAspect.o: SlopeAspect.c constants.h settings.h data.h Calendar.h \
  slopeaspect.h DHSVMerror.h
 SnowInterception.o: SnowInterception.c brent.h constants.h settings.h \
  massenergy.h data.h Calendar.h channel.h DHSVMChannel.h getinit.h \
- channel_grid.h snow.h functions.h
+ channel_grid.h snow.h functions.h photosynthesis.h
 SnowMelt.o: SnowMelt.c brent.h constants.h settings.h massenergy.h data.h \
  Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h functions.h \
- snow.h
+ snow.h photosynthesis.h
 SnowPackEnergyBalance.o: SnowPackEnergyBalance.c settings.h constants.h \
  massenergy.h data.h Calendar.h channel.h DHSVMChannel.h getinit.h \
- channel_grid.h snow.h functions.h
+ channel_grid.h snow.h functions.h photosynthesis.h
 StabilityCorrection.o: StabilityCorrection.c settings.h massenergy.h \
  data.h Calendar.h channel.h DHSVMChannel.h getinit.h channel_grid.h \
- constants.h
+ constants.h photosynthesis.h
 StoreModelState.o: StoreModelState.c settings.h data.h Calendar.h \
  channel.h DHSVMerror.h fileio.h functions.h DHSVMChannel.h getinit.h \
  channel_grid.h constants.h sizeofnt.h mapio.h
 SurfaceEvaporation.o: SurfaceEvaporation.c settings.h DHSVMerror.h \
  massenergy.h data.h Calendar.h channel.h DHSVMChannel.h getinit.h \
- channel_grid.h constants.h
+ channel_grid.h constants.h photosynthesis.h
 SurfaceRouting.o: SurfaceRouting.c settings.h data.h Calendar.h channel.h \
  DHSVMerror.h functions.h DHSVMChannel.h getinit.h channel_grid.h \
  constants.h
@@ -252,7 +256,7 @@ channel.o: channel.c errorhandler.h DHSVMerror.h channel.h settings.h \
  channel_grid.h data.h Calendar.h constants.h
 channel_grid.o: channel_grid.c channel_grid.h channel.h settings.h data.h \
  Calendar.h errorhandler.h DHSVMChannel.h getinit.h constants.h \
- functions.h massenergy.h
+ functions.h massenergy.h photosynthesis.h
 equal.o: equal.c functions.h data.h settings.h Calendar.h channel.h \
  DHSVMChannel.h getinit.h channel_grid.h
 errorhandler.o: errorhandler.c errorhandler.h

@@ -14,6 +14,7 @@
 #include "constants.h"
 #include "output.h"
 #include "registry.h"
+#include "photosynthesis.h"
 
 static const struct {
   const char *Name;
@@ -61,6 +62,12 @@ static const struct {
   {"Canopy.Temperature", V_CANOPY_TEMPERATURE},
   {"Canopy.Storage", V_CANOPY_STORAGE},
   {"Canopy.SnowVapor", V_CANOPY_SNOWVAPOR},
+  {"Canopy.Resistance", V_CANOPY_RESISTANCE},
+  {"Canopy.Assimilation", V_CANOPY_ASSIMILATION},
+  {"Canopy.MoistureStress", V_CANOPY_MOISTURESTRESS},
+  {"Canopy.Acclimation", V_CANOPY_ACCLIMATION},
+  {"Canopy.AcclimationTemperature", V_CANOPY_ACCLIMATIONTEMPERATURE},
+  {"Canopy.GrowthTemperature", V_CANOPY_GROWTHTEMPERATURE},
   {"Evap.Total", V_EVAP_TOTAL},
   {"Evap.Potential", V_EVAP_POTENTIAL},
   {"Evap.Actual", V_EVAP_ACTUAL},
@@ -158,7 +165,8 @@ int CodeVar(int Code)
   Value of layer Layer of the variable with value code Code in mask cell
   (y, x). *Has is FALSE (and the value NA) where the cell does not have the
   layer: a canopy layer the cell lacks, the lake level off the
-  lakes.
+  lakes, the canopy resistance and moisture factor of a buried understory,
+  a canopy temperature memory not yet set (the start of a cold start).
 *****************************************************************************/
 float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
 {
@@ -184,6 +192,9 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
   case V_CANOPY_INTERCEPTEDRAIN:
   case V_CANOPY_INTERCEPTEDSNOW:
   case V_EVAP_INTERCEPTION:
+  case V_CANOPY_RESISTANCE:
+  case V_CANOPY_ASSIMILATION:
+  case V_CANOPY_MOISTURESTRESS:
     Index = CanopyIndex(Veg, Layer);
     break;
   case V_EVAP_POTENTIAL:
@@ -249,6 +260,20 @@ float CellValue(int Code, int Layer, MODELVIEW *Model, int y, int x, int *Has)
       Value += Precip->IntRain[i] + Precip->IntSnow[i];
     return Value;
   case V_CANOPY_SNOWVAPOR: return Snow->CanopyVaporMassFlux;
+  case V_CANOPY_RESISTANCE:
+    *Has = (Evap->Rc[Index] != NA);
+    return Evap->Rc[Index];
+  case V_CANOPY_ASSIMILATION: return Evap->An[Index];
+  case V_CANOPY_MOISTURESTRESS:
+    *Has = (Evap->Beta[Index] != NA);
+    return Evap->Beta[Index];
+  case V_CANOPY_ACCLIMATION: return PhotoAcclimation(Veg->TAcclim);
+  case V_CANOPY_ACCLIMATIONTEMPERATURE:
+    *Has = (Veg->TAcclim > (float) PHOTO_UNSET);
+    return *Has ? Veg->TAcclim : NA;
+  case V_CANOPY_GROWTHTEMPERATURE:
+    *Has = (Veg->TGrowth > (float) PHOTO_UNSET);
+    return *Has ? Veg->TGrowth : NA;
   case V_EVAP_TOTAL: return Evap->ETot;
   case V_EVAP_POTENTIAL: return Evap->EPot[Index] * Model->Dt;
   case V_EVAP_ACTUAL: return Evap->EAct[Index];

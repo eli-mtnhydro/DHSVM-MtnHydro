@@ -41,7 +41,8 @@ enum SNAPSHOTSLOT {
   SNAP_WATERLEVEL, SNAP_WATERLEVELLAST, SNAP_INFILTACC, SNAP_MOISTINIT,
   SNAP_PRECIPSTART, SNAP_RUNOFF, SNAP_STARTRUNOFF, SNAP_DETENTION,
   SNAP_LAKEOUTFLOW, SNAP_SUMPRECIP, SNAP_SNOWACCUM, SNAP_SNOWMELT,
-  SNAP_MAXSWE, SNAP_MAXSWEDATE, SNAP_MELTOUTDATE, SNAP_DESORPTIONACC
+  SNAP_MAXSWE, SNAP_MAXSWEDATE, SNAP_MELTOUTDATE, SNAP_DESORPTIONACC,
+  SNAP_TACCLIM, SNAP_TGROWTH
 };
 
 typedef struct {
@@ -93,7 +94,7 @@ int CanopyIndex(VEGPIX *Cell, int Canopy)
   SnapshotLayers()
 
   The layers of a snapshot map in file order, with their names; L is the
-  number of root zone layers. Returns the number of layers (35 + 2 L).
+  number of root zone layers. Returns the number of layers (37 + 2 L).
 *****************************************************************************/
 static void AddLayer(SNAPLAYER *Layers, char (*Names)[MAP_NAMESIZE], int *n,
                      int Slot, int Sub, const char *Name)
@@ -107,7 +108,7 @@ static void AddLayer(SNAPLAYER *Layers, char (*Names)[MAP_NAMESIZE], int *n,
 static int SnapshotLayers(int L, SNAPLAYER **Layers, char (**Names)[MAP_NAMESIZE])
 {
   char Name[MAP_NAMESIZE];
-  int NLayers = 35 + 2 * L;
+  int NLayers = 37 + 2 * L;
   int n = 0;
   int l;
 
@@ -158,6 +159,8 @@ static int SnapshotLayers(int L, SNAPLAYER **Layers, char (**Names)[MAP_NAMESIZE
   AddLayer(*Layers, *Names, &n, SNAP_MAXSWEDATE, 0, "Snow.PeakSWEDay");
   AddLayer(*Layers, *Names, &n, SNAP_MELTOUTDATE, 0, "Snow.MeltOutDay");
   AddLayer(*Layers, *Names, &n, SNAP_DESORPTIONACC, 0, "Soil.DesorptionAccumulated");
+  AddLayer(*Layers, *Names, &n, SNAP_TACCLIM, 0, "Canopy.AcclimationTemperature");
+  AddLayer(*Layers, *Names, &n, SNAP_TGROWTH, 0, "Canopy.GrowthTemperature");
 
   return n;
 }
@@ -235,6 +238,8 @@ static float GetLayerValue(SNAPLAYER *Layer, int y, int x, TOPOPIX **TopoMap,
   case SNAP_MAXSWEDATE: return (float) Snow->MaxSweDate;
   case SNAP_MELTOUTDATE: return (float) Snow->MeltOutDate;
   case SNAP_DESORPTIONACC: return Soil->DesorptionAcc;
+  case SNAP_TACCLIM: return VegMap[y][x].TAcclim;
+  case SNAP_TGROWTH: return VegMap[y][x].TGrowth;
   default:
     return NA;
   }
@@ -294,6 +299,8 @@ static void SetLayerValue(SNAPLAYER *Layer, int y, int x, float Value,
   case SNAP_MAXSWEDATE: Snow->MaxSweDate = (unint) Value; break;
   case SNAP_MELTOUTDATE: Snow->MeltOutDate = (unint) Value; break;
   case SNAP_DESORPTIONACC: Soil->DesorptionAcc = Value; break;
+  case SNAP_TACCLIM: VegMap[y][x].TAcclim = Value; break;
+  case SNAP_TGROWTH: VegMap[y][x].TGrowth = Value; break;
   default:
     break;
   }

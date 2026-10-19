@@ -149,6 +149,7 @@ int InitSoilTable(OPTIONSTRUCT *Options, SOILTABLE **SType, const char *Path,
 
 void InitStateDump(LISTPTR Input, TIMESTRUCT *Time, DUMPSTRUCT *Dump);
 
+float YearCO2(int Year);
 void InitTables(int StepsPerDay, LISTPTR Input, OPTIONSTRUCT *Options,
   MAPSIZE *Map, SOILTABLE **SType, LAYER *Soil, VEGTABLES *Veg,
   LAKETABLE **LType, TIMESTRUCT *Time);

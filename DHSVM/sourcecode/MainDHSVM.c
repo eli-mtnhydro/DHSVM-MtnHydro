@@ -129,8 +129,7 @@ int main(int argc, char **argv) {
   ValidateParameters(&Map, TopoMap, SoilMap);
   PrintClassSummary(&Options, &Veg, Soil, SType, &Map, TopoMap, VegMap, SoilMap);
 
-  /* Channels bound to the cells, channel limit on the cover, storage
-     adjustment */
+  /* Channels bound to the cells, storage adjustment */
   ValidateChannels(&Options, &Map, TopoMap, SoilMap, &ChannelTables, LType);
   InitChannel(&Map, Time.Dt, &ChannelData, &ChannelTables, SType, SoilMap,
               LType, TopoMap, &MaxStreamID, &Options);
@@ -221,6 +220,8 @@ int main(int argc, char **argv) {
     }
     InitNewStep(&InFiles, &Map, &Time, &Options, NStats, Stat,
                 &SolarGeo, TopoMap, SoilMap);
+    if (Options.StomatalScheme == MEDLYN)
+      ATMOS_CO2 = YearCO2(Time.Current.Year);
     channel_step_initialize_network(ChannelData.streams);
     if (Options.Shading)
       ShadeStep(&Shade, &SolarGeo, Time.DayStep, Time.Dt);

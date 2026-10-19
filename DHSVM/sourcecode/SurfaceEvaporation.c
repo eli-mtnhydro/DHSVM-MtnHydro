@@ -126,49 +126,40 @@ float ChannelSoilEvaporation(int Dt, float DXDY,
 
  Evaporation from the soil of the whole cell, under and outside the
  understory; *PotEvap returns the potential evaporation after the overlying
- demand (m per time step). The desorption capacity of the step follows the
- cumulative desorption S sqrt(t) of a soil that has delivered *DesorptionAcc
- (per unit ground area) since it was last wetted: sqrt(E^2 + D^2) - E, with
- D the capacity of a freshly wetted soil (Desorption()). The step's
- evaporation per unit ground area is added to *DesorptionAcc.
+ demand (m per time step). Two stages, per unit ground area:
+ 1. Above the field capacity the soil evaporates at the potential rate, down
+    to the field capacity, and *DesorptionAcc is 0.
+ 2. At or below the field capacity, the rest of the step's potential
+    evaporation is limited by the desorption capacity of the step, following
+    the cumulative desorption S sqrt(t) of a soil that has delivered
+    *DesorptionAcc since stage 1 ended: sqrt(E^2 + D^2) - E, with D the
+    capacity of a freshly wetted soil (Desorption()) at the moisture where
+    stage 2 starts, down to half the wilting point. The stage 2 evaporation
+    is added to *DesorptionAcc.
  *****************************************************************************/
 float SoilEvaporation(int Dt,
                       float Temp, float Slope, float Gamma, float Lv,
                       float AirDens, float Vpd, float NetRad, float RaSoil,
                       float Evapotranspiration, float Porosity, float FCap, float Ks,
-                      float Press, float m, float RootDepth,
+                      float Press, float m, float WP, float RootDepth,
                       float *MoistContent, float Adjust, float *PotEvap,
                       float *DesorptionAcc)
 {
   float DesorptionVolume;	/* Amount of water the soil can deliver to the atmosphere during a timestep (m) */
   float EPot;			/* Potential evaporation from soil during timestep (m) */
-  float SoilEvap;		/* Amount of evaporation directly from the soil (m) */
   float GroundEvap;		/* Evaporation per unit ground area (m) */
-  float SoilMoisture;   /* Amount of water in surface soil layer (m) */
-  float tmp;
+  float StageEvap;		/* Evaporation per unit ground area of one stage (m) */
+  float Floor;			/* Lowest moisture content of stage 2 (0-1) */
   double Acc;
 
   /* Eq.4 Wigmosta et al [1994] */
 
-  /* Calculate the density of pure water as a function of temperature.
-   Thiesen, Scheel-Diesselhorst Equation (in Handbook of hydrology, fig
-   11.1.1) */
-
   EPot = (Slope * NetRad + AirDens * CP * Vpd / RaSoil) /
     (WATER_DENSITY * Lv * (Slope + Gamma)) * Dt;
 
-  /* The potential evaporation rate accounts for the amount of moisture that
-   the atmosphere can absorb.  If we do not account for the amount of
-   evaporation from overlying evaporation, we can end up with the situation
-   that all vegetation layers and the soil layer transpire/evaporate at the
-   potential rate, resulting in an overprediction of the actual evaporation
-   rate.  Thus we subtract the amount of evaporation that has already
-   been calculated for overlying layers from the potential evaporation.
-   Another mechanism that could be used to account for this would be to
-   decrease the vapor pressure deficit while going down through the canopy
-   (not implemented here) */
-
-  /* Prior snow vapor deposition should not increase PET */
+  /* The potential evaporation is reduced by the evaporation already
+     calculated for the overlying layers (prior snow vapor deposition does
+     not increase it) */
   if (Evapotranspiration < 0.0)
     Evapotranspiration = 0.0;
 
@@ -177,7 +168,25 @@ float SoilEvaporation(int Dt,
     EPot = 0.0;
   *PotEvap = EPot;
 
+  GroundEvap = 0.0;
+
+  /* Stage 1 */
   if (*MoistContent > FCap) {
+    *DesorptionAcc = 0.0;
+    StageEvap = (*MoistContent - FCap) * RootDepth;
+    if (EPot < StageEvap) {
+      StageEvap = EPot;
+      *MoistContent -= StageEvap / RootDepth;
+    }
+    else
+      *MoistContent = FCap;
+    GroundEvap = StageEvap;
+    EPot -= StageEvap;
+  }
+
+  /* Stage 2 */
+  Floor = 0.5 * WP;
+  if (EPot > 0.0 && *MoistContent > Floor) {
 
     DesorptionVolume = Desorption(Dt, *MoistContent, Porosity, Ks, Press, m);
 
@@ -187,27 +196,18 @@ float SoilEvaporation(int Dt,
     }
 
     /* Eq.8 Wigmosta et al [1994] */
+    StageEvap = MIN(EPot, DesorptionVolume);
 
-    SoilEvap = MIN(EPot, DesorptionVolume);
-    GroundEvap = SoilEvap;
-    SoilEvap *= Adjust;
-    SoilMoisture = *MoistContent * RootDepth * Adjust;
+    if (StageEvap >= (*MoistContent - Floor) * RootDepth) {
+      StageEvap = (*MoistContent - Floor) * RootDepth;
+      *MoistContent = Floor;
+    }
+    else
+      *MoistContent -= StageEvap / RootDepth;
 
-    tmp = FCap * RootDepth * Adjust;
-    if (SoilEvap > SoilMoisture - tmp) {
-      SoilEvap = SoilMoisture - tmp;
-      GroundEvap = (*MoistContent - FCap) * RootDepth;
-      *MoistContent = FCap;
-    }
-    else {
-      SoilMoisture -= SoilEvap;
-      *MoistContent = SoilMoisture / (RootDepth * Adjust);
-    }
-    *DesorptionAcc += GroundEvap;
+    *DesorptionAcc += StageEvap;
+    GroundEvap += StageEvap;
   }
-  else
-    SoilEvap = 0.0;
-  /* No soil evaporation if MoistContent < FCap */
-  
-  return SoilEvap;
+
+  return GroundEvap * Adjust;
 }

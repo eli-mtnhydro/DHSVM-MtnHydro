@@ -64,8 +64,6 @@ void RouteChannel(CHANNEL *ChannelData, TIMESTRUCT *Time, MAPSIZE *Map,
 		  OPTIONSTRUCT *Options, NETSTRUCT **Network, SOILTABLE *SType,
 		  VEGPIX **VegMap, EVAPPIX **Evap, LAKETABLE *LType);
 void ChannelCut(int y, int x, CHANNEL *ChannelData, NETSTRUCT *Network);
-void ChannelLimitVegFC(int y, int x, float DXDY, CHANNEL * ChannelData,
-                       VEGPIX *LocalVeg);
 uchar ChannelFraction(TOPOPIX *topo, ChannelMapRec *rds);
 
 #endif

@@ -15,20 +15,25 @@ EvapoTranspiration()
 
 Evaporation of the interception and transpiration of the vegetation layer
 at position Layer of the cell, with the parameters of its story's class
-(Story: the overstory or the understory class)
+(Story: the overstory or the understory class) and the stomatal scheme
+(Canopy, which also receives the scheme's canopy resistance, net
+assimilation per cell area and soil moisture factor)
 *****************************************************************************/
 void EvapoTranspiration(int Layer, int Dt, PIXMET *Met,
   float NetRad, float Rp, STORYTABLE *Story, SOILTABLE *SType,
   float MoistureFlux, float *Moist, float *SoilTemp, float *Int,
   float *EPot, float *EInt, float **ESoil, float *EAct, float *ETot,
-  float *Adjust, float *LayerThickness, float Ra, VEGPIX *LocalVeg)
+  float *Adjust, float *LayerThickness, float Ra, VEGPIX *LocalVeg,
+  CANOPYSCHEME *Canopy)
 {
   float *Rc;			/* canopy resistance associated with
                         conditions in each soil layer (s/m) */
+  float *Share;			/* each soil layer's share of the transpiration */
   float DryEvapTime;	/* amount of time remaining during a timestep
                         after the interception storage is depleted (sec) */
   float F;			    /* Fractional coverage by vegetation layer */
   float SoilMoisture;	/* Amount of water in each soil layer (m) */
+  float Available;		/* Water of the layer above the wilting point (m) */
   float WetArea;		/* relative leaf area wetted by interception storage */
   float WetEvapRate;	/* evaporation rate from wetted fraction per unit ground area (m/s) */
   float WetEvapTime;	/* amount of time needed to evaporate the amount of water
@@ -47,9 +52,10 @@ void EvapoTranspiration(int Layer, int Dt, PIXMET *Met,
   MoistureFlux /= F;
   MaxInt = LocalVeg->MaxInt[Layer] / F;
 
-  /* allocate memory for the canopy resistance array */
-  if (!(Rc = (float *)calloc(SType->NLayers, sizeof(float))))
+  /* allocate memory for the canopy resistance and share arrays */
+  if (!(Rc = (float *)calloc(2 * SType->NLayers, sizeof(float))))
     ReportError("EvapoTranspiration()", 1);
+  Share = Rc + SType->NLayers;
 
   /* Calculate the evaporation rate in m/s */
   EPot[Layer] = (Met->Slope * NetRad + Met->AirDens * CP * Met->Vpd / Ra) /
@@ -124,19 +130,17 @@ void EvapoTranspiration(int Layer, int Dt, PIXMET *Met,
   *ETot += EInt[Layer];
   *Int *= F;
 
-  /* calculate the canopy conductances associated with the conditions in
-  each of the soil layers */
-  for (i = 0; i < SType->NLayers; i++)
-    Rc[i] = CanopyResistance(LocalVeg->LAI[Layer], Story->RsMin,
-      Story->RsMax, Story->Rpc,
-      Story->VpdThres, Story->MoistThres,
-      SType->WP[i], SoilTemp[i], Moist[i], Met->Vpd, Rp);
+  /* calculate the canopy resistances associated with the conditions in
+  each of the soil layers, and the layers' shares of the transpiration */
+  CanopyResistanceLayers(Layer, Met, Rp, Story, SType, Moist, SoilTemp, LocalVeg,
+    Canopy, Rc, Share);
+  Canopy->An *= F;
 
   /* calculate the transpiration rate for the current vegetation layer,
   and adjust the soil moisture content in each of the soil layers */
   for (i = 0; i < SType->NLayers; i++) {
     ESoil[Layer][i] = (Met->Slope + Met->Gamma) /
-      (Met->Slope + Met->Gamma * (1 + Rc[i] / Ra)) * Story->RootFract[i] *
+      (Met->Slope + Met->Gamma * (1 + Rc[i] / Ra)) * Share[i] *
       EPot[Layer] * Adjust[i];
 
     /* calculate the amounts of water transpirated during each timestep based
@@ -146,13 +150,15 @@ void EvapoTranspiration(int Layer, int Dt, PIXMET *Met,
     disappeared all leaves will contribute to the transpiration */
     ESoil[Layer][i] *= WetEvapTime * (1 - WetArea) + DryEvapTime;
 
-    SoilMoisture = Moist[i] * LayerThickness[i] * Adjust[i];
-    if (SoilMoisture < ESoil[Layer][i])
-      ESoil[Layer][i] = SoilMoisture;
-
-    /* correct the evaporation for the fractional overstory coverage and update
-    the soil moisture */
+    /* correct the transpiration for the fractional coverage, at most the
+    layer's water above the wilting point, and update the soil moisture */
     ESoil[Layer][i] *= F;
+    SoilMoisture = Moist[i] * LayerThickness[i] * Adjust[i];
+    Available = (Moist[i] - SType->WP[i]) * LayerThickness[i] * Adjust[i];
+    if (Available < 0)
+      Available = 0;
+    if (ESoil[Layer][i] > Available)
+      ESoil[Layer][i] = Available;
     SoilMoisture -= ESoil[Layer][i];
 
     Moist[i] = SoilMoisture / (LayerThickness[i] * Adjust[i]);
