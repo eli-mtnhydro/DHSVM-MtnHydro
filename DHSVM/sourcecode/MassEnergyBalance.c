@@ -39,17 +39,19 @@ void MassEnergyBalance(OPTIONSTRUCT *Options, int y, int x,
   VEGPIX **VegMap, NETSTRUCT **Network, SOILPIX **SoilMap,
   TOPOPIX *LocalTopo, TOPOPIX **TopoMap, MAPSIZE *Map)
 {
+#ifndef NO_SOIL
   float SurfaceWater;		/* Pixel average depth of water before infiltration is calculated (m) */
   float ChannelWater;       /* Precip that hits the channel */
   float Infiltration;		/* Infiltration into the top soil layer (m) */
   float Infiltrability;     /* Dynamic infiltration capacity (m/s)*/
   float B;                  /* Capillary drive and soil saturation deficit used
                                in dynamic infiltration calculation*/
-  float LowerRa;		    /* Aerodynamic resistance for lower layer (s/m) */
   float MaxInfiltration;	/* Maximum infiltration into the top soil layer (m) */
-  float NetRadiation;		/* Total Net long- and shortwave radiation for each veg layer (W/m2) */
   float PercArea;           /* Surface area of percolation corrected for
                                channel area, divided by the grid cell area (0-1)  */
+#endif
+  float LowerRa;		    /* Aerodynamic resistance for lower layer (s/m) */
+  float NetRadiation;		/* Total Net long- and shortwave radiation for each veg layer (W/m2) */
   float Rp;					/* radiation flux in visible part of the spectrum (W/m^2) */
   float UpperRa;		    /* Aerodynamic resistance for upper layer (s/m) */
   float UpperWind;			/* Wind for upper layer (m/s) */

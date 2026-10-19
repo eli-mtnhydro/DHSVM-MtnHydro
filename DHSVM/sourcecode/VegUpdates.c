@@ -215,8 +215,7 @@ void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUT
 *****************************************************************************/
 void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOPIX **TopoMap,
                     VEGTABLES *Veg, VEGPIX **VegMap, SOILTABLE *SType,
-                    SOILPIX **SoilMap, SNOWPIX **SnowMap, PRECIPPIX **PrecipMap,
-                    CHANNEL *ChannelData)
+                    SOILPIX **SoilMap, SNOWPIX **SnowMap, PRECIPPIX **PrecipMap)
 {
   VEGUPDATES *U = &(Options->VegUpdates);
   unsigned char *Mask;

@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
   InitChannel(&Map, Time.Dt, &ChannelData, &ChannelTables, SType, SoilMap,
               LType, TopoMap, &MaxStreamID, &Options);
   InitNetwork(Map.NY, Map.NX, Map.DX, Map.DY, TopoMap, SoilMap,
-	      VegMap, Map.SoilLayers, &Network, &ChannelData);
+	      Map.SoilLayers, &Network, &ChannelData);
 
   /* Station weights, meteorological maps, outputs */
   InitMetMaps(&Map, &Options, &Raw,
@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
   while (Time.Step < Time.NSteps) {
 
     ApplyVegUpdate(&Options, &Time, &Map, TopoMap, &Veg, VegMap, SType, SoilMap,
-                   SnowMap, PrecipMap, &ChannelData);
+                   SnowMap, PrecipMap);
     if (IsNewWaterYear(&(Time.Current)))
       InitNewWaterYear(&Time, &Options, &Map, TopoMap, SnowMap, PrecipMap);
     if (IsNewMonth(&(Time.Current), Time.Dt))

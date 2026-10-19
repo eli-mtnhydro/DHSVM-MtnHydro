@@ -18,7 +18,7 @@
 
  *****************************************************************************/
 void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
-  SOILPIX **SoilMap, VEGPIX **VegMap, int SoilLayers,
+  SOILPIX **SoilMap, int SoilLayers,
   NETSTRUCT ***Network, CHANNEL *ChannelData)
 {
   const char *Routine = "InitNetwork";

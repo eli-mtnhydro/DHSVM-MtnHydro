@@ -48,7 +48,7 @@ void InitVegUpdates(OPTIONSTRUCT *Options, MAPSIZE *Map, TIMESTRUCT *Time, INPUT
 
 void ApplyVegUpdate(OPTIONSTRUCT *Options, TIMESTRUCT *Time, MAPSIZE *Map, TOPOPIX **TopoMap,
   VEGTABLES *Veg, VEGPIX **VegMap, SOILTABLE *SType, SOILPIX **SoilMap,
-  SNOWPIX **SnowMap, PRECIPPIX **PrecipMap, CHANNEL *ChannelData);
+  SNOWPIX **SnowMap, PRECIPPIX **PrecipMap);
 
 void FreeVegMaps(VEGMAPS *V);
 
@@ -102,7 +102,7 @@ void InitModelState(TIMESTRUCT *Time, MAPSIZE *Map, OPTIONSTRUCT *Options,
 		    NETSTRUCT **Network, CHANNEL *ChannelData, LAKETABLE *LType);
 
 void InitNetwork(int NY, int NX, float DX, float DY, TOPOPIX **TopoMap,
-		 SOILPIX **SoilMap, VEGPIX **VegMap, int SoilLayers,
+		 SOILPIX **SoilMap, int SoilLayers,
 		 NETSTRUCT ***Network, CHANNEL *ChannelData);
 
 void InitNewDay(int DayOfYear, SOLARGEOMETRY *SolarGeo);
